@@ -42,6 +42,11 @@ class Layout:
         self.gan_latest_pkl = self.gan_dir / "latest.pkl"
         self.gan_logs_dir = self.gan_dir / "logs_and_samples"
         self.clf_dir = drive / f"checkpoints_{p.run_tag}" / "classifiers"
+        # E_d: của chính lần chạy, hoặc dùng lại của lần chạy khác (encoder.e_d_from_run)
+        e = cfg.encoder
+        self.e_d_run = {"": p.run_tag, "base": p.base_run_tag or p.run_tag}.get(e.e_d_from_run, e.e_d_from_run)
+        self.e_d_ckpt = (drive / f"checkpoints_{self.e_d_run}" / "classifiers"
+                         / f"Ed_{e.e_d_model}_s{e.e_d_seed}.weights.h5")
         self.data_dir = drive / f"checkpoints_{p.run_tag}" / "data"
         self.split_json = self.data_dir / "real_val_split.json"
         self.dataset_card = self.data_dir / "dataset_card.json"

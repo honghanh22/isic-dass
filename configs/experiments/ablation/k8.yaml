@@ -1,0 +1,4 @@
+# Độ nhạy theo k = 8 — xem hướng dẫn trong k2.yaml (kèm --tag k8).
+_base_: _common.yaml
+selection:
+  pool_mult: 8.0

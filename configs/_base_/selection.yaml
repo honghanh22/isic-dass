@@ -2,7 +2,10 @@
 #   M(x)      = S⁺(x) − λ·S⁻(x)          S± = trung bình cosine với TOP-K ảnh thật gần nhất (lớp thiểu số / đa số)
 #   S_DASS(x) = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)   (~ = chuẩn hoá min-max; S_div chuẩn hoá lại mỗi vòng)
 selection:
-  pool_mult: 4.0         # pool = pool_mult × số ảnh cần chọn
+  # k = pool_mult: pool = k × số ảnh cần chọn -> DASS giữ 1/k ảnh. DÙNG CHUNG cho mọi bộ dữ liệu (không ghi đè trong
+  # configs/datasets/). k = 4 chọn TRƯỚC khi xem kết quả, theo CosSIF (2000 ứng viên cho 554 ảnh ≈ 3.6).
+  # Độ nhạy theo k: configs/experiments/ablation/k{2,3,8}.yaml.
+  pool_mult: 4.0
   sim_topk: 5
   lambda_v: 1.0
   lambda_d: 1.0
@@ -17,3 +20,4 @@ encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = 
   e_d_head_epochs: 5
   e_d_ft_epochs: 20
   embed_batch_size: 32
+  e_d_from_run: ""       # "" = E_d của lần chạy này | "base" = dùng lại E_d của lần chạy chính (ablation, cần --tag)

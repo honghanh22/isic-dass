@@ -45,6 +45,45 @@ def test_experiments_differ_only_in_data_and_paths():
     assert {k for k in a if a[k] != b[k]} == {"paths", "data"}
 
 
+def test_k_is_identical_across_datasets():
+    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa hai bộ dữ liệu; k chính = 4."""
+    a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
+    b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]])
+    assert a.selection == b.selection and a.encoder == b.encoder
+    assert a.selection.pool_mult == b.selection.pool_mult == 4.0
+    for ds in (CONFIGS / "datasets").glob("*.yaml"):          # không file dataset nào được ghi đè tham số chọn ảnh
+        text = ds.read_text(encoding="utf-8")
+        assert "selection:" not in text and "pool_mult" not in text and "encoder:" not in text, ds.name
+
+
+@pytest.mark.parametrize("k", [2, 3, 8])
+def test_k_ablation_profiles_are_shared_and_reuse_e_d(k):
+    profile = CONFIGS / "experiments" / "ablation" / f"k{k}.yaml"
+    layouts = {}
+    for name, base in [(EXPERIMENTS[0], "v7"), (EXPERIMENTS[1], "bt_v3")]:
+        cfg = load_config([CONFIGS / "experiments" / name, profile], tag=f"k{k}")
+        lay = Layout(cfg)
+        assert cfg.selection.pool_mult == float(k)
+        assert cfg.paths.run_tag == f"{base}_k{k}" and lay.e_d_run == base     # E_d của lần chạy chính
+        assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / f"checkpoints_{base}" / "classifiers" / \
+            "Ed_DenseNet121_s4242.weights.h5"
+        assert lay.results_dir.name == f"results_{base}_k{k}"                   # kết quả tách riêng
+        layouts[name] = cfg
+    a, b = layouts.values()
+    assert a.selection == b.selection and a.classifier.models == b.classifier.models == ["EfficientNetV2B0"]
+
+
+def test_e_d_reuse_requires_tag():
+    profile = CONFIGS / "experiments" / "ablation" / "k3.yaml"
+    with pytest.raises(ValueError, match="--tag"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[1], profile])
+
+
+def test_main_run_trains_its_own_e_d():
+    lay = Layout(load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]))
+    assert lay.e_d_run == "bt_v3" and lay.e_d_ckpt.parent == lay.clf_dir
+
+
 def test_smoke_profile_composes_with_any_dataset():
     for name in EXPERIMENTS:
         cfg = load_config([CONFIGS / "experiments" / name, CONFIGS / "experiments" / "smoke.yaml"])

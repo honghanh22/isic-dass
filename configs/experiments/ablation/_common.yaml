@@ -1,0 +1,5 @@
+# Thiết lập chung cho mọi ablation theo k (được k2 / k3 / k8.yaml kế thừa) — giống nhau cho cả hai bộ dữ liệu.
+encoder:
+  e_d_from_run: base                 # E_d giống hệt lần chạy chính -> khác biệt chỉ đến từ k
+classifier:
+  models: [EfficientNetV2B0]         # một backbone đủ cho phân tích độ nhạy (7 biến thể × 3 seed = 21 lần train / k)

@@ -36,6 +36,7 @@ configs/experiments/   thực nghiệm = _base_ + dataset (+ ghi đè); smoke.ya
 | Tách thư mục kết quả cho ablation | `--tag gamma025` (thêm hậu tố vào `run_tag`) |
 | Chạy thử nhanh | thêm `-c configs/experiments/smoke.yaml` |
 | Thực nghiệm cố định trong bài | file mới trong `configs/experiments/` với `_base_` trỏ tới thực nghiệm gốc |
+| Độ nhạy theo k (chung 2 bộ dữ liệu) | `-c configs/experiments/ablation/k3.yaml --tag k3` (E_d dùng lại của lần chạy chính) |
 
 ## 3. Chạy lần đầu trên một server Colab mới
 

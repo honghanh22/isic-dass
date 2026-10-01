@@ -79,6 +79,7 @@ def load_config(paths: list[str | Path] | tuple[str | Path, ...] = (), overrides
     for item in overrides:
         _apply(cfg, parse_override(item))
     if tag:
+        cfg.paths.base_run_tag = cfg.paths.run_tag
         cfg.paths.run_tag = f"{cfg.paths.run_tag}_{tag}"
     if check:
         validate(cfg)

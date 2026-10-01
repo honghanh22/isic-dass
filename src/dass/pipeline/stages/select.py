@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     """`force`: chọn lại dù đã có selections.json (dự đoán đã train với lựa chọn cũ sẽ không còn khớp)."""
-    from ...models.encoders import disease_encoder, disease_encoder_ckpt_name, visual_encoder
+    from ...models.encoders import disease_encoder, visual_encoder
 
     ctx = Context.create(cfg, "select")
     layout, sel, budget, ch = ctx.layout, cfg.selection, ctx.budget, ctx.channels
@@ -40,8 +40,12 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     z_v_real = {c: ev.embed(train_paths[c]) for c in classes}
     z_v_pool = ev.embed(pool)
 
-    assemble_variant(layout.real_only, layout.train_pp, ctx.split, budget.minority, [])
-    ed = disease_encoder(cfg, ch, layout.real_only, layout.clf_dir / disease_encoder_ckpt_name(cfg), layout.clf_ckpt)
+    shared = bool(cfg.encoder.e_d_from_run) and layout.e_d_run != cfg.paths.run_tag
+    if shared:
+        log.info("Dùng lại E_d của lần chạy '%s' (không train E_d mới)", layout.e_d_run)
+    else:
+        assemble_variant(layout.real_only, layout.train_pp, ctx.split, budget.minority, [])
+    ed = disease_encoder(cfg, ch, layout.real_only, layout.e_d_ckpt, layout.clf_ckpt, train_if_missing=not shared)
     z_d_real = {c: ed.embed(train_paths[c]) for c in classes}
     z_d_pool = ed.embed(pool)
 

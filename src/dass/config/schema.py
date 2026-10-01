@@ -23,6 +23,7 @@ class PathsConfig:
     external_root: str = "/content"  # nơi clone repo ngoài (StyleGAN2-ADA, GANDCTAnalysis)
     gan_tag: str = "v1"              # checkpoint GAN: checkpoints_<gan_tag>/stylegan2ada
     run_tag: str = "v1"              # dữ liệu / classifier / kết quả: *_<run_tag>/
+    base_run_tag: str = ""           # TỰ ĐIỀN khi dùng --tag: run_tag của lần chạy chính (trước khi thêm hậu tố)
 
 
 @dataclass
@@ -131,6 +132,10 @@ class EncoderConfig:
     e_d_head_epochs: int = 5
     e_d_ft_epochs: int = 20
     embed_batch_size: int = 32
+    # Dùng lại E_d đã train của lần chạy khác thay vì train mới: "" = E_d của chính lần chạy này;
+    # "base" = E_d của lần chạy chính (run_tag trước --tag) — dùng cho ablation để E_d giống hệt nhau;
+    # tên run_tag khác = E_d của lần chạy đó. Khi dùng lại mà chưa có file -> báo lỗi, không train lại.
+    e_d_from_run: str = ""
 
 
 @dataclass
@@ -196,6 +201,8 @@ def validate(cfg: Config) -> None:
             errors.append(str(e).strip("'\""))
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
+    if cfg.encoder.e_d_from_run == "base" and not cfg.paths.base_run_tag:
+        errors.append("encoder.e_d_from_run = base dùng cho ablation: cần --tag (để tách thư mục khỏi lần chạy chính)")
     if not cfg.paths.drive_root:
         errors.append("paths.drive_root chưa khai báo (cấu hình dataset)")
     if not d.name:

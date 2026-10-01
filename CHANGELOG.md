@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.0 — k thống nhất giữa hai bộ dữ liệu, dùng chung E_d cho ablation
+- k (`pool_mult`) = 4 cho cả ISIC và Brain Tumor (chọn trước, theo CosSIF ≈ 3.6); test chặn việc ghi đè tham số
+  chọn ảnh trong `configs/datasets/`.
+- `configs/experiments/ablation/k{2,3,8}.yaml`: độ nhạy theo k, CÙNG file cho cả hai bộ dữ liệu
+  (1 backbone × 3 seed, bắt buộc `--tag`).
+- `encoder.e_d_from_run`: dùng lại E_d đã train (`base` = lần chạy chính) thay vì train mới; thiếu file -> báo lỗi.
+  `paths.base_run_tag` tự điền khi dùng `--tag`. Đường dẫn E_d tập trung ở `Layout.e_d_ckpt`.
+- Pillow 13: bỏ tham số `mode` của `Image.fromarray`.
+
 ## 1.0.2 — loại manh mối màu giả ở Brain Tumor
 - Đo trên dữ liệu thật: 129 / 2000 ảnh **negative** có nhiễu màu JPEG (lệch kênh ≤ 3.1 mức xám), **0 / 400 positive**
   -> "có chút màu" gắn với nhãn negative (và ảnh sinh positive có kênh bằng nhau) = shortcut tiềm ẩn.

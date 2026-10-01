@@ -107,6 +107,10 @@ dass -c $E report                      # paper tables: tables/*.csv, *.json, *.t
 Quick check: `dass -c $E -c configs/experiments/smoke.yaml run`. Ablations without editing files:
 `dass -c $E --set selection.gamma=0 --tag nodiv run --from select`.
 
+The pool multiplier k (`pool_mult`, candidates = k × images to select) is **4 for both datasets**, fixed a priori
+(CosSIF used ≈3.6). Sensitivity to k uses the same profiles for both datasets and reuses the main run's `E_d`, so only
+k changes: `dass -c $E -c configs/experiments/ablation/k3.yaml --tag k3 run --from prepare --to report`.
+
 ## Outputs
 
 `results_<run_tag>/tables/` (on Drive), each as `.csv` (formatted), `.json` (raw) and `.tex` (booktabs):

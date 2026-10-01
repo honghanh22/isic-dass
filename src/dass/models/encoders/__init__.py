@@ -43,17 +43,20 @@ def visual_encoder(cfg: Config, channels: int) -> Encoder:
                    cfg.encoder.embed_batch_size)
 
 
-def disease_encoder_ckpt_name(cfg: Config) -> str:
-    return f"Ed_{cfg.encoder.e_d_model}_s{cfg.encoder.e_d_seed}.weights.h5"
+def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path, local_ckpt_dir: Path,
+                    train_if_missing: bool = True) -> Encoder:
+    """Nạp E_d từ `ckpt` nếu có; nếu chưa, train trên `real_only_dir/{train,val}` (ảnh thật) rồi lưu vào `ckpt`.
 
-
-def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path, local_ckpt_dir: Path) -> Encoder:
-    """Nạp E_d từ `ckpt` nếu có; nếu chưa, train trên `real_only_dir/{train,val}` (ảnh thật) rồi lưu vào `ckpt`."""
+    `train_if_missing = False` (đang dùng lại E_d của lần chạy khác): thiếu file -> báo lỗi, không train E_d mới.
+    """
     enc, clf = cfg.encoder, cfg.classifier
     model, base, preprocess = build_model(enc.e_d_model, clf)
     if ckpt.exists():
         model.load_weights(str(ckpt))
-        log.info("Đã nạp E_d từ %s", ckpt.name)
+        log.info("Đã nạp E_d từ %s", ckpt)
+    elif not train_if_missing:
+        raise FileNotFoundError(f"Chưa có E_d để dùng lại: {ckpt}. Chạy `select` cho lần chạy đó trước "
+                                "(encoder.e_d_from_run).")
     else:
         log.info("Chưa có %s -> huấn luyện E_d trên ảnh thật ...", ckpt.name)
         names = cfg.data.class_names
