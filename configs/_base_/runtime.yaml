@@ -1,0 +1,12 @@
+# Tái lập & môi trường chạy (Colab).
+seed: 2026               # seed toàn cục: chia dữ liệu, chọn ngẫu nhiên M1, bootstrap, ...
+deterministic: false     # true -> op tất định của TensorFlow (chậm hơn; vài op GPU có thể báo lỗi)
+save_figures: true
+
+paths:
+  local_root: /content/local_data     # ổ cục bộ (mất khi runtime reset)
+  external_root: /content             # nơi clone StyleGAN2-ADA, GANDCTAnalysis
+
+analysis:                # stage `fingerprint` (tuỳ chọn) — detector miền tần số của Frank et al.
+  fingerprint_n_max: 400
+  fingerprint_epochs: 15

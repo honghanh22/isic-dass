@@ -1,0 +1,9 @@
+# Thực nghiệm chính — ISIC 2016: DASS (M6) so với M0–M5.
+#   dass -c configs/experiments/isic2016_dass.yaml run
+_base_:
+  - ../_base_/runtime.yaml
+  - ../_base_/generator.yaml
+  - ../_base_/selection.yaml
+  - ../_base_/classifier.yaml
+  - ../_base_/evaluation.yaml
+  - ../datasets/isic2016.yaml

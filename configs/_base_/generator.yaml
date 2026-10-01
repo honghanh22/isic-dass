@@ -1,0 +1,22 @@
+# StyleGAN2-ADA có điều kiện (bản chính thức NVlabs) — dùng chung mọi bộ dữ liệu.
+generator:
+  cfg: paper256
+  batch: 16
+  gamma: 1.0             # trọng số R1
+  mirror: true
+  aug_target: 0.6        # ADA target
+  max_kimg: 3000
+  kimg_per_snap: 100
+  # early stopping theo KID của lớp thiểu số (Inception-v3, ảnh thật = train lớp thiểu số)
+  min_kimg: 400
+  patience: 5
+  min_rel_delta: 0.02
+  kid_n_gen: 1000
+  kid_subsets: 50
+  kid_seed: 123
+  gen_seed: 777          # seed sinh candidate pool (lớp đa số dùng gen_seed + 1)
+  trunc_psi: 1.0
+  workers: 2
+  poll_seconds: 30
+  channel_tolerance: 0   # GAN 3 kênh cho dữ liệu 1 kênh: chỉ gộp khi 3 kênh giống hệt nhau
+  match_resize_chain: false

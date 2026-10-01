@@ -1,0 +1,19 @@
+# DASS — công thức chuẩn (ISIC v5), dùng chung mọi bộ dữ liệu.
+#   M(x)      = S⁺(x) − λ·S⁻(x)          S± = trung bình cosine với TOP-K ảnh thật gần nhất (lớp thiểu số / đa số)
+#   S_DASS(x) = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)   (~ = chuẩn hoá min-max; S_div chuẩn hoá lại mỗi vòng)
+selection:
+  pool_mult: 4.0         # pool = pool_mult × số ảnh cần chọn
+  sim_topk: 5
+  lambda_v: 1.0
+  lambda_d: 1.0
+  alpha: 1.0
+  beta: 1.0
+  gamma: 0.5
+  both_classes_variant: false   # M7 (ảnh sinh ở cả hai lớp) — ngoài bộ M0–M6 chuẩn
+
+encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = model riêng, train trên ảnh thật
+  e_d_model: DenseNet121
+  e_d_seed: 4242
+  e_d_head_epochs: 5
+  e_d_ft_epochs: 20
+  embed_batch_size: 32

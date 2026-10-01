@@ -1,0 +1,19 @@
+# Classifier downstream: train 2 giai đoạn (head -> fine-tune), chọn epoch theo val, test dự đoán một lần.
+classifier:
+  # CNN: keras.applications | ViT-B16, SwinT: KerasHub (preset Hugging Face bên dưới, cần `pip install keras-hub`)
+  models: [EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny, ViT-B16, SwinT]
+  seeds: [2026, 2027, 2028]     # mỗi backbone × mỗi biến thể × 3 seed -> báo cáo mean ± std
+  size: 224
+  batch_size: 16
+  head_epochs: 5
+  head_lr: 0.001
+  ft_epochs: 30
+  ft_lr: 0.00001
+  weight_decay: 0.0001
+  dropout: 0.3
+  early_stop_patience: 8
+  monitor: val_macro_recall     # (sensitivity + specificity) / 2 ở ngưỡng 0.5
+  mixed_precision: false
+  save_weights_to_drive: true
+  vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px
+  swin_preset: hf://keras/swin_tiny_patch4_window7_224     # Swin-T, ImageNet-1k, 224 px

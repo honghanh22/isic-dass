@@ -1,0 +1,9 @@
+# Đánh giá & báo cáo.
+evaluation:
+  threshold: 0.5                 # ngưỡng CỐ ĐỊNH — không dò trên val / test
+  baseline_method: M0_real_only  # mốc so sánh thống kê (paired bootstrap ΔAUC)
+  n_bootstrap: 2000
+  kid_subsets: 50                # KID (Inception-v3): mean ± std qua các tập con
+  kid_subset_size: 1000
+  ssim_pairs: 200
+  latex: true                    # xuất thêm tables/*.tex

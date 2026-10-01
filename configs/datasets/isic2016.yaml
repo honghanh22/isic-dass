@@ -1,0 +1,25 @@
+# ISIC 2016 Part 3 (dermoscopy, benign / malignant) — CHỈ các thiết lập phụ thuộc dữ liệu.
+paths:
+  drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
+  gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
+  run_tag: v7            # checkpoints_v7/, results_v7/ (tương thích notebook v5)
+
+data:
+  name: isic2016
+  channels: auto         # -> 3 (RGB)
+  img_size: 256
+  classes: {benign: 0, malignant: 1}
+  source:
+    type: csv            # thư mục ảnh phẳng + CSV nhãn (không tiêu đề; nhãn 0/1 hoặc tên lớp)
+    train_images: ISBI2016_ISIC_Part3_Training_Data
+    train_labels: ISBI2016_ISIC_Part3_Training_GroundTruth.csv
+    test_images: ISBI2016_ISIC_Part3_Test_Data
+    test_labels: ISBI2016_ISIC_Part3_Test_GroundTruth.csv
+    header: false
+    image_ext: .jpg
+  preprocess:
+    crop_dark_border: true   # cắt viền đen của ảnh dermoscopy (khi nội dung < 50 % một cạnh)
+    resize: stretch
+  split:
+    type: holdout_val    # có tập test riêng -> chỉ tách val 15 % từ train (phân tầng, seed toàn cục)
+    val: 0.15

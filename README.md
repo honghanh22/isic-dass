@@ -1,95 +1,149 @@
-# isic-dass
+# DASS — Synthetic Sample Selection for Imbalanced Medical Image Classification
 
-Pipeline nghiên cứu xử lý **mất cân bằng lớp** trên **ISIC 2016 (Part 3, benign / malignant)**:
+Official implementation <!-- TODO: tên đầy đủ của DASS và tiêu đề bài báo -->. A class-conditional **StyleGAN2-ADA** generates candidates for the minority class;
+**DASS** selects the subset that is close to real minority images, far from the majority class (in both an ImageNet
+feature space and a supervised disease-aware space) and diverse; downstream classifiers are trained on real + selected
+images and compared with six controls under a fixed, leakage-free protocol.
 
-1. Train **StyleGAN2-ADA có điều kiện** (bản chính thức NVlabs) trên toàn bộ ảnh train thật, early stopping theo **KID** của lớp thiểu số.
-2. Sinh một **candidate pool** ảnh malignant.
-3. Chọn ảnh sinh bằng **DASS** — điểm lề trong hai không gian đặc trưng `E_v` (EfficientNet-B0 ImageNet) và `E_d` (DenseNet121 fine-tune trên ảnh thật) cộng thành phần đa dạng.
-4. So sánh 7 biến thể **M0–M6** bằng nhiều classifier × nhiều seed, kiểm định **paired bootstrap ΔAUC** so với baseline.
+Benchmarks: **ISIC 2016** (dermoscopy, RGB, benign / malignant) and **Brain Tumor MRI** (grayscale,
+negative / positive). Both run on the same code and the same formulas; only `configs/datasets/*.yaml` differs.
 
-Kèm các bước kiểm soát shortcut: kiểm tra thật-vs-sinh, fingerprint miền tần số (Frank et al., ICML 2020) và spectral mitigation tuỳ chọn (Dong et al., CVPR 2022).
+## Method
 
-## Cấu trúc
+For a candidate `x`, with `S±(x)` the mean cosine similarity to its top-K nearest *real* minority / majority images:
 
 ```
-.
-├── configs/
-│   ├── default.yaml          # cấu hình chuẩn (khớp notebook v5/v7)
-│   └── smoke.yaml            # chạy thử nhanh, ghi vào thư mục *_smoke
-├── notebooks/
-│   ├── colab_pipeline.ipynb  # notebook chạy pipeline trên Colab (chỉ gọi CLI)
-│   ├── colab_gpu_check.ipynb # kiểm tra GPU của runtime
-│   └── archive/              # notebook gốc v5 (tham khảo, không bảo trì)
-├── src/isic_dass/
-│   ├── config.py             # Config (dataclass) + Layout (mọi đường dẫn)
-│   ├── pipeline.py           # các stage; Context dùng chung
-│   ├── cli.py                # `isic-dass <stage>`
-│   ├── data/                 # ingest, preprocess, split, variants
-│   ├── gan/                  # setup (vá repo), dataset, metrics (KID), train, generate
-│   ├── frequency/            # spectrum, fingerprint, harmonize, mitigation
-│   ├── selection/            # encoders (E_v, E_d), scoring, dass, diagnostics
-│   ├── classify/             # tf.data, models, MacroRecall, train 2 giai đoạn
-│   └── evaluation/           # metrics, stats (bootstrap), aggregate, quality
-└── tests/                    # pytest, chạy được không cần GPU / TensorFlow
+M(x)      = S⁺(x) − λ · S⁻(x)                        (computed in E_v and in E_d)
+S_div(x)  = min_{y ∈ selected} [1 − cos(z_x, z_y)]
+S_DASS(x) = α · M̃_v(x) + β · M̃_d(x) + γ · S̃_div(x)    (~ : min-max normalised; S_div re-normalised every step)
 ```
 
-## Chạy trên Google Colab
+`E_v`: frozen ImageNet EfficientNet-B0. `E_d`: a separate DenseNet-121 trained with cross-entropy on real training
+labels only. Selection is greedy and picks exactly `n_select = |majority| − |minority|` images.
 
-Mở `notebooks/colab_pipeline.ipynb` trên Colab (runtime GPU), điền `REPO_URL` (hoặc đường dẫn dự án trên Drive) rồi chạy lần lượt. Tương đương với:
+| ID | Selection criterion | Diversity |
+|---|---|---|
+| M0 | real images only (class-weighted) — baseline | – |
+| M1 | random | – |
+| M2 | M̃_v | – |
+| M3 | M̃_d | – |
+| M4 | α·M̃_v + β·M̃_d | – |
+| M5 | 0 (k-center greedy) | γ = 1 |
+| **M6** | **α·M̃_v + β·M̃_d (DASS)** | **γ** |
+
+## Repository layout
+
+```
+configs/
+  _base_/            shared hyper-parameters (generator, selection, classifier, evaluation, runtime)
+  datasets/          dataset-specific settings only (source, channels, preprocessing, split, paths)
+  experiments/       _base_ + dataset (+ overrides): one file per experiment in the paper; smoke.yaml profile
+src/dass/
+  data/              DATA LOADER    — sources (csv | folders), transforms, splits, channel-preserving image I/O
+  models/            MODEL BACKBONE — generator (StyleGAN2-ADA), encoders (E_v, E_d), classifiers (registry)
+  selection/         SELECTION      — margin scoring, DASS and control strategies
+  evaluation/        METRICS        — classification, KID/FID (Inception-v3), bootstrap, CSV/JSON/LaTeX tables
+  analysis/          diagnostics    — shortcut test, feature probes, frequency fingerprint (Frank et al.), figures
+  engine/            classifier training loop
+  pipeline/          context + stages: prepare, gan, sample, fingerprint, select, train, evaluate, report
+  config/            schema, loader (_base_ inheritance, --set, --tag), artefact paths
+notebooks/           colab_pipeline.ipynb (calls the CLI only); archive/ (original notebooks, reference)
+scripts/             build_colab_notebook.py
+tests/               unit/ and regression/ (split reproduction, artefact paths, channel preservation)
+docs/                ARCHITECTURE.md, WORKFLOW.md, RESULTS_FORMAT.md (Vietnamese)
+```
+
+## Installation
+
+Google Colab with a GPU (A100 / L4 recommended). PyTorch and TensorFlow are pre-installed on Colab:
 
 ```bash
-pip install -e . ninja click keras-hub          # torch / tensorflow đã có sẵn trên Colab
-isic-dass --config configs/default.yaml prepare
-isic-dass --config configs/default.yaml gan-setup
-isic-dass --config configs/default.yaml gan-train       # Colab ngắt -> chạy lại, tự resume
-isic-dass --config configs/default.yaml gan-report
-isic-dass --config configs/default.yaml generate
-isic-dass --config configs/default.yaml frequency       # tuỳ chọn
-isic-dass --config configs/default.yaml select
-isic-dass --config configs/default.yaml train --model ResNet50 --seeds 2026 2027 2028
-isic-dass --config configs/default.yaml aggregate
-isic-dass --config configs/default.yaml quality
+pip install -e . ninja click keras-hub
 ```
 
-Ghi đè cấu hình không cần sửa file: `--set classifier.monitor=val_auc --set selection.gamma=0.25`.
+Local development (no GPU needed): `pip install -e ".[dev]" && pytest && ruff check src tests`.
 
-Dữ liệu gốc đặt trên Drive tại `paths.drive_root`:
+## Data
+
+Place each dataset on Google Drive and point `configs/datasets/<name>.yaml` to it.
 
 ```
-ISBI2016_ISIC_Part3/
-├── ISBI2016_ISIC_Part3_Training_Data/*.jpg
-├── ISBI2016_ISIC_Part3_Training_GroundTruth.csv
+ISBI2016_ISIC_Part3/                               Brain_Tumor_Dataset/
+├── ISBI2016_ISIC_Part3_Training_Data/*.jpg        ├── Negative/*.png|jpg
+├── ISBI2016_ISIC_Part3_Training_GroundTruth.csv   └── Positive/*.png|jpg
 ├── ISBI2016_ISIC_Part3_Test_Data/*.jpg
 └── ISBI2016_ISIC_Part3_Test_GroundTruth.csv
 ```
 
-## Artefact
-
-| Artefact | Vị trí (dưới `drive_root`) | Tạo bởi |
+| | ISIC 2016 | Brain Tumor MRI |
 |---|---|---|
-| Split train/val cố định | `checkpoints_<run>/data/real_val_split.json` | `prepare` |
-| GAN (`best.pkl`, `latest.pkl`, `gan_state.json`) | `checkpoints_<gan>/stylegan2ada/` | `gan-train` |
-| Candidate pool (zip) | `checkpoints_<run>/data/pool_<lớp>_from<kimg>kimg_n<N>.zip` | `generate` |
-| Lựa chọn M0–M6, embeddings | `checkpoints_<run>/data/selections.json`, `embeddings.npz` | `select` |
-| Trọng số E_d / classifier | `checkpoints_<run>/classifiers/` | `select`, `train` |
-| Dự đoán từng lần chạy | `results_<run>/predictions/<model>__<variant>__s<seed>.npz` | `train` |
-| Bảng kết quả, hình | `results_<run>/*.csv`, `results_<run>/**/*.png` | mọi stage |
+| Source | flat folders + CSV labels | class sub-folders |
+| Channels | 3 (auto-detected) | **1** (auto-detected; kept single-channel end to end) |
+| Preprocessing | dark-border crop, resize | pad to square, resize |
+| Split | official test set; 15 % of train → val | stratified 70 / 15 / 15 (optional patient grouping) |
 
-`<gan>` = `paths.gan_tag`, `<run>` = `paths.run_tag`. Tên file giữ tương thích với notebook v5/v7 nên artefact cũ trên Drive được dùng lại.
-
-## Phát triển
+## Reproducing the experiments
 
 ```bash
-pip install -e ".[dev]"
-pytest          # ~10 s, không cần GPU
-ruff check src tests
+dass -c configs/experiments/isic2016_dass.yaml run
+dass -c configs/experiments/brain_tumor_dass.yaml run
 ```
 
-Các nguyên tắc phương pháp (val/test 100 % ảnh thật, ngưỡng cố định 0,5, ...) và hướng dẫn mở rộng: xem [CLAUDE.md](CLAUDE.md). Thay đổi so với notebook gốc: [CHANGELOG.md](CHANGELOG.md).
+or stage by stage (every stage is resumable; finished artefacts are restored from Drive):
 
-## Tham khảo
+```bash
+E=configs/experiments/brain_tumor_dass.yaml
+dass -c $E prepare                     # ingest, detect channels, preprocess, split, dataset card
+dass -c $E gan-setup                   # clone + patch NVlabs StyleGAN2-ADA for PyTorch 2.x
+dass -c $E gan                         # train with KID early stopping (or reuse the trained generator)
+dass -c $E sample                      # candidate pool
+dass -c $E select                      # E_v / E_d, DASS + controls, shortcut test
+dass -c $E train --model resnet50 --seeds 2026 2027 2028
+dass -c $E evaluate                    # classification metrics, KID/FID, paired bootstrap
+dass -c $E report                      # paper tables: tables/*.csv, *.json, *.tex
+```
 
-- Karras et al., *Training Generative Adversarial Networks with Limited Data* (StyleGAN2-ADA), NeurIPS 2020 — [NVlabs/stylegan2-ada-pytorch](https://github.com/NVlabs/stylegan2-ada-pytorch)
-- Frank et al., *Leveraging Frequency Analysis for Deep Fake Image Recognition*, ICML 2020 — [RUB-SysSec/GANDCTAnalysis](https://github.com/RUB-SysSec/GANDCTAnalysis)
-- Dong et al., *Think Twice Before Detecting GAN-generated Fake Images from their Spectral Domain Imprints*, CVPR 2022
-- CosSIF — lọc ảnh sinh theo cosine similarity cho dữ liệu y tế mất cân bằng
+Quick check: `dass -c $E -c configs/experiments/smoke.yaml run`. Ablations without editing files:
+`dass -c $E --set selection.gamma=0 --tag nodiv run --from select`.
+
+## Outputs
+
+`results_<run_tag>/tables/` (on Drive), each as `.csv` (formatted), `.json` (raw) and `.tex` (booktabs):
+
+| Table | Content |
+|---|---|
+| `dataset` | images per split and class |
+| `classification` | AUC, PR-AUC, F1, sensitivity, specificity, balanced accuracy, G-mean, MCC — mean ± std over seeds |
+| `significance` | paired bootstrap ΔAUC vs. M0 with 95 % CI and p-value |
+| `generation_quality` | KID (primary, mean ± std) and FID (reference) on Inception-v3, diversity, intra-set SSIM, real-vs-synthetic AUC |
+
+Raw per-run numbers are in `results_<run_tag>/metrics/`; `run_manifest.json` stores the resolved configuration,
+seeds and library versions. Column definitions: `docs/RESULTS_FORMAT.md`.
+
+## Protocol
+
+- Validation and test sets contain **real images only**; the generator, `E_d` and DASS never see them.
+- Validation is used **only** for epoch selection (`val_macro_recall`); test metrics use a **fixed threshold of 0.5**;
+  the test set is predicted once, after reloading the best checkpoint.
+- Every image is stored as PNG in its **native channel count**. Grayscale images are replicated to three identical
+  channels only in memory, immediately before ImageNet-pretrained networks / Inception-v3.
+- The generator checkpoint used downstream is the snapshot with the **lowest minority-class KID**.
+- Splits are deterministic (global seed) and validated against the split the reused generator was trained on.
+- Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against M0.
+
+## Acknowledgements
+
+[StyleGAN2-ADA (NVlabs)](https://github.com/NVlabs/stylegan2-ada-pytorch) — generator, used unmodified apart from
+compatibility patches applied at runtime. [GANDCTAnalysis (Frank et al., ICML 2020)](https://github.com/RUB-SysSec/GANDCTAnalysis)
+— frequency fingerprint detector (optional `fingerprint` stage).
+
+## Citation
+
+```bibtex
+@inproceedings{dass2026,
+  title     = {TODO},
+  author    = {TODO},
+  booktitle = {TODO},
+  year      = {2026}
+}
+```

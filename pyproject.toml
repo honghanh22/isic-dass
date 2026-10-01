@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "isic-dass"
-version = "0.5.0"
-description = "Conditional StyleGAN2-ADA + DASS synthetic-sample selection for class imbalance on ISIC 2016"
+name = "dass"
+version = "1.0.0"
+description = "Conditional StyleGAN2-ADA + DASS synthetic-sample selection for imbalanced medical image classification"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -27,13 +27,13 @@ tf = ["tensorflow>=2.16", "keras-hub"]
 dev = ["pytest>=8", "ruff"]
 
 [project.scripts]
-isic-dass = "isic_dass.cli:main"
+dass = "dass.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.setuptools.package-data]
-isic_dass = ["py.typed"]
+dass = ["py.typed"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
