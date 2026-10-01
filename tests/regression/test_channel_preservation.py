@@ -24,7 +24,7 @@ def test_grayscale_folder_dataset_stays_single_channel(tmp_path):
         r = np.random.default_rng(len(folder))
         for i in range(n):
             g = r.integers(0, 255, (24, 20), dtype=np.uint8)
-            Image.fromarray(np.stack([g] * 3, -1), "RGB").save(src / folder / f"{folder}_{i:02d}.png")
+            Image.fromarray(np.stack([g] * 3, -1)).save(src / folder / f"{folder}_{i:02d}.png")
     cfg_path = _write_yaml(tmp_path / "bt.yaml", f"""
 paths: {{drive_root: {tmp_path / 'drive'}, local_root: {tmp_path / 'local'}, run_tag: t}}
 data:

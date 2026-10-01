@@ -27,7 +27,7 @@ def test_pad_to_square_centers_image():
 @pytest.mark.parametrize("channels,mode", [(1, "L"), (3, "RGB")])
 def test_preprocess_keeps_channels(tmp_path, channels, mode):
     src = tmp_path / "a.png"
-    Image.fromarray(np.full((40, 80, 3), 200, dtype=np.uint8), "RGB").save(src)
+    Image.fromarray(np.full((40, 80, 3), 200, dtype=np.uint8)).save(src)
     preprocess_image(src, tmp_path / "b.png", 32, channels, crop=False, resize_mode="pad_square")
     out = Image.open(tmp_path / "b.png")
     assert out.mode == mode and out.size == (32, 32)
@@ -39,7 +39,7 @@ def test_preprocess_tree_redoes_wrong_channel_files(tmp_path, gray_tree):
     dst = tmp_path / "pp"
     (dst / "negative").mkdir(parents=True)
     stale = dst / "negative" / "negative_00.png"
-    Image.fromarray(np.zeros((8, 8, 3), np.uint8), "RGB").save(stale)          # ảnh RGB từ bản cũ
+    Image.fromarray(np.zeros((8, 8, 3), np.uint8)).save(stale)          # ảnh RGB từ bản cũ
     preprocess_tree(gray_tree, dst, 16, ["negative", "positive"], channels=1)
     assert {Image.open(p).mode for p in dst.rglob("*.png")} == {"L"}
 

@@ -57,7 +57,7 @@ def test_ssim_on_native_channels(tmp_path, rng, channels, mode):
     paths = []
     for i in range(4):
         shape = (16, 16) if channels == 1 else (16, 16, 3)
-        Image.fromarray(rng.integers(0, 255, shape, dtype=np.uint8), mode).save(tmp_path / f"{i}.png")
+        Image.fromarray(rng.integers(0, 255, shape, dtype=np.uint8)).save(tmp_path / f"{i}.png")
         paths.append(str(tmp_path / f"{i}.png"))
     assert -1 <= compute_ssim(paths, channels, n_pairs=5) <= 1
 

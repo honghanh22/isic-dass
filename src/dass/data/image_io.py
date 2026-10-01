@@ -42,12 +42,14 @@ def read_image(path: str | Path, channels: int, force_gray: bool = False) -> np.
 
 
 def to_pil(arr: np.ndarray) -> Image.Image:
-    arr = np.asarray(arr, dtype=np.uint8)
+    """uint8 (H, W) | (H, W, 1) -> "L"; (H, W, 3) -> "RGB". Pillow suy ra chế độ từ hình dạng mảng
+    (tham số `mode` của `Image.fromarray` bị bỏ từ Pillow 13)."""
+    arr = np.ascontiguousarray(arr, dtype=np.uint8)
     if arr.ndim == 3 and arr.shape[-1] == 1:
-        return Image.fromarray(arr[..., 0], mode="L")
-    if arr.ndim == 2:
-        return Image.fromarray(arr, mode="L")
-    return Image.fromarray(arr, mode="RGB")
+        arr = arr[..., 0]
+    if arr.ndim not in (2, 3) or (arr.ndim == 3 and arr.shape[-1] != 3):
+        raise ValueError(f"Ảnh phải có dạng (H, W), (H, W, 1) hoặc (H, W, 3), nhận {arr.shape}")
+    return Image.fromarray(arr)
 
 
 def write_png(arr: np.ndarray, path: str | Path) -> None:

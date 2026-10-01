@@ -20,7 +20,7 @@ def make_tree(root: Path, counts: dict[str, int], mode: str, size: int = 16, ext
         (root / label).mkdir(parents=True, exist_ok=True)
         for i in range(n):
             shape = (size, size) if mode == "L" else (size, size, 3)
-            Image.fromarray(r.integers(0, 255, shape, dtype=np.uint8), mode).save(root / label / f"{label}_{i:02d}{ext}")
+            Image.fromarray(r.integers(0, 255, shape, dtype=np.uint8)).save(root / label / f"{label}_{i:02d}{ext}")
     return root
 
 

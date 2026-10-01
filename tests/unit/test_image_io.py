@@ -31,7 +31,7 @@ def test_rgb_roundtrip_keeps_three_channels(tmp_path, rng):
 def test_equal_channel_rgb_to_gray_is_lossless(tmp_path, rng):
     """Ảnh xám lưu dạng RGB (R = G = B) đọc ở chế độ 1 kênh giữ nguyên giá trị (luminance của PIL)."""
     g = rng.integers(0, 255, (8, 8), dtype=np.uint8)
-    Image.fromarray(np.stack([g] * 3, -1), "RGB").save(tmp_path / "x.png")
+    Image.fromarray(np.stack([g] * 3, -1)).save(tmp_path / "x.png")
     np.testing.assert_array_equal(read_image(tmp_path / "x.png", 1)[..., 0], g)
 
 
@@ -40,7 +40,7 @@ def test_detect_channels(tmp_path, rng, gray_tree, image_tree):
     color = [str(p) for p in image_tree.rglob("*.png")]
     assert detect_channels(gray) == 1 and detect_channels(color) == 3
     g = rng.integers(0, 255, (8, 8), dtype=np.uint8)
-    Image.fromarray(np.stack([g] * 3, -1), "RGB").save(tmp_path / "rgb_gray.png")
+    Image.fromarray(np.stack([g] * 3, -1)).save(tmp_path / "rgb_gray.png")
     assert detect_channels([str(tmp_path / "rgb_gray.png")]) == 1        # RGB nhưng 3 kênh bằng nhau
     with pytest.raises(ValueError):
         detect_channels([])

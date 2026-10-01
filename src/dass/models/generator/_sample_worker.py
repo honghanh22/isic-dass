@@ -42,7 +42,7 @@ def main(argv: list[str]) -> None:
             if img.shape[-1] == 3:
                 worst = max(worst, int(np.abs(np.diff(img.astype(np.int16), axis=-1)).max()))
             if force_gray and img.shape[-1] == 3:     # cùng phép chuyển luminance của PIL như ảnh thật
-                img = np.stack([np.asarray(Image.fromarray(a, "RGB").convert("L")) for a in img])[..., None]
+                img = np.stack([np.asarray(Image.fromarray(a).convert("L")) for a in img])[..., None]
                 if channels == 3:
                     img = np.repeat(img, 3, axis=-1)
             elif channels == 1 and img.shape[-1] == 3:
@@ -55,7 +55,7 @@ def main(argv: list[str]) -> None:
                 img = np.repeat(img, 3, axis=-1)
             for j in range(b):
                 arr = img[j]
-                pil = Image.fromarray(arr[..., 0], mode="L") if arr.shape[-1] == 1 else Image.fromarray(arr, "RGB")
+                pil = Image.fromarray(np.ascontiguousarray(arr[..., 0] if arr.shape[-1] == 1 else arr))
                 pil.save(os.path.join(out_dir, f"synth_{done + j:05d}.png"), format="PNG")
             done += b
             if done % 200 == 0 or done == n_images:

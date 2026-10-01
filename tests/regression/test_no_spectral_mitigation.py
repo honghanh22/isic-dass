@@ -1,5 +1,6 @@
 """Spectral mitigation (Dong et al., CVPR 2022) và power-profile detector đã bị loại bỏ hoàn toàn."""
 
+import json
 import re
 
 import pytest
@@ -10,18 +11,19 @@ from dass.config import load_config
 FORBIDDEN = re.compile(r"mitigat|spectral|radial_power|power_profile|dong_|\bDong\b|CVPR2022|SDN|PDC", re.IGNORECASE)
 
 
-def _files():
-    yield from (ROOT / "src").rglob("*.py")
-    yield from CONFIGS.rglob("*.yaml")
-    yield ROOT / "notebooks" / "colab_pipeline.ipynb"
+def _sources():
+    """(nhãn, dòng) của code / config và MÃ NGUỒN các ô notebook (không quét output: ảnh base64 khớp ngẫu nhiên)."""
+    for path in [*(ROOT / "src").rglob("*.py"), *CONFIGS.rglob("*.yaml"), ROOT / "scripts" / "build_colab_notebook.py"]:
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            yield f"{path.relative_to(ROOT)}:{i}", line
+    nb = json.loads((ROOT / "notebooks" / "colab_pipeline.ipynb").read_text(encoding="utf-8"))
+    for c, cell in enumerate(nb["cells"]):
+        for i, line in enumerate("".join(cell["source"]).splitlines(), 1):
+            yield f"colab_pipeline.ipynb cell {c}:{i}", line
 
 
 def test_no_references_in_code_configs_or_runner():
-    hits = []
-    for path in _files():
-        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-            if FORBIDDEN.search(line):
-                hits.append(f"{path.relative_to(ROOT)}:{i}: {line.strip()}")
+    hits = [f"{where}: {line.strip()}" for where, line in _sources() if FORBIDDEN.search(line)]
     assert not hits, "\n".join(hits)
 
 

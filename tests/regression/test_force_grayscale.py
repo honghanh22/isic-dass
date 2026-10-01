@@ -25,23 +25,23 @@ def _noisy_rgb(rng, size=(20, 24), noise=3):
 
 def test_read_image_force_gray_equals_pil_luminance(tmp_path, rng):
     arr = _noisy_rgb(rng)
-    Image.fromarray(arr, "RGB").save(tmp_path / "x.png")
+    Image.fromarray(arr).save(tmp_path / "x.png")
     out = read_image(tmp_path / "x.png", 3, force_gray=True)
     assert out.shape == (20, 24, 3) and max_channel_diff(out) == 0
-    np.testing.assert_array_equal(out[..., 0], np.asarray(Image.fromarray(arr, "RGB").convert("L")))
+    np.testing.assert_array_equal(out[..., 0], np.asarray(Image.fromarray(arr).convert("L")))
     assert max_channel_diff(read_image(tmp_path / "x.png", 3)) > 0            # không ép xám -> giữ nguyên gốc
 
 
 def test_detect_channels_tolerates_jpeg_chroma_noise(tmp_path, rng):
     for i in range(5):
-        Image.fromarray(_noisy_rgb(rng), "RGB").save(tmp_path / f"{i}.png")
+        Image.fromarray(_noisy_rgb(rng)).save(tmp_path / f"{i}.png")
     assert detect_channels([str(p) for p in tmp_path.glob("*.png")]) == 1
 
 
 def test_preprocess_tree_redoes_unequal_channel_files(tmp_path, rng):
     src = tmp_path / "raw" / "negative"
     src.mkdir(parents=True)
-    Image.fromarray(_noisy_rgb(rng), "RGB").save(src / "a.png")
+    Image.fromarray(_noisy_rgb(rng)).save(src / "a.png")
     dst = tmp_path / "pp"
     preprocess_tree(tmp_path / "raw", dst, 16, ["negative"], channels=3)                 # bản cũ: còn nhiễu màu
     assert not is_stored_correctly(dst / "negative" / "a.png", 3, force_gray=True)
@@ -63,7 +63,7 @@ def test_brain_like_dataset_has_no_label_correlated_color(tmp_path, rng):
         for i in range(n):
             arr = _noisy_rgb(rng) if noisy and i % 3 == 0 else np.repeat(rng.integers(0, 255, (20, 24, 1),
                                                                                       dtype=np.uint8), 3, -1)
-            Image.fromarray(arr, "RGB").save(src / folder / f"{folder}_{i:02d}.png")
+            Image.fromarray(arr).save(src / folder / f"{folder}_{i:02d}.png")
     cfg_path = tmp_path / "bt.yaml"
     cfg_path.write_text(f"""
 paths: {{drive_root: {tmp_path / 'drive'}, local_root: {tmp_path / 'local'}, run_tag: t}}
