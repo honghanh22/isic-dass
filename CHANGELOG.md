@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.1
+- Brain Tumor: `data.channels: 3` (như notebook v1 và GAN `checkpoints_bt` đã train trên ảnh 3 kênh); ảnh xám gốc
+  được lưu thành 3 kênh bằng nhau. Chế độ 1 kênh vẫn có cho bộ dữ liệu khác (`channels: 1` / `auto`).
+- `.gitignore`: chỉ chặn `/data/` ở gốc (trước đó chặn nhầm `src/dass/data/`); thêm test kiểm tra.
+
 ## 1.0.0 — kiến trúc chuẩn bài báo, package `dass`
 
 ### Cấu trúc

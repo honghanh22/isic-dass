@@ -37,6 +37,12 @@ def test_brain_tumor_artifact_paths():
     assert lay.drive_test_images is None and lay.drive_train_labels is None
 
 
+def test_brain_tumor_uses_three_channels_like_reused_gan():
+    """GAN checkpoints_bt được train trên ảnh 3 kênh -> dữ liệu Brain Tumor cũng 3 kênh (pool không có hậu tố _c1)."""
+    cfg = load_config([CONFIGS / "experiments" / "brain_tumor_dass.yaml"])
+    assert cfg.data.channels == 3 and cfg.paths.gan_tag == "bt"
+
+
 def test_local_dirs_are_separated_per_dataset():
     a, b = _layout("isic2016_dass.yaml"), _layout("brain_tumor_dass.yaml")
     assert a.train_pp != b.train_pp and "isic2016" in a.train_pp.parts and "brain_tumor" in b.train_pp.parts

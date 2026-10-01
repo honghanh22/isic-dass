@@ -1,12 +1,13 @@
 # Brain Tumor MRI (negative / positive) — CHỈ các thiết lập phụ thuộc dữ liệu.
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/BrainTumor_GAN
-  gan_tag: bt            # dùng lại GAN đã train (checkpoints_bt/stylegan2ada, best KID @ 1200 kimg; GAN 3 kênh)
-  run_tag: bt_v3         # pipeline 1 kênh + công thức chuẩn — tách khỏi results_bt của notebook v1
+  gan_tag: bt            # dùng lại GAN đã train (checkpoints_bt/stylegan2ada, best KID @ 1200 kimg)
+  run_tag: bt_v3         # công thức chuẩn hoá (ISIC v5) — tách khỏi results_bt của notebook v1
 
 data:
   name: brain_tumor
-  channels: auto         # -> 1 (MRI ảnh xám): lưu, train, sinh ảnh đều 1 kênh
+  channels: 3            # như notebook v1: ảnh lưu 3 kênh, GAN dùng lại (checkpoints_bt) được train trên ảnh 3 kênh
+                         # (ảnh xám gốc -> 3 kênh bằng nhau; không còn bước nào làm lệch kênh)
   img_size: 256
   classes: {negative: 0, positive: 1}
   source:
