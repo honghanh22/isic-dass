@@ -14,7 +14,9 @@ import numpy as np
 from PIL import Image
 
 GRAY_MODES = {"1", "L", "LA", "I", "I;16", "F"}
-GRAY_TOLERANCE = 1.0   # chênh lệch kênh trung bình (mức xám) dưới ngưỡng này coi là ảnh xám (nhiễu nén JPEG)
+# Chênh lệch kênh trung bình (mức xám) dưới ngưỡng này coi là ảnh xám: nhiễu nén JPEG của ảnh MRI xám lưu RGB
+# đo được tới ~3.1 (Brain Tumor), ảnh màu thật (dermoscopy) lớn hơn nhiều.
+GRAY_TOLERANCE = 5.0
 
 
 class ChannelMismatchError(RuntimeError):
@@ -27,11 +29,16 @@ def pil_mode(channels: int) -> str:
     return "L" if channels == 1 else "RGB"
 
 
-def read_image(path: str | Path, channels: int) -> np.ndarray:
-    """Đọc ảnh thành uint8 (H, W, channels). Ảnh xám đọc theo luminance của PIL (R = G = B -> giữ nguyên giá trị)."""
+def read_image(path: str | Path, channels: int, force_gray: bool = False) -> np.ndarray:
+    """Đọc ảnh thành uint8 (H, W, channels). Ảnh xám đọc theo luminance của PIL (R = G = B -> giữ nguyên giá trị).
+
+    `force_gray` (channels = 3): chuyển về luminance rồi nhân 3 kênh bằng nhau — loại nhiễu màu JPEG.
+    """
     with Image.open(path) as img:
-        arr = np.asarray(img.convert(pil_mode(channels)), dtype=np.uint8)
-    return arr[..., None] if channels == 1 else arr
+        if force_gray or channels == 1:
+            g = np.asarray(img.convert("L"), dtype=np.uint8)[..., None]
+            return g if channels == 1 else np.repeat(g, 3, axis=-1)
+        return np.asarray(img.convert(pil_mode(channels)), dtype=np.uint8)
 
 
 def to_pil(arr: np.ndarray) -> Image.Image:
@@ -50,6 +57,16 @@ def write_png(arr: np.ndarray, path: str | Path) -> None:
 def png_channels(path: str | Path) -> int:
     with Image.open(path) as img:
         return 1 if img.mode in GRAY_MODES else 3
+
+
+def is_stored_correctly(path: str | Path, channels: int, force_gray: bool = False) -> bool:
+    """PNG đã đúng định dạng yêu cầu: đúng số kênh, và (nếu `force_gray`) các kênh bằng nhau."""
+    if png_channels(path) != channels:
+        return False
+    if force_gray and channels == 3:
+        with Image.open(path) as img:
+            return max_channel_diff(np.asarray(img.convert("RGB"))) == 0
+    return True
 
 
 def channel_gap(arr: np.ndarray) -> float:

@@ -44,6 +44,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 ## Bất biến (không được phá vỡ — đa số có test regression)
 
 - **Giữ số kênh gốc:** mọi đọc / ghi ảnh đi qua `data/image_io.py`. Ảnh xám lưu PNG "L" và được giữ 1 kênh. Chỉ nhân bản 1 → 3 kênh trên bộ nhớ, ngay trước mạng pretrain (`data/loaders.to_backbone_input`, `models/generator/inception`). Không bước nào được biến đổi ảnh theo từng kênh. GAN 3 kênh dùng cho dữ liệu 1 kênh chỉ được gộp kênh khi 3 kênh giống hệt nhau (`generator.channel_tolerance`).
+- Brain Tumor dùng `channels: 3` cùng `force_grayscale: true`: ảnh thật và ảnh sinh đều lưu 3 kênh bằng nhau, vì nhiễu màu JPEG chỉ có ở lớp negative nên sẽ thành shortcut. Mọi phép chuyển xám phải dùng đúng luminance của PIL (`convert("L")`), giống nhau cho ảnh thật và ảnh sinh.
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_macro_recall`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải tái lập **đúng** split của notebook ISIC v5 và Brain Tumor v1 (GAN cũ được train trên đó). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.

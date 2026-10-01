@@ -9,7 +9,7 @@ import numpy as np
 from PIL import Image
 from tqdm.auto import tqdm
 
-from .image_io import pil_mode, png_channels, read_image, to_pil
+from .image_io import is_stored_correctly, pil_mode, read_image, to_pil
 
 log = logging.getLogger(__name__)
 
@@ -54,8 +54,8 @@ def resize(img: np.ndarray, size: int) -> np.ndarray:
 
 
 def preprocess_image(src: str | Path, dst: str | Path, img_size: int, channels: int, crop: bool = False,
-                     resize_mode: str = "stretch") -> None:
-    img = read_image(src, channels)
+                     resize_mode: str = "stretch", force_gray: bool = False) -> None:
+    img = read_image(src, channels, force_gray)
     if crop:
         img = crop_dark_border(img)
     if resize_mode == "pad_square":
@@ -64,24 +64,26 @@ def preprocess_image(src: str | Path, dst: str | Path, img_size: int, channels: 
 
 
 def preprocess_tree(src_root: str | Path, dst_root: str | Path, img_size: int, class_names: list[str],
-                    channels: int, crop: bool = False, resize_mode: str = "stretch") -> None:
+                    channels: int, crop: bool = False, resize_mode: str = "stretch", force_gray: bool = False) -> None:
     """Tiền xử lý `src_root/<lớp>/*` sang `dst_root/<lớp>/*.png`.
 
-    Bỏ qua ảnh đã xử lý ĐÚNG số kênh; ảnh cũ sai số kênh (ví dụ RGB từ bản trước) được xử lý lại.
+    Bỏ qua ảnh đã xử lý ĐÚNG định dạng; ảnh cũ sai định dạng (sai số kênh, hoặc còn lệch kênh khi `force_gray`)
+    được xử lý lại.
     """
+    mode = pil_mode(channels) + (" xám" if force_gray and channels == 3 else "")
     for label in class_names:
         src_dir, dst_dir = Path(src_root) / label, Path(dst_root) / label
         dst_dir.mkdir(parents=True, exist_ok=True)
         redone = 0
-        for src in tqdm(sorted(src_dir.iterdir()), desc=f"Tiền xử lý {label} ({pil_mode(channels)})"):
+        for src in tqdm(sorted(src_dir.iterdir()), desc=f"Tiền xử lý {label} ({mode})"):
             dst = dst_dir / (src.stem + ".png")
             if dst.exists():
-                if png_channels(dst) == channels:
+                if is_stored_correctly(dst, channels, force_gray):
                     continue
                 redone += 1
-            preprocess_image(src, dst, img_size, channels, crop, resize_mode)
+            preprocess_image(src, dst, img_size, channels, crop, resize_mode, force_gray)
         if redone:
-            log.warning("%s: xử lý lại %d ảnh cũ sai số kênh", label, redone)
+            log.warning("%s: xử lý lại %d ảnh cũ sai định dạng", label, redone)
 
 
 def content_ratio_stats(paths: list[str], n: int = 200, dark_threshold: int = 15, seed: int = 0) -> dict[str, float]:

@@ -1,9 +1,11 @@
 """Tiến trình con sinh ảnh (tách bộ nhớ GPU của PyTorch khỏi tiến trình chính).
 
-    python _sample_worker.py <repo> <pkl> <out_dir> <class_idx> <n_images> <psi> <seed> <batch> <channels> <tolerance>
+    python _sample_worker.py <repo> <pkl> <out_dir> <class_idx> <n_images> <psi> <seed> <batch> <channels>
+                             <tolerance> <force_gray>
 
 Ảnh lưu đúng `channels` của bộ dữ liệu. GAN 3 kênh + dữ liệu 1 kênh: chỉ gộp khi 3 kênh giống nhau
 (chênh lệch ≤ tolerance mức xám); ngược lại thoát mã 3 (không được tự ý "đổi màu" ảnh).
+`force_gray` = 1: chuyển về luminance (giống hệt ảnh thật đã tiền xử lý) rồi lưu `channels` kênh bằng nhau.
 """
 
 import os
@@ -17,9 +19,9 @@ EXIT_CHANNEL_MISMATCH = 3
 
 
 def main(argv: list[str]) -> None:
-    repo, pkl, out_dir, class_idx, n_images, psi, seed, batch, channels, tolerance = argv
+    repo, pkl, out_dir, class_idx, n_images, psi, seed, batch, channels, tolerance, force_gray = argv
     class_idx, n_images, seed, batch = int(class_idx), int(n_images), int(seed), int(batch)
-    channels, tolerance, psi = int(channels), int(tolerance), float(psi)
+    channels, tolerance, psi, force_gray = int(channels), int(tolerance), float(psi), force_gray == "1"
     sys.path.insert(0, repo)
     import legacy
 
@@ -37,9 +39,14 @@ def main(argv: list[str]) -> None:
             c[:, class_idx] = 1
             img = G(z, c, truncation_psi=psi, noise_mode="const")
             img = (img.permute(0, 2, 3, 1) * 127.5 + 128).clamp(0, 255).to(torch.uint8).cpu().numpy()
-            if channels == 1 and img.shape[-1] == 3:
+            if img.shape[-1] == 3:
+                worst = max(worst, int(np.abs(np.diff(img.astype(np.int16), axis=-1)).max()))
+            if force_gray and img.shape[-1] == 3:     # cùng phép chuyển luminance của PIL như ảnh thật
+                img = np.stack([np.asarray(Image.fromarray(a, "RGB").convert("L")) for a in img])[..., None]
+                if channels == 3:
+                    img = np.repeat(img, 3, axis=-1)
+            elif channels == 1 and img.shape[-1] == 3:
                 diff = int(np.abs(np.diff(img.astype(np.int16), axis=-1)).max())
-                worst = max(worst, diff)
                 if diff > tolerance:
                     print(f"CHANNEL_MISMATCH max_diff={diff} tolerance={tolerance} at image {done}", flush=True)
                     sys.exit(EXIT_CHANNEL_MISMATCH)
@@ -53,8 +60,8 @@ def main(argv: list[str]) -> None:
             done += b
             if done % 200 == 0 or done == n_images:
                 print(f"{done}/{n_images}", flush=True)
-    print(f"DONE {done} generator_channels={G.img_channels} saved_channels={channels} max_channel_diff={worst}",
-          flush=True)
+    print(f"DONE {done} generator_channels={G.img_channels} saved_channels={channels} force_gray={int(force_gray)} "
+          f"max_channel_diff_before={worst}", flush=True)
 
 
 if __name__ == "__main__":

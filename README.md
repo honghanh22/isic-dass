@@ -78,7 +78,7 @@ ISBI2016_ISIC_Part3/                               Brain_Tumor_Dataset/
 | | ISIC 2016 | Brain Tumor MRI |
 |---|---|---|
 | Source | flat folders + CSV labels | class sub-folders |
-| Channels | 3 (auto-detected) | 3 (grayscale MRI stored as three identical channels, as the generator was trained) |
+| Channels | 3 (auto-detected) | 3 identical channels (`force_grayscale`: removes JPEG chroma noise present only in 129 negative images) |
 | Preprocessing | dark-border crop, resize | pad to square, resize |
 | Split | official test set; 15 % of train → val | stratified 70 / 15 / 15 (optional patient grouping) |
 

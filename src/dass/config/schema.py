@@ -68,6 +68,8 @@ class SplitConfig:
 class DataConfig:
     name: str = ""                   # tên ngắn của bộ dữ liệu -> thư mục cục bộ riêng
     channels: Any = "auto"           # auto | 1 | 3 — giữ nguyên số kênh gốc xuyên suốt pipeline
+    force_grayscale: bool = False    # chuyển về xám (luminance) rồi lưu `channels` kênh BẰNG NHAU — cho ảnh y tế xám
+                                     # lưu dạng RGB có nhiễu màu JPEG (tránh manh mối màu giả gắn với nhãn)
     img_size: int = 256
     classes: dict[str, int] = field(default_factory=dict)   # tên lớp -> chỉ số (nhị phân: 0, 1)
     source: SourceConfig = field(default_factory=SourceConfig)

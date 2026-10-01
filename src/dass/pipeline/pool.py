@@ -35,7 +35,8 @@ def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_
     from ..models.generator.sampler import archive_pool, generate_images, match_resize_chain, pool_tag, restore_pool
 
     cfg, layout, g = ctx.cfg, ctx.layout, ctx.cfg.generator
-    tag = pool_tag(best_kimg(ctx), n_images, ctx.channels)
+    force_gray = cfg.data.force_grayscale
+    tag = pool_tag(best_kimg(ctx), n_images, ctx.channels, force_gray)
     pool_name = f"pool_{cls}"
     raw_zip = layout.data_dir / f"{pool_name}_{tag}.zip"
     raw_dir = layout.candidates / pool_name
@@ -47,7 +48,7 @@ def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_
 
         ensure_stylegan_repo(layout.sg2_repo)
         raw = generate_images(layout.sg2_repo, layout.gan_best_pkl, raw_dir, ctx.class_idx(cls), n_images,
-                              g.trunc_psi, seed, ctx.channels, g.channel_tolerance)
+                              g.trunc_psi, seed, ctx.channels, g.channel_tolerance, force_gray)
         archive_pool(raw_dir, raw_zip)
     pool = CandidatePool(raw=raw)
 

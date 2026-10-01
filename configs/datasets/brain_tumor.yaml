@@ -7,7 +7,9 @@ paths:
 data:
   name: brain_tumor
   channels: 3            # như notebook v1: ảnh lưu 3 kênh, GAN dùng lại (checkpoints_bt) được train trên ảnh 3 kênh
-                         # (ảnh xám gốc -> 3 kênh bằng nhau; không còn bước nào làm lệch kênh)
+  force_grayscale: true  # MRI xám, nhưng 129 / 2000 ảnh negative (0 / 400 positive) có nhiễu màu JPEG (lệch kênh
+                         # ≤ 3.1 mức xám) -> manh mối màu giả gắn với nhãn. Chuyển về luminance rồi lưu 3 kênh BẰNG
+                         # NHAU, cho cả ảnh thật lẫn ảnh sinh. 2271 / 2400 ảnh không đổi giá trị.
   img_size: 256
   classes: {negative: 0, positive: 1}
   source:

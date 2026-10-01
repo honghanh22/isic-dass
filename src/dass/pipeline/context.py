@@ -73,10 +73,10 @@ class Context:
 
         pp = d.preprocess
         preprocess_tree(layout.train_raw, layout.train_pp, d.img_size, d.class_names, channels,
-                        pp.crop_dark_border, pp.resize)
+                        pp.crop_dark_border, pp.resize, d.force_grayscale)
         if source.has_test_set:
             preprocess_tree(layout.test_raw, layout.test_pp, d.img_size, d.class_names, channels,
-                            pp.crop_dark_border, pp.resize)
+                            pp.crop_dark_border, pp.resize, d.force_grayscale)
 
         split = load_or_create_split(
             layout.split_json, layout.train_pp,

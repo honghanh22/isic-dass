@@ -41,6 +41,9 @@ def test_brain_tumor_uses_three_channels_like_reused_gan():
     """GAN checkpoints_bt được train trên ảnh 3 kênh -> dữ liệu Brain Tumor cũng 3 kênh (pool không có hậu tố _c1)."""
     cfg = load_config([CONFIGS / "experiments" / "brain_tumor_dass.yaml"])
     assert cfg.data.channels == 3 and cfg.paths.gan_tag == "bt"
+    assert cfg.data.force_grayscale is True        # loại nhiễu màu JPEG chỉ có ở lớp negative
+    isic = load_config([CONFIGS / "experiments" / "isic2016_dass.yaml"])
+    assert isic.data.force_grayscale is False      # dermoscopy là ảnh màu thật
 
 
 def test_local_dirs_are_separated_per_dataset():

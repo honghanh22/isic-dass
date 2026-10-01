@@ -17,18 +17,20 @@ WORKER = Path(__file__).with_name("_sample_worker.py")
 EXIT_CHANNEL_MISMATCH = 3
 
 
-def pool_tag(best_cum_kimg: int, n_images: int, channels: int = 3) -> str:
-    """Tag cache của pool. Pool 1 kênh có hậu tố riêng để không lẫn với pool 3 kênh cũ."""
-    return f"from{best_cum_kimg}kimg_n{n_images}" + ("_c1" if channels == 1 else "")
+def pool_tag(best_cum_kimg: int, n_images: int, channels: int = 3, force_gray: bool = False) -> str:
+    """Tag cache của pool. Pool 1 kênh / ảnh đã ép xám có hậu tố riêng để không lẫn với pool cũ."""
+    suffix = "_c1" if channels == 1 else ("_gray" if force_gray else "")
+    return f"from{best_cum_kimg}kimg_n{n_images}{suffix}"
 
 
 def generate_images(repo_dir: str | Path, pkl: str | Path, out_dir: str | Path, class_idx: int, n_images: int,
-                    psi: float, seed: int, channels: int, tolerance: int = 0, batch: int = 16) -> list[str]:
+                    psi: float, seed: int, channels: int, tolerance: int = 0, force_gray: bool = False,
+                    batch: int = 16) -> list[str]:
     out_dir = Path(out_dir)
     shutil.rmtree(out_dir, ignore_errors=True)
     out_dir.mkdir(parents=True)
     cmd = [sys.executable, str(WORKER), str(repo_dir), str(pkl), str(out_dir), str(class_idx), str(n_images),
-           str(psi), str(seed), str(batch), str(channels), str(tolerance)]
+           str(psi), str(seed), str(batch), str(channels), str(tolerance), str(int(force_gray))]
     log.info("Sinh ảnh (tiến trình con): %s", " ".join(cmd))
     proc = subprocess.Popen(cmd, cwd=repo_dir, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     tail: list[str] = []

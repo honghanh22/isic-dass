@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 — loại manh mối màu giả ở Brain Tumor
+- Đo trên dữ liệu thật: 129 / 2000 ảnh **negative** có nhiễu màu JPEG (lệch kênh ≤ 3.1 mức xám), **0 / 400 positive**
+  -> "có chút màu" gắn với nhãn negative (và ảnh sinh positive có kênh bằng nhau) = shortcut tiềm ẩn.
+- `data.force_grayscale` (Brain Tumor: `true`): chuyển về luminance rồi lưu 3 kênh BẰNG NHAU cho cả ảnh thật
+  (tiền xử lý) lẫn ảnh sinh (`_sample_worker`). 2271 / 2400 ảnh không đổi giá trị. Pool có hậu tố `_gray`.
+- `preprocess` tự xử lý lại ảnh cũ còn lệch kênh. Ngưỡng nhận diện ảnh xám (`auto`) nới lên 5 mức xám (nhiễu JPEG).
+
 ## 1.0.1
 - Brain Tumor: `data.channels: 3` (như notebook v1 và GAN `checkpoints_bt` đã train trên ảnh 3 kênh); ảnh xám gốc
   được lưu thành 3 kênh bằng nhau. Chế độ 1 kênh vẫn có cho bộ dữ liệu khác (`channels: 1` / `auto`).
