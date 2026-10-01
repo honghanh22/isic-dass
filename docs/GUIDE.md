@@ -275,8 +275,10 @@ Như vậy mọi biến thể đều được huấn luyện với tỉ lệ l�
 | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny | CNN | `keras.applications` | pooling trung bình → Dropout 0,3 → Dense(1, sigmoid) |
 | ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
-**Augmentation** (chỉ áp dụng cho tập train): lật ngang và dọc, xoay ngẫu nhiên tới ±180° (biên phản chiếu), zoom
-±10 %, độ sáng ±10 %, tương phản ±10 %.
+**Augmentation** (chỉ áp dụng cho tập train, **giống hệt nhau cho mọi biến thể, kể cả M0**): lật ngang và dọc, xoay
+ngẫu nhiên tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %. Augmentation được áp dụng
+trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng số ảnh và không đổi tỉ lệ lớp. Vì vậy M0 là baseline
+"ảnh thật + augmentation chuẩn + class weight", và tác dụng của ảnh sinh được đo **trên nền** augmentation.
 
 **Huấn luyện 2 giai đoạn** (loss binary cross-entropy, ảnh 224 × 224, batch 16):
 1. Đóng băng backbone, train lớp đầu ra **5 epoch** (AdamW, lr 1e-3).
