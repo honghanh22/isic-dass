@@ -24,7 +24,7 @@ dependencies = [
 # Colab đã cài sẵn torch và tensorflow; KHÔNG cài lại để tránh lệch phiên bản CUDA.
 gan = ["torch", "ninja", "click", "requests", "psutil"]
 tf = ["tensorflow>=2.16", "keras-hub"]
-dev = ["pytest>=8", "ruff"]
+dev = ["pytest>=8", "ruff", "dulwich"]
 
 [project.scripts]
 dass = "dass.cli:main"

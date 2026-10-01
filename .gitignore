@@ -14,10 +14,11 @@ venv/
 .vscode/
 .idea/
 
-# Dữ liệu & artefact (nằm trên Google Drive, không đưa vào git)
-data/
-local_data/
-outputs/
+# Dữ liệu & artefact (nằm trên Google Drive, không đưa vào git).
+# Dấu "/" ở đầu = CHỈ thư mục ở gốc repo — "data/" không có "/" sẽ chặn nhầm cả src/dass/data/.
+/data/
+/local_data/
+/outputs/
 *.pkl
 *.h5
 *.npz
