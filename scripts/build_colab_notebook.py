@@ -41,24 +41,25 @@ drive.mount("/content/drive")
 code("""
 import os
 
-# Nguồn mã — một trong ba cách:
-# (a) VS Code + extension Colab: chọn src/, configs/, pyproject.toml, README.md -> chuột phải -> "Upload to Colab"
-#     (file nằm ở /content, tự nhận diện).
-# (b) Clone từ GitHub: điền REPO_URL.
-# (c) Thư mục dự án trên Google Drive: PROJECT_ON_DRIVE.
-REPO_URL = ""   # ví dụ "https://github.com/<user>/dass.git"
+# Nguồn mã — ưu tiên theo thứ tự:
+# (a) GitHub (mặc định): mỗi lần chạy cell này tự clone / cập nhật bản mới nhất -> KHÔNG cần upload tay,
+#     kể cả khi Colab cấp máy mới.
+# (b) REPO_URL = "": dùng bản đã "Upload to Colab" từ VS Code (src/, configs/, pyproject.toml ở /content).
+# (c) Không có cả hai: thư mục dự án trên Google Drive (PROJECT_ON_DRIVE).
+REPO_URL = "https://github.com/honghanh22/isic-dass.git"
 PROJECT_ON_DRIVE = "/content/drive/MyDrive/dass"
 
-if os.path.exists("/content/pyproject.toml"):                       # (a)
+if REPO_URL:                                                         # (a)
+    PROJECT_DIR = "/content/dass-repo"
+    if os.path.isdir(f"{PROJECT_DIR}/.git"):
+        !git -C {PROJECT_DIR} pull -q --ff-only
+    else:
+        !git clone -q {REPO_URL} {PROJECT_DIR}
+    !git -C {PROJECT_DIR} log -1 --format="Phiên bản code: %h — %s (%cr)"
+elif os.path.exists("/content/pyproject.toml"):                     # (b)
     PROJECT_DIR = "/content"
     if os.path.isdir("/content/dass"):        # lỡ upload src/dass thay vì src/ -> đưa về đúng chỗ
         !mkdir -p /content/src/dass && rsync -a /content/dass/ /content/src/dass/ && rm -rf /content/dass
-elif REPO_URL:                                                       # (b)
-    PROJECT_DIR = "/content/dass-repo"
-    if os.path.isdir(PROJECT_DIR):
-        !git -C {PROJECT_DIR} pull -q
-    else:
-        !git clone -q {REPO_URL} {PROJECT_DIR}
 else:                                                                # (c)
     PROJECT_DIR = "/content/dass-repo"
     !rsync -a --delete --exclude .git "{PROJECT_ON_DRIVE}/" {PROJECT_DIR}/

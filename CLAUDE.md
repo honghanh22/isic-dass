@@ -64,5 +64,5 @@ Các tên sau giữ nguyên (`tests/regression/test_artifact_paths.py`):
 ## Vòng làm việc với người dùng (VS Code + extension Colab)
 
 - Người dùng chạy cell trong `notebooks/colab_pipeline.ipynb` (kernel là Colab) rồi lưu bằng Ctrl+S. **Đọc output trực tiếp từ file `.ipynb`**, không bắt người dùng copy log.
-- Sửa code trong `src/` và config trong `configs/`, rồi chạy `pytest`. Sau đó **nhắc người dùng upload lại** thư mục vừa sửa (chuột phải → Upload to Colab) và chạy lại đúng cell đó.
+- Notebook lấy code từ GitHub (`REPO_URL` trong cell lấy mã nguồn; repo public `honghanh22/isic-dass`). Sau khi sửa `src/` hoặc `configs/` và chạy `pytest`, **phải commit và push** thì Colab mới thấy thay đổi. Máy người dùng không có Git: dùng `dulwich` (đã cài qua pip) với credential `git:https://github.com` trong Windows Credential Manager, và không bao giờ in token ra. Sau đó nhắc người dùng chạy lại cell lấy mã nguồn (`git pull`) rồi chạy lại cell cần chạy.
 - Không đưa logic vào notebook. Muốn sửa notebook thì sửa `scripts/build_colab_notebook.py` rồi chạy lại script.
