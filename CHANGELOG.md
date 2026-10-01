@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — k = 3 cho cả hai bộ dữ liệu
+- `selection.pool_mult` (k) = **3** (trước: 4), chung cho ISIC và Brain Tumor; DASS giữ 1/3 pool
+  (ISIC 1.410, Brain Tumor 3.360 ứng viên).
+- ISIC chuyển sang `run_tag: v8` để không lẫn với kết quả k = 4 cũ của notebook v5 (`checkpoints_v7`, `results_v7`
+  giữ nguyên). Brain Tumor giữ `bt_v3` (chưa có lần chạy thật nào).
+- Bỏ các profile ablation theo k (`configs/experiments/ablation/`) — không chạy ablation. `encoder.e_d_from_run`
+  vẫn giữ cho các ablation sau này.
+
 ## 1.1.0 — k thống nhất giữa hai bộ dữ liệu, dùng chung E_d cho ablation
 - k (`pool_mult`) = 4 cho cả ISIC và Brain Tumor (chọn trước, theo CosSIF ≈ 3.6); test chặn việc ghi đè tham số
   chọn ảnh trong `configs/datasets/`.

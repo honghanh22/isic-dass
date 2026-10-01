@@ -91,9 +91,8 @@ Mỗi bước là một lệnh `dass …`, chạy độc lập, lưu kết quả
   ISIC: `checkpoints_v5`. Lệnh `gan` chỉ báo cáo (đường KID, ảnh mẫu), không train lại.
 
 ### Bước 3 — `sample`: sinh candidate pool
-- Sinh `k × n_select` ảnh lớp thiểu số, với **k = `pool_mult` = 4 cho cả hai bộ dữ liệu** (ISIC 1.880, Brain Tumor
-  4.480 ảnh) → DASS giữ 25 %. k được chọn **trước** khi xem kết quả, theo CosSIF (2.000 ứng viên cho 554 ảnh ≈ 3,6);
-  độ nhạy theo k ∈ {2, 3, 8} là ablation riêng (mục 6).
+- Sinh `k × n_select` ảnh lớp thiểu số, với **k = `pool_mult` = 3 cho cả hai bộ dữ liệu** (ISIC 1.410, Brain Tumor
+  3.360 ảnh) → DASS giữ 1/3 pool. k được cố định **trước** khi chạy thực nghiệm chính, không chọn theo kết quả test.
 - `truncation ψ = 1` (không cắt bớt đa dạng), seed cố định → pool tái lập được, nén zip lên Drive.
 - Brain Tumor: ảnh sinh đi qua đúng phép chuyển xám như ảnh thật (`force_gray=1`).
 
@@ -212,13 +211,8 @@ EXTRA = ""                                                  # ablation, ví dụ
 
 - **Chạy thử (smoke):** 1 epoch, 1 seed, pool nhỏ, ghi vào thư mục `*_smoke` — để kiểm tra mọi bước chạy thông.
 - **Chạy thật:** `PROFILE = ""`. Bước `train` mất nhiều giờ; có thể dừng giữa các ô và chạy tiếp hôm sau.
-- **Ablation:** luôn kèm `--tag <tên>` để kết quả nằm ở thư mục riêng.
-- **Độ nhạy theo k** (chạy sau khi lần chạy chính đã qua bước `select`): cùng một file cấu hình cho cả hai bộ dữ liệu
-  — chỉ k thay đổi; GAN, split và **E_d dùng lại của lần chạy chính**; một backbone (EfficientNetV2B0) × 3 seed:
-  ```python
-  EXTRA = "-c configs/experiments/ablation/k3.yaml --tag k3"     # tương tự k2, k8
-  ```
-  rồi chạy `!dass {CFG} run --from prepare --to report` → kết quả ở `results_bt_v3_k3` / `results_v7_k3`.
+- **Ablation (nếu cần sau này):** luôn kèm `--tag <tên>` để kết quả nằm ở thư mục riêng; có thể dùng lại E_d của lần
+  chạy chính bằng `--set encoder.e_d_from_run=base`.
 
 ### Hoặc bằng lệnh (CLI)
 ```bash
@@ -234,8 +228,9 @@ Google Drive, trong thư mục của từng bộ dữ liệu (không bao giờ b
 | | Brain Tumor (`…/BrainTumor_GAN/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
 | GAN | `checkpoints_bt/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Dữ liệu, pool, lựa chọn, E_d | `checkpoints_bt_v3/` | `checkpoints_v7/` |
-| Dự đoán, số liệu, **bảng**, hình | `results_bt_v3/` (`tables/`) | `results_v7/` (`tables/`) |
+| Dữ liệu, pool, lựa chọn, E_d | `checkpoints_bt_v3/` | `checkpoints_v8/` |
+| Dự đoán, số liệu, **bảng**, hình | `results_bt_v3/` (`tables/`) | `results_v8/` (`tables/`) |
+| Kết quả cũ (k = 4, notebook gốc) — giữ nguyên | `results_bt/` | `results_v7/`, `checkpoints_v7/` |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
 
 ---
@@ -272,10 +267,9 @@ Google Drive, trong thư mục của từng bộ dữ liệu (không bao giờ b
 |---|---|---|---|
 | GAN | cfg / batch / γ (R1) / ADA target | paper256 / 16 / 1.0 / 0.6 | `configs/_base_/generator.yaml` |
 | GAN | max / min kimg, patience, Δ tối thiểu | 3000 / 400, 5 snapshot, 2 % | |
-| Pool | k = `pool_mult` (chung 2 bộ dữ liệu), ψ | 4, 1.0 | `configs/_base_/selection.yaml` |
+| Pool | k = `pool_mult` (chung 2 bộ dữ liệu), ψ | 3, 1.0 | `configs/_base_/selection.yaml` |
 | DASS | K, λ_v, λ_d, α, β, γ | 5, 1, 1, 1, 1, 0.5 | |
 | E_d | backbone, seed, epoch | DenseNet121, 4242, 5 + 20 | |
-| Ablation k | k ∈ {2, 3, 8}, E_d dùng lại, 1 backbone | `--tag k<k>` | `configs/experiments/ablation/` |
 | Classifier | backbone | 6 (CNN + Transformer) | `configs/_base_/classifier.yaml` |
 | Classifier | ảnh, batch, epoch, lr, early stop | 224, 16, 5 + 30, 1e-3 / 1e-5, 8 | |
 | Classifier | seed, chọn epoch | 2026 / 2027 / 2028, `val_macro_recall` | |

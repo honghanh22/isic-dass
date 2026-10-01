@@ -115,7 +115,7 @@ class AnalysisConfig:
 
 @dataclass
 class SelectionConfig:
-    pool_mult: float = 4.0           # pool = pool_mult × số ảnh cần chọn
+    pool_mult: float = 3.0           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
     sim_topk: int = 5                # S⁺, S⁻ = trung bình cosine với TOP-K ảnh thật gần nhất
     lambda_v: float = 1.0
     lambda_d: float = 1.0

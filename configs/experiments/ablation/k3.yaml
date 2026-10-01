@@ -1,4 +1,0 @@
-# Độ nhạy theo k = 3 — xem hướng dẫn trong k2.yaml (kèm --tag k3).
-_base_: _common.yaml
-selection:
-  pool_mult: 3.0

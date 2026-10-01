@@ -50,7 +50,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_macro_recall`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải tái lập **đúng** split của notebook ISIC v5 và Brain Tumor v1 (GAN cũ được train trên đó). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
 - Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`. M7 là tuỳ chọn, mặc định tắt.
-- **k (`pool_mult`) = 4 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). Độ nhạy theo k dùng `configs/experiments/ablation/k*.yaml` kèm `--tag`; E_d được dùng lại của lần chạy chính (`encoder.e_d_from_run: base`) để khác biệt chỉ đến từ k. Không chọn k theo kết quả test.
+- **k (`pool_mult`) = 3 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). Người dùng đã quyết định không chạy ablation theo k. Không chọn k theo kết quả test. Kết quả k = 4 cũ nằm ở ISIC `v7` (notebook v5) và được giữ nguyên; kết quả k = 3 ghi vào ISIC `v8` và Brain Tumor `bt_v3`. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 
 ## Tương thích artefact trên Drive

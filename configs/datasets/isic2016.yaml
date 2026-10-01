@@ -2,7 +2,7 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
   gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
-  run_tag: v7            # checkpoints_v7/, results_v7/ (tương thích notebook v5)
+  run_tag: v8            # k = 3 -> checkpoints_v8/, results_v8/. (v7 = kết quả cũ của notebook v5 với k = 4, giữ nguyên)
 
 data:
   name: isic2016

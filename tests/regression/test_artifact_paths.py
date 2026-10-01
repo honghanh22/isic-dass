@@ -1,5 +1,5 @@
-"""Đường dẫn artefact trên Drive phải giữ nguyên để dùng lại GAN và kết quả cũ (ISIC: checkpoints_v5 / v7;
-Brain Tumor: checkpoints_bt + split tham chiếu real_split.json)."""
+"""Đường dẫn artefact trên Drive: dùng lại GAN cũ (ISIC: checkpoints_v5; Brain Tumor: checkpoints_bt + split tham chiếu
+real_split.json), còn kết quả k = 3 ghi vào thư mục MỚI (ISIC v8, Brain bt_v3) — không đụng kết quả k = 4 cũ (v7)."""
 
 from pathlib import Path
 
@@ -19,10 +19,11 @@ def test_isic_artifact_paths():
     lay = _layout("isic2016_dass.yaml")
     assert lay.gan_best_pkl == ISIC_ROOT / "checkpoints_v5/stylegan2ada/best.pkl"
     assert lay.gan_state_json == ISIC_ROOT / "checkpoints_v5/stylegan2ada/gan_state.json"
-    assert lay.split_json == ISIC_ROOT / "checkpoints_v7/data/real_val_split.json"
-    assert lay.selections_json == ISIC_ROOT / "checkpoints_v7/data/selections.json"
-    assert lay.pred_dir == ISIC_ROOT / "results_v7/predictions"
-    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v7/classifiers"
+    assert lay.split_json == ISIC_ROOT / "checkpoints_v8/data/real_val_split.json"
+    assert lay.selections_json == ISIC_ROOT / "checkpoints_v8/data/selections.json"
+    assert lay.pred_dir == ISIC_ROOT / "results_v8/predictions"
+    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v8/classifiers"
+    assert "v7" not in str(lay.results_dir)                       # không ghi vào kết quả k = 4 cũ
     assert lay.drive_train_images == ISIC_ROOT / "ISBI2016_ISIC_Part3_Training_Data"
     assert lay.drive_test_labels == ISIC_ROOT / "ISBI2016_ISIC_Part3_Test_GroundTruth.csv"
     assert lay.expected_split is None
