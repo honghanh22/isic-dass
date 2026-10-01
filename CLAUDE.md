@@ -8,6 +8,7 @@ Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + ch�
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
+- [docs/GUIDE.md](docs/GUIDE.md): tổng quan cho người mới, gồm bài toán, phương pháp, từng bước và cách chạy. Cập nhật file này khi công thức, tham số hoặc quy trình thay đổi.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): kiến trúc các tầng.
 - [docs/WORKFLOW.md](docs/WORKFLOW.md): cách làm việc hằng ngày.
 - [docs/RESULTS_FORMAT.md](docs/RESULTS_FORMAT.md): định dạng kết quả.

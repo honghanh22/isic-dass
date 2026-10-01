@@ -50,7 +50,8 @@ src/dass/
 notebooks/           colab_pipeline.ipynb (calls the CLI only); archive/ (original notebooks, reference)
 scripts/             build_colab_notebook.py
 tests/               unit/ and regression/ (split reproduction, artefact paths, channel preservation)
-docs/                ARCHITECTURE.md, WORKFLOW.md, RESULTS_FORMAT.md (Vietnamese)
+docs/                GUIDE.md (problem, method, steps, how to run), ARCHITECTURE.md, WORKFLOW.md,
+                     RESULTS_FORMAT.md (Vietnamese)
 ```
 
 ## Installation
