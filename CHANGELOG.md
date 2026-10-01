@@ -1,5 +1,11 @@
 # Changelog
 
+## Chưa phát hành
+- `docs/GUIDE.md` viết lại theo cấu trúc bài báo: phát biểu hình thức, câu hỏi nghiên cứu / giả thuyết, thiết kế
+  thực nghiệm, phân tích thống kê, các mối đe doạ đến tính hợp lệ, checklist kiểm tra, quy tắc báo cáo. Sửa ba điểm
+  sai so với code: E_d có dùng val để chọn epoch; M1–M6 train không có class weight (chỉ M0); `results_bt` là kết quả
+  công thức cũ của notebook v1 (không phải k = 4).
+
 ## 1.2.0 — k = 3 cho cả hai bộ dữ liệu
 - `selection.pool_mult` (k) = **3** (trước: 4), chung cho ISIC và Brain Tumor; DASS giữ 1/3 pool
   (ISIC 1.410, Brain Tumor 3.360 ứng viên).
