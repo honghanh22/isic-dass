@@ -1,0 +1,26 @@
+# Chạy thử nhanh toàn pipeline (vài phút / stage) để kiểm tra code, KHÔNG dùng cho kết quả báo cáo.
+# Ghi vào thư mục riêng (*_smoke) để không đụng artefact thật. GAN vẫn dùng lại checkpoint v5.
+#   isic-dass --config configs/smoke.yaml <stage>
+
+paths:
+  run_tag: smoke
+
+selection:
+  pool_mult: 1.2
+
+frequency:
+  fingerprint_n_max: 64
+  fingerprint_epochs: 2
+
+encoder:
+  e_d_head_epochs: 1
+  e_d_ft_epochs: 1
+
+classifier:
+  head_epochs: 1
+  ft_epochs: 1
+  seeds: [2026]
+
+evaluation:
+  n_bootstrap: 100
+  ssim_pairs: 20

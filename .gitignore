@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Công cụ
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+.vscode/
+.idea/
+
+# Dữ liệu & artefact (nằm trên Google Drive, không đưa vào git)
+data/
+local_data/
+outputs/
+*.pkl
+*.h5
+*.npz
+*.zip
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini

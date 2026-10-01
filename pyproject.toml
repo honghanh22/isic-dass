@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isic-dass"
+version = "0.5.0"
+description = "Conditional StyleGAN2-ADA + DASS synthetic-sample selection for class imbalance on ISIC 2016"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "scikit-learn",
+    "scikit-image",
+    "pillow",
+    "matplotlib",
+    "tqdm",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+# Colab đã cài sẵn torch và tensorflow; KHÔNG cài lại để tránh lệch phiên bản CUDA.
+gan = ["torch", "ninja", "click", "requests", "psutil"]
+tf = ["tensorflow>=2.16", "keras-hub"]
+dev = ["pytest>=8", "ruff"]
+
+[project.scripts]
+isic-dass = "isic_dass.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+isic_dass = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501", "B905"]

@@ -1,0 +1,75 @@
+# Cấu hình mặc định — khớp với notebook v5/v7 (dùng lại GAN ở checkpoints_v5, kết quả ghi vào *_v7).
+# Mọi khoá có thể ghi đè từ dòng lệnh:  isic-dass --set gan.batch=32 --set classifier.monitor=val_auc ...
+
+seed: 2026
+save_figures: true
+
+paths:
+  drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
+  local_root: /content/local_data
+  external_root: /content
+  gan_tag: v5
+  run_tag: v7
+
+data:
+  img_size: 256
+  class_to_idx: {benign: 0, malignant: 1}
+  val_fraction: 0.15
+
+gan:
+  cfg: paper256
+  batch: 16
+  gamma: 1.0
+  mirror: true
+  aug_target: 0.6
+  max_kimg: 3000
+  kimg_per_snap: 100
+  min_kimg: 400
+  patience: 5
+  min_rel_delta: 0.02
+  kid_n_gen: 1000
+  kid_subsets: 50
+  kid_seed: 123
+  gen_seed: 777
+  trunc_psi: 1.0
+  workers: 2
+
+frequency:
+  harmonize_channels: auto
+  match_resize_chain: false
+  apply_spectral_mitigation: false
+  mitigation_mode: sdn+pdc
+  fingerprint_n_max: 400
+  fingerprint_epochs: 15
+
+selection:
+  pool_mult: 4.0
+  sim_topk: 5
+  lambda_v: 1.0
+  lambda_d: 1.0
+  alpha: 1.0
+  beta: 1.0
+  gamma: 0.5
+
+encoder:
+  e_d_model: DenseNet121
+  e_d_seed: 4242
+  e_d_head_epochs: 5
+  e_d_ft_epochs: 20
+
+classifier:
+  size: 224
+  batch_size: 16
+  head_epochs: 5
+  head_lr: 0.001
+  ft_epochs: 30
+  ft_lr: 0.00001
+  early_stop_patience: 8
+  seeds: [2026, 2027, 2028]
+  monitor: val_macro_recall
+  mixed_precision: false
+  save_weights_to_drive: true
+
+evaluation:
+  n_bootstrap: 2000
+  baseline_method: M0_real_only
