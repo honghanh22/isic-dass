@@ -50,8 +50,9 @@ prepare   nguồn ─► raw/ ─► pp{size}_png/ ─► split (+ test tách ra
 gan       pp train ─► zip ─► StyleGAN2-ADA (KID early stopping) ─► best.pkl
 sample    best.pkl ─► pool_<lớp>_<tag>.zip (Drive)
 select    E_v, E_d ─► M_v, M_d ─► M0–M6 ─► selections.json, embeddings.npz, shortcut_check
-train     variants/<M>_p<k>/{train,val} ─► <model>__<variant>__s<seed>.npz (dự đoán val + test)
-evaluate  .npz ─► metrics/classification_*; Inception-v3 ─► metrics/generation_quality
+train     selections.json (+ M0b: ảnh thật nhân bản lên 1 : 1, ghép tại đây) ─► variants/<M>_p<k>/{train,val}
+          ─► <model>__<variant>__s<seed>.npz (dự đoán val + test)
+evaluate  .npz ─► metrics/classification_*, significance (vs M0 + cặp bổ sung); Inception-v3 ─► generation_quality
 report    metrics/ ─► tables/*.csv | *.json | *.tex
 ```
 
@@ -64,5 +65,7 @@ report    metrics/ ─► tables/*.csv | *.json | *.tex
 | Cách chia mới (k-fold, …) | hàm trong `data/splits/` + nhánh trong `build_split` + loại trong `SPLIT_TYPES` |
 | Backbone mới | builder trong `models/classifiers/__init__.py` (`MODEL_BUILDERS`) |
 | Biến thể chọn ảnh mới | `selection/strategies.py` (`METHODS`, `select_all_methods`) + test |
+| Baseline không dùng pool (như M0b) | hằng tên trong `selection/strategies.py` + ghép tập train trong `pipeline/stages/train.py` (`extra_real` của `prepare_variants`) + tuỳ chọn trong `selection.*` |
+| Phép kiểm định bổ sung | thêm cặp `[phương pháp, đối chứng]` vào `evaluation.comparisons` (không cần train lại) |
 | Tham số mới | dataclass trong `config/schema.py` **và** `configs/_base_/*.yaml` (test đối chiếu hai nơi) |
 | Stage mới | `pipeline/stages/<tên>.py` + lệnh trong `cli.py` + cell trong `scripts/build_colab_notebook.py` |

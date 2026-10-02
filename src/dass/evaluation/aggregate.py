@@ -50,6 +50,22 @@ def _runs_of(probs: dict[RunKey, tuple], model: str, k: float, method: str,
             if m == model and me == method and kk == k and (lam is None or lm == lam)}
 
 
+def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple], ref_name: str,
+             ref: dict[int, tuple], n_boot: int, seed: int) -> dict | None:
+    """Paired bootstrap ΔAUC = AUC(method) − AUC(ref) trên xác suất trung bình qua các seed chung (ensemble)."""
+    common = sorted(set(ref) & set(cur))
+    if not common:
+        return None
+    y = ref[common[0]][0]
+    if not all(np.array_equal(y, cur[s][0]) and np.array_equal(y, ref[s][0]) for s in common):
+        raise ValueError(f"Thứ tự nhãn test không khớp: {model}/{method} vs {ref_name}")
+    p_ref = np.mean([ref[s][1] for s in common], axis=0)
+    p_cur = np.mean([cur[s][1] for s in common], axis=0)
+    obs, lo, hi, pv = paired_bootstrap_auc(y, p_cur, p_ref, n_boot, seed)
+    return {"model": model, "k": k, "method": method, "lam": lam, "vs": ref_name, "n_seeds": len(common),
+            "delta_auc": obs, "ci95_low": lo, "ci95_high": hi, "p_value": pv}
+
+
 def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, seed: int) -> pd.DataFrame:
     """ΔAUC của từng (phương pháp, lambda) so với baseline, dùng xác suất trung bình qua các seed chung."""
     rows = []
@@ -59,16 +75,25 @@ def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, 
             continue
         combos = sorted({(me, lm) for m, me, lm, kk, _ in probs if m == model and kk == k and me != baseline})
         for method, lam in combos:
-            cur = _runs_of(probs, model, k, method, lam)
-            common = sorted(set(base) & set(cur))
-            if not common:
-                continue
-            y = base[common[0]][0]
-            if not all(np.array_equal(y, cur[s][0]) for s in common):
-                raise ValueError(f"Thứ tự nhãn test không khớp: {model}/{method}")
-            p_b = np.mean([base[s][1] for s in common], axis=0)
-            p_a = np.mean([cur[s][1] for s in common], axis=0)
-            obs, lo, hi, pv = paired_bootstrap_auc(y, p_a, p_b, n_boot, seed)
-            rows.append({"model": model, "k": k, "method": method, "lam": lam, "vs": baseline,
-                         "n_seeds": len(common), "delta_auc": obs, "ci95_low": lo, "ci95_high": hi, "p_value": pv})
+            row = _compare(model, k, method, lam, _runs_of(probs, model, k, method, lam), baseline, base, n_boot,
+                           seed)
+            if row:
+                rows.append(row)
+    return pd.DataFrame(rows)
+
+
+def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: int, seed: int) -> pd.DataFrame:
+    """ΔAUC cho từng cặp [phương pháp, đối chứng] (ví dụ M6 vs M0b, M6 vs M1), trong mỗi (model, k).
+
+    Cặp nào thiếu dự đoán của một trong hai phía (chưa train) thì bỏ qua.
+    """
+    rows = []
+    for model, k in sorted({(m, kk) for m, _, _, kk, _ in probs}):
+        for method, ref_name in pairs:
+            ref = _runs_of(probs, model, k, ref_name)
+            for lam in sorted({lm for m, me, lm, kk, _ in probs if m == model and kk == k and me == method}):
+                row = _compare(model, k, method, lam, _runs_of(probs, model, k, method, lam), ref_name, ref,
+                               n_boot, seed)
+                if row:
+                    rows.append(row)
     return pd.DataFrame(rows)

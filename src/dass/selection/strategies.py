@@ -9,6 +9,7 @@ vì giá trị của nó thay đổi khi tập đã chọn lớn dần.
 | ID | Điểm nền                 | Đa dạng          |
 |----|--------------------------|------------------|
 | M0 | — (chỉ ảnh thật + class weight) | —         |
+| M0b | — (ảnh thật lớp thiểu số nhân bản lên 1 : 1, không class weight; ghép ở bước train) | — |
 | M1 | ngẫu nhiên               | —                |
 | M2 | M̃_v                      | —                |
 | M3 | M̃_d                      | —                |
@@ -16,6 +17,11 @@ vì giá trị của nó thay đổi khi tập đã chọn lớn dần.
 | M5 | 0                        | có (γ = 1)       |
 | M6 | α·M̃_v + β·M̃_d            | có (γ = gamma)   |
 | M7 | như M6 + `n_select` ảnh sinh vào lớp ĐA SỐ, có class weight (tuỳ chọn `both_classes_variant`) |
+
+M0b (random oversampling, Buda et al. 2018): cùng số ảnh, cùng số bước train và cùng cách cân bằng (bằng dữ liệu)
+với M1–M6, chỉ khác ở chỗ ảnh thêm vào là ảnh THẬT nhắc lại -> M6 vs M0b đo đúng đóng góp của NỘI DUNG ảnh sinh.
+M0b không chọn gì từ pool nên không nằm trong `selections.json`; tập train được ghép ở bước train
+(`data.variants.oversample_indices`).
 
 M7 (từ pipeline Brain Tumor): nếu ảnh sinh chỉ có ở lớp thiểu số thì "trông giống ảnh GAN" trở thành manh mối
 của nhãn (shortcut). Thêm ảnh sinh vào cả lớp đa số làm dấu vết GAN không còn gắn với một nhãn; lớp đa số to ra
@@ -30,6 +36,7 @@ import pandas as pd
 from ..utils import minmax
 
 BASELINE = "M0_real_only"
+OVERSAMPLE = "M0b_real_oversample"   # không chọn từ pool -> không thuộc METHODS / selections.json
 BOTH_CLASSES = "M7_dass_both_classes"
 METHODS = ("M0_real_only", "M1_random", "M2_visual", "M3_disease", "M4_visual_disease", "M5_diversity", "M6_dass",
            BOTH_CLASSES)

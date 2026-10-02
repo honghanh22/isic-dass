@@ -86,7 +86,8 @@ def classification_table(summary: pd.DataFrame, metrics: list[str] = KEY_METRICS
 
 
 def significance_table(cmp: pd.DataFrame) -> pd.DataFrame:
-    df = cmp.sort_values(["model", "method"]).reset_index(drop=True)
+    """Mỗi model: các phép so sánh với M0 trước, rồi các cặp bổ sung (vs M0b, vs M1)."""
+    df = cmp.sort_values(["model", "vs", "method"]).reset_index(drop=True)
     return pd.DataFrame({
         "Model": df["model"], "Method": df["method"], "vs": df["vs"], "Seeds": df["n_seeds"],
         "ΔAUC": [f"{d:+.4f}" for d in df["delta_auc"]],

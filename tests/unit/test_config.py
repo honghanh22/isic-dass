@@ -25,6 +25,19 @@ def test_experiments_load_and_validate(name):
 
 
 @pytest.mark.parametrize("name", EXPERIMENTS)
+def test_oversampling_baseline_and_extra_comparisons_enabled(name):
+    """M0b (oversampling) thuộc thực nghiệm chính; M6 được kiểm định thêm với M0b và M1."""
+    cfg = load_config([CONFIGS / "experiments" / name])
+    assert cfg.selection.oversample_variant is True
+    assert cfg.evaluation.comparisons == [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"]]
+
+
+def test_bad_comparison_rejected():
+    with pytest.raises(ValueError, match="comparisons"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["evaluation.comparisons=[[M6_dass]]"])
+
+
+@pytest.mark.parametrize("name", EXPERIMENTS)
 def test_classifier_six_backbones_three_seeds(name):
     clf = load_config([CONFIGS / "experiments" / name]).classifier
     assert clf.models == ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "ViT-B16", "SwinT"]

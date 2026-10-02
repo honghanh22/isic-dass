@@ -1,6 +1,18 @@
 # Changelog
 
-## Chưa phát hành
+## 1.3.0 — baseline oversampling M0b và kiểm định bổ sung
+- Biến thể mới **`M0b_real_oversample`**: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, Buda et al.
+  2018), không class weight, cùng augmentation. Cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6, nên
+  **M6 vs M0b** đo đúng đóng góp của nội dung ảnh sinh. Ảnh được nhân bản đều nhất có thể
+  (`data.variants.oversample_indices`, seed toàn cục): số lần xuất hiện của các ảnh chênh nhau tối đa 1.
+- M0b không chọn từ pool nên **không nằm trong `selections.json`**: tập train được ghép ở bước `train`
+  (`selection.oversample_variant`, mặc định bật). Không cần chạy lại `select`; các dự đoán `.npz` đã có được giữ nguyên,
+  chạy lại ô `train` chỉ train thêm M0b (3 seed mỗi backbone).
+- `evaluation.comparisons` (mặc định `[[M6_dass, M0b_real_oversample], [M6_dass, M1_random]]`): paired bootstrap ΔAUC
+  bổ sung, ghi chung vào `metrics/significance_vs_baseline` và bảng `tables/significance` (cột `vs` = đối chứng).
+- Ma trận thực nghiệm: 8 biến thể × 6 backbone × 3 seed = 144 lần train mỗi bộ dữ liệu.
+
+## Tài liệu (sau 1.2.0)
 - `docs/GUIDE.md` viết lại theo cấu trúc bài báo: phát biểu hình thức, câu hỏi nghiên cứu / giả thuyết, thiết kế
   thực nghiệm, phân tích thống kê, các mối đe doạ đến tính hợp lệ, checklist kiểm tra, quy tắc báo cáo. Sửa ba điểm
   sai so với code: E_d có dùng val để chọn epoch; M1–M6 train không có class weight (chỉ M0); `results_bt` là kết quả

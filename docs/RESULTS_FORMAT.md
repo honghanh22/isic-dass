@@ -8,7 +8,7 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 |---|---|---|
 | `classification_runs` | một lần chạy (model × phương pháp × seed) | `model, method, lam, k, seed, best_epoch, n_test, val_roc_auc, roc_auc, pr_auc, f1, macro_f1, sensitivity, specificity, balanced_accuracy, g_mean, mcc, precision, accuracy` |
 | `classification_summary` | (model, phương pháp) | `<metric>_mean`, `<metric>_std` (độ lệch chuẩn mẫu qua seed), `n_seeds` |
-| `significance_vs_baseline` | (model, phương pháp) so với M0 | `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung) |
+| `significance_vs_baseline` | (model, phương pháp, đối chứng): mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons` (M6 vs M0b, M6 vs M1) | `vs` (đối chứng), `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung) |
 | `generation_quality` | một tập ảnh | `set` (`reference` / `pool` / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth` |
 | `probe_auc` | không gian đặc trưng × tập | `space, subset, auc_probe` (chỉ dòng `val` là khách quan) |
 | `shortcut_check` | phương pháp | `auc_5fold` = AUC tách ảnh thật / sinh lớp thiểu số (E_v); dòng `reference` = hai lớp bệnh thật |

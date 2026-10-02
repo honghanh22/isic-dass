@@ -1,6 +1,7 @@
 """Stage `evaluate`: số liệu thô cho bài báo -> `results_<run>/metrics/`.
 
-- Phân loại (từ dự đoán .npz trên test, ngưỡng cố định): từng lần chạy, mean / std qua seed, paired bootstrap ΔAUC.
+- Phân loại (từ dự đoán .npz trên test, ngưỡng cố định): từng lần chạy, mean / std qua seed, paired bootstrap ΔAUC
+  (mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons`).
 - Sinh ảnh (Inception-v3): KID (chính, mean ± std), FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh
   cho từng tập ảnh được chọn; kèm hai hàng tham chiếu:
     * `reference / real val vs real train` — mức nền của metric (hai tập ảnh THẬT cùng lớp),
@@ -16,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from ...config import Config, Layout
-from ...evaluation.aggregate import compare_to_baseline, load_all_runs, summary_stats
+from ...evaluation.aggregate import compare_pairs, compare_to_baseline, load_all_runs, summary_stats
 from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std
 from ..context import Context, record_stage
 from ..pool import load_selections, resolve_candidate_pool
@@ -34,7 +35,9 @@ def evaluate_classification(cfg: Config, layout: Layout) -> None:
     save_metrics(layout, "classification_runs", runs)
     summary = summary_stats(runs)
     save_metrics(layout, "classification_summary", summary)
-    cmp = compare_to_baseline(probs, ev.baseline_method, ev.n_bootstrap, cfg.seed)
+    # mọi phương pháp vs baseline (M0), cộng các cặp bổ sung (M6 vs M0b, M6 vs M1) — cùng một bảng, cột `vs`
+    cmp = pd.concat([compare_to_baseline(probs, ev.baseline_method, ev.n_bootstrap, cfg.seed),
+                     compare_pairs(probs, ev.comparisons, ev.n_bootstrap, cfg.seed)], ignore_index=True)
     if len(cmp):
         save_metrics(layout, "significance_vs_baseline", cmp)
     log.info("Phân loại: %d lần chạy, %d nhóm (model × phương pháp)", len(runs), len(summary))

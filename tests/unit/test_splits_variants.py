@@ -12,7 +12,14 @@ from dass.data.splits import (
     stratified,
     validate_split,
 )
-from dass.data.variants import SYNTH_PREFIX, assemble_variant, assert_clean_eval_sets, prepare_variants
+from dass.data.variants import (
+    DUP_PREFIX,
+    SYNTH_PREFIX,
+    assemble_variant,
+    assert_clean_eval_sets,
+    oversample_indices,
+    prepare_variants,
+)
 
 CLASSES = ["benign", "malignant"]
 
@@ -119,4 +126,39 @@ def test_prepare_variants_class_weight_and_both_classes(image_tree, tmp_path):
                          majority_synth={"M7_dass_both_classes": maj})
     assert v["M0_real_only_p4"].class_weight and not v["M6_dass_p4"].class_weight
     assert len(list((v["M7_dass_both_classes_p4"].dir / "train" / "benign").glob(f"{SYNTH_PREFIX}*"))) == 3
+    assert_clean_eval_sets(v, image_tree, CLASSES)
+
+
+@pytest.mark.parametrize("n_real,n_extra", [(281, 1120), (148, 470), (5, 3), (4, 8), (3, 0)])
+def test_oversample_indices_balanced_and_deterministic(n_real, n_extra):
+    idx = oversample_indices(n_real, n_extra, seed=2026)
+    assert len(idx) == n_extra and idx == oversample_indices(n_real, n_extra, seed=2026)
+    if n_extra:
+        counts = [idx.count(i) for i in range(n_real)]
+        assert max(counts) - min(counts) <= 1          # mọi ảnh thật được nhắc lại gần như đều nhau
+    if n_extra % n_real:
+        assert idx != oversample_indices(n_real, n_extra, seed=1)
+
+
+def test_oversample_needs_real_images():
+    with pytest.raises(ValueError):
+        oversample_indices(0, 5, seed=0)
+
+
+def test_oversample_variant_reaches_one_to_one_with_real_copies(image_tree, tmp_path):
+    """M0b: lớp thiểu số = ảnh thật + bản sao ảnh thật, đúng bằng lớp đa số; không ảnh sinh, không class weight."""
+    split = holdout_val(image_tree, CLASSES, 0.25, seed=7)
+    budget = compute_budget(split, pool_mult=3.0)
+    real = [str(image_tree / budget.minority / f) for f in split[budget.minority]["train"]]
+    dupes = [real[i] for i in oversample_indices(len(real), budget.n_select, seed=7)]
+    v = prepare_variants(tmp_path / "v", image_tree, split, budget.minority,
+                         {"M0_real_only": [], "M0b_real_oversample": []}, 3.0, "v1_d1",
+                         class_weight_methods={"M0_real_only"}, extra_real={"M0b_real_oversample": dupes})
+    m0b = v["M0b_real_oversample_p3"]
+    train_min = list((m0b.dir / "train" / budget.minority).iterdir())
+    assert len(train_min) == len(split[budget.majority]["train"])                 # 1 : 1
+    assert len([p for p in train_min if p.name.startswith(DUP_PREFIX)]) == budget.n_select
+    assert not [p for p in train_min if p.name.startswith(SYNTH_PREFIX)]
+    assert not m0b.class_weight and v["M0_real_only_p3"].class_weight
+    assert len(list((v["M0_real_only_p3"].dir / "train" / budget.minority).iterdir())) == len(real)
     assert_clean_eval_sets(v, image_tree, CLASSES)

@@ -6,7 +6,7 @@ import pytest
 from PIL import Image
 
 from dass.evaluation import reporting
-from dass.evaluation.aggregate import compare_to_baseline, load_all_runs, summary_stats
+from dass.evaluation.aggregate import compare_pairs, compare_to_baseline, load_all_runs, summary_stats
 from dass.evaluation.classification import binary_metrics
 from dass.evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_from_features, kid_with_std
 from dass.evaluation.statistics import paired_bootstrap_auc
@@ -85,6 +85,20 @@ def test_aggregate_roundtrip(runs_dir):
     assert set(summary["n_seeds"]) == {2} and {"roc_auc_mean", "roc_auc_std", "f1_mean"} <= set(summary.columns)
     cmp = compare_to_baseline(probs, "M0_real_only", n_boot=100, seed=0)
     assert list(cmp["method"]) == ["M6_dass"] and cmp["delta_auc"].iloc[0] > 0
+
+
+def test_compare_pairs_extra_references(runs_dir, rng):
+    y = np.r_[np.ones(20), np.zeros(30)].astype(int)
+    for seed in [1, 2]:                                   # M0b: chỉ là nhiễu -> M6 phải hơn
+        _save_run(runs_dir / f"R__M0b__s{seed}.npz", "ResNet50", "M0b_real_oversample", seed, y, rng.random(50),
+                  lam="v1_d1")
+    _, probs = load_all_runs(runs_dir)
+    cmp = compare_pairs(probs, [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"]], n_boot=100, seed=0)
+    assert list(cmp["vs"]) == ["M0b_real_oversample"]   # chưa có M1 -> cặp đó bị bỏ qua, không lỗi
+    assert cmp["method"].iloc[0] == "M6_dass" and cmp["delta_auc"].iloc[0] > 0 and cmp["n_seeds"].iloc[0] == 2
+    both = pd.concat([compare_to_baseline(probs, "M0_real_only", 100, 0), cmp], ignore_index=True)
+    table = reporting.significance_table(both)
+    assert list(table["vs"]) == ["M0_real_only", "M0_real_only", "M0b_real_oversample"]
 
 
 def test_reporting_writes_csv_json_tex(runs_dir, tmp_path):

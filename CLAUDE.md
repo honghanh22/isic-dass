@@ -49,7 +49,10 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_macro_recall`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải tái lập **đúng** split của notebook ISIC v5 và Brain Tumor v1 (GAN cũ được train trên đó). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
-- Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`. M7 là tuỳ chọn, mặc định tắt.
+- Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
+  (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
+  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Không đổi tên các biến thể đã có (tên nằm trong `.npz` trên
+  Drive). Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b, M6 vs M1).
 - **k (`pool_mult`) = 3 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). Người dùng đã quyết định không chạy ablation theo k. Không chọn k theo kết quả test. Kết quả k = 4 cũ nằm ở ISIC `v7` (notebook v5) và được giữ nguyên; kết quả k = 3 ghi vào ISIC `v8` và Brain Tumor `bt_v3`. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 

@@ -154,8 +154,8 @@ show("selection_figures/grid_M6_dass_*.png")
 md("""
 ## 7. Train classifier — 6 backbone × 3 seed (`classifier.seeds`)
 
-Mỗi cell một backbone, train trên mọi biến thể M0–M6 với 3 seed; chạy lại được (lần chạy đã có dự đoán trên
-Drive sẽ bỏ qua). CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub):
+Mỗi cell một backbone, train trên mọi biến thể (M0, M0b oversampling, M1–M6) với 3 seed; chạy lại được (lần chạy
+đã có dự đoán trên Drive sẽ bỏ qua). CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub):
 `ViT-B16`, `SwinT`. Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
 
 Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):

@@ -3,7 +3,8 @@
 Official implementation <!-- TODO: tên đầy đủ của DASS và tiêu đề bài báo -->. A class-conditional **StyleGAN2-ADA** generates candidates for the minority class;
 **DASS** selects the subset that is close to real minority images, far from the majority class (in both an ImageNet
 feature space and a supervised disease-aware space) and diverse; downstream classifiers are trained on real + selected
-images and compared with six controls under a fixed, leakage-free protocol.
+images and compared with seven controls (including a random-oversampling baseline) under a fixed, leakage-free
+protocol.
 
 Benchmarks: **ISIC 2016** (dermoscopy, RGB, benign / malignant) and **Brain Tumor MRI** (grayscale,
 negative / positive). Both run on the same code and the same formulas; only `configs/datasets/*.yaml` differs.
@@ -29,6 +30,7 @@ labels only. Selection is greedy and picks exactly `n_select = |majority| − |m
 | ID | Selection criterion | Diversity |
 |---|---|---|
 | M0 | real images only (class-weighted) — baseline | – |
+| M0b | real images only, minority **randomly oversampled** to 1 : 1 (no class weights) — oversampling baseline | – |
 | M1 | random | – |
 | M2 | M̃_v | – |
 | M3 | M̃_d | – |
@@ -36,9 +38,11 @@ labels only. Selection is greedy and picks exactly `n_select = |majority| − |m
 | M5 | 0 (k-center greedy) | γ = 1 |
 | **M6** | **α·M̃_v + β·M̃_d (DASS)** | **γ** |
 
-All variants share the same online augmentation, hyper-parameters, validation / test sets and seeds; they differ only
-in the synthetic images added (and M0's class weights). Full method, experimental design and statistics:
-[docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
+All variants share the same online augmentation, hyper-parameters, validation / test sets and seeds. M0b and M1–M6
+also share the training-set size, the number of optimisation steps and the balancing mechanism (data, not loss
+weights), so **M6 vs M0b** isolates the contribution of the synthetic image *content* and **M6 vs M1** that of the
+selection. Paired bootstrap tests are reported for every variant vs M0 and for M6 vs M0b and M6 vs M1. Full method,
+experimental design and statistics: [docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
 
 ## Project structure
 
@@ -66,9 +70,9 @@ in the synthetic images added (and M0's class weights). Full method, experimenta
 configs/
 ├── _base_/                    shared hyper-parameters: ONE recipe for every dataset
 │   ├── generator.yaml         StyleGAN2-ADA (paper256, ADA target 0.6), KID early stopping, pool seed
-│   ├── selection.yaml         DASS (pool_mult k = 3, K, λ, α, β, γ) and E_d (DenseNet121, seed 4242, 5 + 20 epochs)
+│   ├── selection.yaml         DASS (pool_mult k = 3, K, λ, α, β, γ), M0b / M7 switches, E_d (DenseNet121, seed 4242)
 │   ├── classifier.yaml        6 backbones, seeds 2026–2028, two-stage training, val_macro_recall
-│   ├── evaluation.yaml        fixed threshold 0.5, baseline M0, bootstrap 2000, KID subsets
+│   ├── evaluation.yaml        fixed threshold 0.5, baseline M0 + extra comparisons, bootstrap 2000, KID subsets
 │   └── runtime.yaml           global seed, local paths, fingerprint settings
 ├── datasets/                  dataset-specific settings ONLY (paths, source, channels, preprocessing, split)
 │   ├── _template.yaml         starting point for a new dataset
@@ -109,7 +113,8 @@ src/dass/
 │   │   ├── base.py            split I/O, canonical hash, reference-split check, class budget (n_select, pool size)
 │   │   ├── stratified.py      holdout_val and stratified (optionally patient-grouped); reproduces the original notebooks
 │   │   └── from_file.py       fixed split from a CSV
-│   ├── variants.py            assembles train/val folders per variant (real + selected synthetic); asserts val/test are real
+│   ├── variants.py            assembles train/val folders per variant (real + selected synthetic, or real copies for
+│   │                          M0b); balanced oversampling indices; asserts val/test are real
 │   ├── manifest.py            dataset card (counts per split / class, channels, split hash)
 │   └── loaders.py             tf.data pipelines, online augmentation, 1 -> 3 channel replication (TensorFlow)
 │
@@ -127,7 +132,7 @@ src/dass/
 │
 ├── selection/                 SELECTION STRATEGY (numpy only)
 │   ├── scoring.py             top-K cosine margins M_v, M_d
-│   └── strategies.py          greedy DASS, controls M0–M6 (+ optional M7), Jaccard overlap
+│   └── strategies.py          greedy DASS, controls M0–M6 (+ M0b name, optional M7), Jaccard overlap
 │
 ├── engine/                    CLASSIFIER TRAINING (TensorFlow)
 │   ├── metrics.py             macro recall (epoch-selection criterion)
@@ -169,7 +174,7 @@ TensorFlow is used only in `data/loaders.py`, `models/encoders`, `engine/` and i
 | `sample` | `pipeline/pool.py`, `models/generator/sampler.py` | `best.pkl` | `checkpoints_<run>/data/pool_<class>_from<kimg>kimg_n<N>[_c1\|_gray].zip` |
 | `fingerprint` (optional) | `analysis/fingerprint.py` | pool, real train images | `results_<run>/metrics/frequency_fingerprint`, `frequency_analysis/` |
 | `select` | `models/encoders`, `selection/`, `analysis/shortcut.py` | pool, train / val images | `checkpoints_<run>/data/{selections.json, embeddings.npz}`, `classifiers/Ed_DenseNet121_s4242.weights.h5`; `metrics/{probe_auc, shortcut_check, selection_jaccard}`, `selection_figures/` |
-| `train --model X` | `data/variants.py`, `engine/trainer.py`, `models/classifiers` | selections, pool | `results_<run>/predictions/<model>__<variant>__s<seed>.npz`; `checkpoints_<run>/classifiers/*.weights.h5` |
+| `train --model X` | `data/variants.py`, `engine/trainer.py`, `models/classifiers` | selections, pool, real train images (M0b) | `results_<run>/predictions/<model>__<variant>__s<seed>.npz`; `checkpoints_<run>/classifiers/*.weights.h5` |
 | `evaluate` | `evaluation/` | predictions, pool | `results_<run>/metrics/{classification_runs, classification_summary, significance_vs_baseline, generation_quality}` |
 | `report` | `evaluation/reporting.py` | metrics | `results_<run>/tables/*.{csv,json,tex}` |
 | `run` | `cli.py` | — | every stage above, in order (`--from` / `--to` to run a range) |
@@ -288,7 +293,7 @@ per cell.
 |---|---|
 | `dataset` | images per split and class |
 | `classification` | AUC, PR-AUC, F1, sensitivity, specificity, balanced accuracy, G-mean, MCC — mean ± std over seeds |
-| `significance` | paired bootstrap ΔAUC vs. M0 with 95 % CI and p-value |
+| `significance` | paired bootstrap ΔAUC with 95 % CI and p-value: every variant vs. M0, plus M6 vs. M0b and M6 vs. M1 (column `vs`) |
 | `generation_quality` | KID (primary, mean ± std) and FID (reference) on Inception-v3, diversity, intra-set SSIM, real-vs-synthetic AUC |
 
 Raw per-run numbers are in `results_<run_tag>/metrics/`; `run_manifest.json` stores the resolved configuration,
@@ -304,7 +309,8 @@ seeds and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RE
   channels only in memory, immediately before ImageNet-pretrained networks / Inception-v3.
 - The generator checkpoint used downstream is the snapshot with the **lowest minority-class KID**.
 - Splits are deterministic (global seed) and validated against the split the reused generator was trained on.
-- Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against M0.
+- Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against M0, and for
+  M6 against M0b (oversampling) and M1 (random synthetic).
 
 ## Development
 

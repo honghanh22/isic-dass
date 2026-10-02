@@ -122,6 +122,7 @@ class SelectionConfig:
     alpha: float = 1.0
     beta: float = 1.0
     gamma: float = 0.5
+    oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
 
@@ -163,6 +164,9 @@ class ClassifierConfig:
 class EvaluationConfig:
     threshold: float = 0.5           # ngưỡng cố định — không dò trên val / test
     baseline_method: str = "M0_real_only"
+    # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
+    comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
+                                                                  ["M6_dass", "M1_random"]])
     n_bootstrap: int = 2000
     kid_subsets: int = 50
     kid_subset_size: int = 1000
@@ -201,6 +205,9 @@ def validate(cfg: Config) -> None:
             errors.append(str(e).strip("'\""))
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
+    for pair in cfg.evaluation.comparisons:
+        if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and all(isinstance(m, str) for m in pair)):
+            errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")
     if cfg.encoder.e_d_from_run == "base" and not cfg.paths.base_run_tag:
         errors.append("encoder.e_d_from_run = base dùng cho ablation: cần --tag (để tách thư mục khỏi lần chạy chính)")
     if not cfg.paths.drive_root:

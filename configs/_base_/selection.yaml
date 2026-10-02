@@ -11,6 +11,9 @@ selection:
   alpha: 1.0
   beta: 1.0
   gamma: 0.5
+  # M0b: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, không class weight) — cùng số ảnh, cùng số
+  # bước train, cùng cách cân bằng với M1–M6 -> M6 vs M0b đo đúng đóng góp của nội dung ảnh sinh
+  oversample_variant: true
   both_classes_variant: false   # M7 (ảnh sinh ở cả hai lớp) — ngoài bộ M0–M6 chuẩn
 
 encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = model riêng, train trên ảnh thật
