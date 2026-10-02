@@ -1,10 +1,13 @@
 """Sinh notebooks/colab_pipeline.ipynb — notebook chỉ GỌI CLI `dass`, không chứa logic.
 
-    python scripts/build_colab_notebook.py
-Sửa notebook bằng cách sửa file này rồi chạy lại (không sửa tay file .ipynb).
+    python scripts/build_colab_notebook.py                   # sinh lại toàn bộ (XOÁ output đang có)
+    python scripts/build_colab_notebook.py --markdown-only   # chỉ cập nhật các ô markdown, GIỮ code + output
+Sửa notebook bằng cách sửa file này rồi chạy lại (không sửa tay file .ipynb). Đóng notebook trong VS Code trước khi
+chạy, nếu không VS Code có thể ghi đè lại khi lưu.
 """
 
 import json
+import sys
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[1] / "notebooks" / "colab_pipeline.ipynb"
@@ -142,7 +145,21 @@ table("frequency_fingerprint", "metrics")
 show("frequency_analysis/*.png")
 """)
 
-md("## 6. DASS: E_v / E_d, chấm điểm, chọn ảnh cho M0–M6, kiểm tra shortcut")
+md(r"""
+## 6. Chọn ảnh sinh: E_v / E_d, chấm điểm, kiểm tra shortcut
+
+Mỗi phương pháp Generative Augmentation chọn đúng n ảnh từ cùng một pool. Log và tên file dùng **mã nội bộ**; bảng
+cho bài báo (`report`) dùng **tên hiển thị** (`evaluation.method_labels`):
+
+| Mã nội bộ | Tên trong bài báo |
+|---|---|
+| `M1_random` | Unfiltered GAN (Random Selection) |
+| `M2_visual` | Visual-only Filter ($M_v$) |
+| `M3_disease` | Disease-only Filter ($M_d$) |
+| `M5_diversity` | Diversity-only Filter ($S_{\text{div}}$) |
+| `M4_visual_disease` | Dual-Margin Filter ($M_v + M_d$) |
+| `M6_dass` | **DASS (Ours)** |
+""")
 code("""
 !dass {CFG} select
 table("probe_auc", "metrics")
@@ -152,11 +169,16 @@ show("selection_figures/grid_M6_dass_*.png")
 """)
 
 md("""
-## 7. Train classifier — 6 backbone × 3 seed (`classifier.seeds`)
+## 7. Train classifier — 6 backbone × 8 phương pháp × 3 seed
 
-Mỗi cell một backbone, train trên mọi biến thể (M0, M0b oversampling, M1–M6) với 3 seed; chạy lại được (lần chạy
-đã có dự đoán trên Drive sẽ bỏ qua). CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub):
-`ViT-B16`, `SwinT`. Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
+Mỗi cell một backbone, train cả 8 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
+trên Drive sẽ bỏ qua). Không augmentation, không class weight: các phương pháp chỉ khác nhau ở dữ liệu train.
+
+- **Real Data Baselines:** Imbalanced Baseline (`M0_real_only`), Random Oversampling (ROS) (`M0b_real_oversample`)
+- **Generative Augmentation (StyleGAN2-ADA):** 6 phương pháp ở mục 6, từ Unfiltered GAN đến **DASS (Ours)**
+
+CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub): `ViT-B16`, `SwinT`.
+Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
 
 Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 `!dass {CFG} -c configs/experiments/smoke.yaml run --from train --to train --models ConvNeXtTiny ViT-B16 SwinT`
@@ -164,7 +186,12 @@ Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 for model in ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "ViT-B16", "SwinT"]:
     code(f"!dass {{CFG}} train --model {model}")
 
-md("## 8. Đánh giá và bảng cho bài báo (`tables/*.csv`, `*.json`, `*.tex`)")
+md("""
+## 8. Đánh giá và bảng cho bài báo (`tables/*.csv`, `*.json`, `*.tex`)
+
+Bảng dùng tên hiển thị và cột `Group` (Real Data Baselines / Generative Augmentation (StyleGAN2-ADA)); kiểm định
+gồm mọi phương pháp vs Imbalanced Baseline, cộng DASS (Ours) vs ROS và DASS (Ours) vs Unfiltered GAN.
+""")
 code("""
 !dass {CFG} evaluate
 !dass {CFG} report
@@ -189,6 +216,29 @@ nb = {"cells": cells,
                    "language_info": {"name": "python"}},
       "nbformat": 4, "nbformat_minor": 0}
 
+def update_markdown_only(path: Path) -> int:
+    """Thay nội dung các ô markdown của notebook đang có bằng bản trong file này; ô code và output giữ nguyên.
+
+    Ghép theo thứ tự: ô markdown thứ i của notebook <- ô markdown thứ i ở đây (số ô markdown phải bằng nhau).
+    """
+    existing = json.loads(path.read_text(encoding="utf-8"))
+    old = [c for c in existing["cells"] if c["cell_type"] == "markdown"]
+    new = [c for c in cells if c["cell_type"] == "markdown"]
+    if len(old) != len(new):
+        raise SystemExit(f"Notebook có {len(old)} ô markdown, bản sinh có {len(new)} -> không ghép được. "
+                         "Sinh lại toàn bộ (mất output) hoặc sửa tay.")
+    changed = 0
+    for o, n in zip(old, new):
+        if o["source"] != n["source"]:
+            o["source"] = n["source"]
+            changed += 1
+    path.write_text(json.dumps(existing, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return changed
+
+
 if __name__ == "__main__":
-    OUT.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding="utf-8")
-    print(f"Đã ghi {OUT} ({len(cells)} cell)")
+    if "--markdown-only" in sys.argv[1:]:
+        print(f"Đã cập nhật {update_markdown_only(OUT)} ô markdown trong {OUT} (giữ nguyên code và output)")
+    else:
+        OUT.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding="utf-8")
+        print(f"Đã ghi {OUT} ({len(cells)} cell)")
