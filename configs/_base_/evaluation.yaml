@@ -5,6 +5,20 @@ evaluation:
   comparisons:                   # so sánh bổ sung [phương pháp, đối chứng]
     - [M6_dass, M0b_real_oversample]   # ảnh sinh (DASS) vs nhân bản ảnh thật — cùng số ảnh, cùng số bước train
     - [M6_dass, M1_random]             # chọn lọc vs chọn ngẫu nhiên — cùng pool, cùng số ảnh
+  # Tên hiển thị trong bảng bài báo; mã nội bộ (trong .npz, selections.json) giữ nguyên -> đổi tên KHÔNG cần train lại,
+  # chỉ cần chạy lại `report`. Thứ tự ở đây = thứ tự hàng trong bảng. `$...$`: công thức trong .tex.
+  method_labels:
+    M0_real_only: Imbalanced Baseline
+    M0b_real_oversample: Random Oversampling (ROS)
+    M1_random: Unfiltered GAN (Random Selection)
+    M2_visual: Visual-only Filter ($M_v$)
+    M3_disease: Disease-only Filter ($M_d$)
+    M5_diversity: 'Diversity-only Filter ($S_{\text{div}}$)'
+    M4_visual_disease: Dual-Margin Filter ($M_v + M_d$)
+    M6_dass: DASS (Ours)
+  method_groups:
+    Real Data Baselines: [M0_real_only, M0b_real_oversample]
+    Generative Augmentation (StyleGAN2-ADA): [M1_random, M2_visual, M3_disease, M5_diversity, M4_visual_disease, M6_dass]
   n_bootstrap: 2000
   kid_subsets: 50                # KID (Inception-v3): mean ± std qua các tập con
   kid_subset_size: 1000

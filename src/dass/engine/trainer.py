@@ -1,5 +1,6 @@
 """Train classifier 2 giai đoạn (head -> fine-tune) và lưu dự đoán val / test.
 
+- Augmentation theo `classifier.augment` (mặc định tắt: mọi biến thể train trên đúng ảnh của tập train).
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
 - Mỗi (model, biến thể, seed) lưu một .npz trên Drive; file đã có -> bỏ qua (chạy lại được).
@@ -78,7 +79,7 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     names = cfg.data.class_names
     train_dir, val_dir = variant.dir / "train", variant.dir / "val"
     train_ds = build_dataset(train_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=True,
-                             augment=True, seed=seed)
+                             augment=clf.augment, seed=seed)
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"
@@ -108,7 +109,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
             y_test, p_test = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
             np.savez(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test,
                      model=model_name, method=variant.method, k=cfg.selection.pool_mult, seed=seed,
-                     best_epoch=best_epoch, lam=variant.lam, feature_space=variant.feature_space)
+                     best_epoch=best_epoch, lam=variant.lam, feature_space=variant.feature_space,
+                     augment=cfg.classifier.augment, class_weight=variant.class_weight)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model
             gc.collect()

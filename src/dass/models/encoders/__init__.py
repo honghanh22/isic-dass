@@ -4,6 +4,8 @@
 - E_d (`disease_encoder`): model riêng (mặc định DenseNet121, seed riêng) train Cross-Entropy trên nhãn THẬT
   của tập train (không thấy val, test hay ảnh sinh), giữ backbone làm bộ trích đặc trưng. Không dùng lại
   baseline M0: chọn ảnh bằng M0 rồi so với M0 chỉ củng cố ranh giới của chính M0.
+  E_d LUÔN train với augmentation và class weight (thành phần của phương pháp chọn ảnh), độc lập với
+  `classifier.augment` / `classifier.baseline_class_weight` (chỉ áp dụng cho classifier downstream).
 """
 
 from __future__ import annotations

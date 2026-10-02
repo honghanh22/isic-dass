@@ -2,9 +2,10 @@
 #   M(x)      = S⁺(x) − λ·S⁻(x)          S± = trung bình cosine với TOP-K ảnh thật gần nhất (lớp thiểu số / đa số)
 #   S_DASS(x) = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)   (~ = chuẩn hoá min-max; S_div chuẩn hoá lại mỗi vòng)
 selection:
-  # k = pool_mult: pool = k × số ảnh cần chọn -> DASS giữ 1/k ảnh (k = 3: giữ 1/3). DÙNG CHUNG cho mọi bộ dữ liệu
-  # (không ghi đè trong configs/datasets/). Cố định TRƯỚC khi chạy thực nghiệm chính — không chọn theo kết quả test.
-  pool_mult: 3.0
+  # k = pool_mult: pool = k × số ảnh cần chọn -> DASS giữ 1/k ảnh (k = 2: giữ 1/2). DÙNG CHUNG cho mọi bộ dữ liệu
+  # (không ghi đè trong configs/datasets/). k = 2 (trước: 3): với k = 3, tập M6 lệch xa phân phối ảnh thật
+  # (Brain: KID 0,100 so với pool 0,029; đa dạng 0,168 so với 0,241) -> chọn bớt gắt. Không chọn theo kết quả test.
+  pool_mult: 2.0
   sim_topk: 5
   lambda_v: 1.0
   lambda_d: 1.0

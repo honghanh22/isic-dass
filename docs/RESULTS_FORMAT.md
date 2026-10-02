@@ -28,6 +28,11 @@ Quy ước:
 Mỗi bảng: `.csv` (đã định dạng `mean ± std`), `.json` (số thô), `.tex` (booktabs; in đậm giá trị tốt nhất mỗi cột
 trong từng model / nhóm; KID, FID, SSIM, AUC thật-vs-sinh: thấp hơn là tốt hơn).
 
+Bảng dùng **tên hiển thị** của phương pháp (`evaluation.method_labels`, ví dụ "DASS (Ours)", "Random Oversampling
+(ROS)") theo đúng thứ tự khai báo, kèm cột `Group` (`evaluation.method_groups`) trong bảng `classification`. Công thức
+`$...$` trong tên được giữ trong `.tex` và bỏ ký hiệu LaTeX trong `.csv` (`$S_{\text{div}}$` -> `S_div`). File `.json`
+và `metrics/` giữ **mã nội bộ** (`M6_dass`, …).
+
 | Bảng | Nguồn |
 |---|---|
 | `dataset` | `checkpoints_<run_tag>/data/dataset_card.json` |

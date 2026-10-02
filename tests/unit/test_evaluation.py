@@ -114,6 +114,37 @@ def test_reporting_writes_csv_json_tex(runs_dir, tmp_path):
     assert r"\toprule" in tex and r"\textbf{" in tex and r"M6\_dass" in tex  # in đậm giá trị tốt nhất, escape "_"
 
 
+LABELS = {"M0_real_only": "Imbalanced Baseline", "M5_diversity": r"Diversity-only Filter ($S_{\text{div}}$)",
+          "M6_dass": "DASS (Ours)"}
+GROUPS = {"Real Data Baselines": ["M0_real_only"], "Generative Augmentation (StyleGAN2-ADA)": ["M5_diversity", "M6_dass"]}
+
+
+def test_latex_keeps_math_and_csv_is_plain():
+    assert reporting._latex_escape(r"Filter ($S_{\text{div}}$) & M6_dass") == \
+        r"Filter ($S_{\text{div}}$) \& M6\_dass"
+    assert reporting._latex_escape("cost $5") == r"cost \$5"             # một dấu $ lẻ: không phải công thức
+    assert reporting.plain_label(r"Diversity-only Filter ($S_{\text{div}}$)") == "Diversity-only Filter (S_div)"
+    assert reporting.plain_label("Dual-Margin Filter ($M_v + M_d$)") == "Dual-Margin Filter (M_v + M_d)"
+    assert reporting.plain_label(0.5) == 0.5
+
+
+def test_tables_use_display_names_order_and_groups(runs_dir, tmp_path, rng):
+    y = np.r_[np.ones(20), np.zeros(30)].astype(int)
+    for seed in [1, 2]:
+        _save_run(runs_dir / f"R__M5__s{seed}.npz", "ResNet50", "M5_diversity", seed, y, rng.random(50), lam="v1_d1")
+    runs, probs = load_all_runs(runs_dir)
+    table, bold = reporting.classification_table(summary_stats(runs), labels=LABELS, groups=GROUPS)
+    assert list(table["Method"]) == ["Imbalanced Baseline", r"Diversity-only Filter ($S_{\text{div}}$)",
+                                     "DASS (Ours)"]                       # thứ tự theo labels, không theo mã
+    assert list(table["Group"]) == ["Real Data Baselines"] + ["Generative Augmentation (StyleGAN2-ADA)"] * 2
+    paths = reporting.write_table(tmp_path, "classification", table, summary_stats(runs), "cap", True, bold)
+    assert "Diversity-only Filter (S_div)" in paths[0].read_text(encoding="utf-8")
+    tex = paths[2].read_text(encoding="utf-8")
+    assert r"($S_{\text{div}}$)" in tex and r"\begin{tabular}{lllc" in tex
+    sig = reporting.significance_table(compare_to_baseline(probs, "M0_real_only", 50, 0), LABELS)
+    assert set(sig["vs"]) == {"Imbalanced Baseline"} and list(sig["Method"])[-1] == "DASS (Ours)"
+
+
 def test_generation_table_bolds_lower_kid():
     q = pd.DataFrame([
         {"set": "selected", "method": "M1_random", "n": 10, "kid": 0.02, "kid_std": 0.001, "fid": 30.0,

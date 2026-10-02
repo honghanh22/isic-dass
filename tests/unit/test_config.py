@@ -32,6 +32,24 @@ def test_oversampling_baseline_and_extra_comparisons_enabled(name):
     assert cfg.evaluation.comparisons == [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"]]
 
 
+@pytest.mark.parametrize("name", EXPERIMENTS)
+def test_no_data_intervention_in_classifier(name):
+    """Classifier không augmentation; baseline M0 không class weight (Imbalanced Baseline đúng nghĩa)."""
+    clf = load_config([CONFIGS / "experiments" / name]).classifier
+    assert clf.augment is False and clf.baseline_class_weight is False
+
+
+def test_display_names_and_groups():
+    ev = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).evaluation
+    assert list(ev.method_labels.values()) == [
+        "Imbalanced Baseline", "Random Oversampling (ROS)", "Unfiltered GAN (Random Selection)",
+        "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
+        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)"]
+    assert ev.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample"]
+    grouped = [m for members in ev.method_groups.values() for m in members]
+    assert sorted(grouped) == sorted(ev.method_labels)           # mỗi phương pháp thuộc đúng một nhóm
+
+
 def test_bad_comparison_rejected():
     with pytest.raises(ValueError, match="comparisons"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["evaluation.comparisons=[[M6_dass]]"])
@@ -59,11 +77,11 @@ def test_experiments_differ_only_in_data_and_paths():
 
 
 def test_k_is_identical_across_datasets():
-    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa hai bộ dữ liệu; k = 3."""
+    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa hai bộ dữ liệu; k = 2."""
     a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]])
     assert a.selection == b.selection and a.encoder == b.encoder
-    assert a.selection.pool_mult == b.selection.pool_mult == 3.0
+    assert a.selection.pool_mult == b.selection.pool_mult == 2.0
     for ds in (CONFIGS / "datasets").glob("*.yaml"):          # không file dataset nào được ghi đè tham số chọn ảnh
         text = ds.read_text(encoding="utf-8")
         assert "selection:" not in text and "pool_mult" not in text and "encoder:" not in text, ds.name
@@ -72,8 +90,8 @@ def test_k_is_identical_across_datasets():
 def test_e_d_reuse_from_main_run():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"], tag="x")
     lay = Layout(cfg)
-    assert lay.e_d_run == "bt_v3" and lay.results_dir.name == "results_bt_v3_x"
-    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_bt_v3" / "classifiers" / \
+    assert lay.e_d_run == "bt_v4" and lay.results_dir.name == "results_bt_v4_x"
+    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_bt_v4" / "classifiers" / \
         "Ed_DenseNet121_s4242.weights.h5"
     with pytest.raises(ValueError, match="--tag"):          # "base" mà không có --tag -> lỗi
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"])
@@ -81,7 +99,7 @@ def test_e_d_reuse_from_main_run():
 
 def test_main_run_trains_its_own_e_d():
     lay = Layout(load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]))
-    assert lay.e_d_run == "bt_v3" and lay.e_d_ckpt.parent == lay.clf_dir
+    assert lay.e_d_run == "bt_v4" and lay.e_d_ckpt.parent == lay.clf_dir
 
 
 def test_smoke_profile_composes_with_any_dataset():
@@ -94,7 +112,7 @@ def test_overrides_and_tag():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                       ["generator.batch=32", "classifier.ft_lr=1e-5", "classifier.seeds=[1, 2]"], tag="abl")
     assert cfg.generator.batch == 32 and isinstance(cfg.classifier.ft_lr, float)
-    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v8_abl"
+    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v9_abl"
 
 
 def test_unknown_key_and_bad_override():

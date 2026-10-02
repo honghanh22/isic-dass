@@ -1,5 +1,6 @@
 """Đường dẫn artefact trên Drive: dùng lại GAN cũ (ISIC: checkpoints_v5; Brain Tumor: checkpoints_bt + split tham chiếu
-real_split.json), còn kết quả k = 3 ghi vào thư mục MỚI (ISIC v8, Brain bt_v3) — không đụng kết quả k = 4 cũ (v7)."""
+real_split.json), còn kết quả của cấu hình hiện tại (k = 2, classifier không augmentation, M0 không class weight) ghi vào
+thư mục MỚI (ISIC v9, Brain bt_v4) — không đụng kết quả cũ (ISIC v7: k = 4; Brain bt_v3: k = 3 có augmentation)."""
 
 from pathlib import Path
 
@@ -19,11 +20,11 @@ def test_isic_artifact_paths():
     lay = _layout("isic2016_dass.yaml")
     assert lay.gan_best_pkl == ISIC_ROOT / "checkpoints_v5/stylegan2ada/best.pkl"
     assert lay.gan_state_json == ISIC_ROOT / "checkpoints_v5/stylegan2ada/gan_state.json"
-    assert lay.split_json == ISIC_ROOT / "checkpoints_v8/data/real_val_split.json"
-    assert lay.selections_json == ISIC_ROOT / "checkpoints_v8/data/selections.json"
-    assert lay.pred_dir == ISIC_ROOT / "results_v8/predictions"
-    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v8/classifiers"
-    assert "v7" not in str(lay.results_dir)                       # không ghi vào kết quả k = 4 cũ
+    assert lay.split_json == ISIC_ROOT / "checkpoints_v9/data/real_val_split.json"
+    assert lay.selections_json == ISIC_ROOT / "checkpoints_v9/data/selections.json"
+    assert lay.pred_dir == ISIC_ROOT / "results_v9/predictions"
+    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v9/classifiers"
+    assert not {"v7", "v8"} & set(lay.results_dir.name.split("_"))   # không ghi vào kết quả / cấu hình cũ
     assert lay.drive_train_images == ISIC_ROOT / "ISBI2016_ISIC_Part3_Training_Data"
     assert lay.drive_test_labels == ISIC_ROOT / "ISBI2016_ISIC_Part3_Test_GroundTruth.csv"
     assert lay.expected_split is None
@@ -33,7 +34,7 @@ def test_brain_tumor_artifact_paths():
     lay = _layout("brain_tumor_dass.yaml")
     assert lay.gan_best_pkl == BT_ROOT / "checkpoints_bt/stylegan2ada/best.pkl"
     assert lay.expected_split == BT_ROOT / "checkpoints_bt/data/real_split.json"
-    assert lay.results_dir == BT_ROOT / "results_bt_v3"            # tách khỏi results_bt của notebook v1
+    assert lay.results_dir == BT_ROOT / "results_bt_v4"            # tách khỏi results_bt (v1) và results_bt_v3 (k = 3)
     assert lay.drive_train_images == Path("/content/drive/MyDrive/Colab Notebooks/ColabData/Brain_Tumor_Dataset")
     assert lay.drive_test_images is None and lay.drive_train_labels is None
 

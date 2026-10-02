@@ -2,7 +2,8 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/BrainTumor_GAN
   gan_tag: bt            # dùng lại GAN đã train (checkpoints_bt/stylegan2ada, best KID @ 1200 kimg)
-  run_tag: bt_v3         # công thức chuẩn hoá (ISIC v5) — tách khỏi results_bt của notebook v1
+  run_tag: bt_v4         # k = 2, classifier không augmentation, M0 không class weight. (bt_v3 = k = 3, có augmentation
+                         # + class weight cho M0 — giữ nguyên; results_bt = notebook v1)
 
 data:
   name: brain_tumor

@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.4.0 — classifier không can thiệp dữ liệu, k = 2, tên phương pháp cho bài báo
+- **Không augmentation khi train classifier** (`classifier.augment: false`) cho mọi biến thể. E_d (thành phần của DASS)
+  vẫn train có augmentation; ADA của GAN giữ nguyên.
+- **Imbalanced Baseline (M0) không class weight** (`classifier.baseline_class_weight: false`): train thẳng trên dữ liệu
+  mất cân bằng. Khác biệt giữa các biến thể chỉ còn đến từ dữ liệu train.
+- **k = 2** (trước: 3). Lý do: với k = 3, tập DASS lệch xa phân phối ảnh thật (Brain `bt_v3`: KID 0,100 so với pool
+  0,029; đa dạng 0,168 so với 0,241). Mốc Jaccard ngẫu nhiên: 1/3.
+- **Tên hiển thị trong bảng** (`evaluation.method_labels`, `evaluation.method_groups`): Real Data Baselines (Imbalanced
+  Baseline, Random Oversampling (ROS)) và Generative Augmentation (StyleGAN2-ADA) (Unfiltered GAN (Random Selection),
+  Visual-only / Disease-only / Diversity-only Filter, Dual-Margin Filter, DASS (Ours)). Bảng có cột `Group`, hàng theo
+  thứ tự trên; `$...$` giữ làm công thức trong `.tex`, bỏ LaTeX trong `.csv`. **Mã nội bộ không đổi** (`.npz`,
+  `selections.json`) — đổi tên chỉ cần chạy lại `report`.
+- `.npz` dự đoán ghi thêm `augment`, `class_weight` (truy vết thiết lập train).
+- Run tag mới: ISIC **`v9`**, Brain Tumor **`bt_v4`**. Giữ nguyên `bt_v3` (k = 3, có augmentation, M0 có class weight);
+  ISIC `v8` (k = 3) chưa từng chạy.
+
 ## 1.3.0 — baseline oversampling M0b và kiểm định bổ sung
 - Biến thể mới **`M0b_real_oversample`**: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, Buda et al.
   2018), không class weight, cùng augmentation. Cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6, nên

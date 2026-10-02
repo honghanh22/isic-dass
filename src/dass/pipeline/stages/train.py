@@ -34,9 +34,13 @@ def run(cfg: Config, model_name: str, seeds: list[int] | None = None) -> None:
         selections = {**{m: v for m, v in selections.items() if m == BASELINE}, OVERSAMPLE: [],
                       **{m: v for m, v in selections.items() if m != BASELINE}}
     sel = cfg.selection
+    # Class weight: M7 (lớp đa số to ra vì có ảnh sinh) luôn có; baseline M0 chỉ khi bật classifier.baseline_class_weight
+    # (mặc định tắt: "Imbalanced Baseline" train thẳng trên dữ liệu mất cân bằng).
+    class_weight_methods = {BOTH_CLASSES} | ({cfg.evaluation.baseline_method}
+                                             if cfg.classifier.baseline_class_weight else set())
     variants = prepare_variants(ctx.layout.variants, ctx.layout.train_pp, ctx.split, ctx.budget.minority, selections,
                                 sel.pool_mult, f"v{sel.lambda_v:g}_d{sel.lambda_d:g}",
-                                class_weight_methods={cfg.evaluation.baseline_method, BOTH_CLASSES},
+                                class_weight_methods=class_weight_methods,
                                 majority=ctx.budget.majority, majority_synth=majority_synth, extra_real=extra_real)
     assert_clean_eval_sets(variants, ctx.layout.test_pp, cfg.data.class_names)
     run_experiments(cfg, ctx.layout, model_name, variants, seeds or cfg.classifier.seeds, ctx.channels)

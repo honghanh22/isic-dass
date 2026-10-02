@@ -10,6 +10,21 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
+METHOD_LABELS = {
+    "M0_real_only": "Imbalanced Baseline",
+    "M0b_real_oversample": "Random Oversampling (ROS)",
+    "M1_random": "Unfiltered GAN (Random Selection)",
+    "M2_visual": "Visual-only Filter ($M_v$)",
+    "M3_disease": "Disease-only Filter ($M_d$)",
+    "M5_diversity": r"Diversity-only Filter ($S_{\text{div}}$)",
+    "M4_visual_disease": "Dual-Margin Filter ($M_v + M_d$)",
+    "M6_dass": "DASS (Ours)",
+}
+METHOD_GROUPS = {
+    "Real Data Baselines": ("M0_real_only", "M0b_real_oversample"),
+    "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
+                                                "M4_visual_disease", "M6_dass"),
+}
 SOURCE_TYPES = ("csv", "folders")
 SPLIT_TYPES = ("holdout_val", "stratified", "file")
 RESIZE_MODES = ("stretch", "pad_square")
@@ -115,7 +130,7 @@ class AnalysisConfig:
 
 @dataclass
 class SelectionConfig:
-    pool_mult: float = 3.0           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
+    pool_mult: float = 2.0           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
     sim_topk: int = 5                # S⁺, S⁻ = trung bình cosine với TOP-K ảnh thật gần nhất
     lambda_v: float = 1.0
     lambda_d: float = 1.0
@@ -154,6 +169,8 @@ class ClassifierConfig:
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_macro_recall"
+    augment: bool = False            # augmentation khi train classifier (mặc định tắt: không can thiệp dữ liệu)
+    baseline_class_weight: bool = False  # M0 có class weight không (mặc định không: baseline mất cân bằng thật)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"
@@ -167,6 +184,10 @@ class EvaluationConfig:
     # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
     comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
                                                                   ["M6_dass", "M1_random"]])
+    # Tên hiển thị trong bảng bài báo (mã nội bộ giữ nguyên trong file .npz / selections.json); thứ tự = thứ tự
+    # hàng. `$...$` được giữ làm công thức trong .tex, bỏ ký hiệu LaTeX trong .csv.
+    method_labels: dict[str, str] = field(default_factory=lambda: dict(METHOD_LABELS))
+    method_groups: dict[str, list[str]] = field(default_factory=lambda: {g: list(m) for g, m in METHOD_GROUPS.items()})
     n_bootstrap: int = 2000
     kid_subsets: int = 50
     kid_subset_size: int = 1000
@@ -208,6 +229,10 @@ def validate(cfg: Config) -> None:
     for pair in cfg.evaluation.comparisons:
         if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and all(isinstance(m, str) for m in pair)):
             errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")
+    if not all(isinstance(k, str) and isinstance(v, str) for k, v in cfg.evaluation.method_labels.items()):
+        errors.append("evaluation.method_labels phải là {mã phương pháp: tên hiển thị}")
+    if not all(isinstance(v, list) for v in cfg.evaluation.method_groups.values()):
+        errors.append("evaluation.method_groups phải là {tên nhóm: [mã phương pháp, ...]}")
     if cfg.encoder.e_d_from_run == "base" and not cfg.paths.base_run_tag:
         errors.append("encoder.e_d_from_run = base dùng cho ablation: cần --tag (để tách thư mục khỏi lần chạy chính)")
     if not cfg.paths.drive_root:

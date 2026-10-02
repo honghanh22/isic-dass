@@ -51,9 +51,15 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - `data/splits/stratified.py` phải tái lập **đúng** split của notebook ISIC v5 và Brain Tumor v1 (GAN cũ được train trên đó). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
 - Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
   (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
-  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Không đổi tên các biến thể đã có (tên nằm trong `.npz` trên
-  Drive). Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b, M6 vs M1).
-- **k (`pool_mult`) = 3 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). Người dùng đã quyết định không chạy ablation theo k. Không chọn k theo kết quả test. Kết quả k = 4 cũ nằm ở ISIC `v7` (notebook v5) và được giữ nguyên; kết quả k = 3 ghi vào ISIC `v8` và Brain Tumor `bt_v3`. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Không đổi **mã** các biến thể đã có (mã nằm trong `.npz` trên
+  Drive); tên trong bài báo là **tên hiển thị** `evaluation.method_labels` (Imbalanced Baseline, Random Oversampling
+  (ROS), Unfiltered GAN (Random Selection), Visual-only / Disease-only / Diversity-only Filter, Dual-Margin Filter,
+  DASS (Ours)), chỉ áp dụng khi xuất bảng. Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b,
+  M6 vs M1).
+- **Classifier không can thiệp dữ liệu** (người dùng quyết định, 1.4.0): `classifier.augment: false` (không
+  augmentation cho mọi biến thể) và `classifier.baseline_class_weight: false` (M0 = Imbalanced Baseline đúng nghĩa,
+  không class weight). E_d vẫn train có augmentation + class weight (thành phần của DASS); ADA của GAN giữ nguyên.
+- **k (`pool_mult`) = 2 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k = 2 do người dùng quyết định sau lần chạy k = 3 (lý do ghi nhận: tập DASS ở k = 3 lệch xa phân phối ảnh thật, KID 0,100 so với pool 0,029) — phải nêu trong bài báo. Không chạy ablation theo k. Kết quả cũ giữ nguyên: ISIC `v7` (k = 4, notebook v5), Brain Tumor `bt_v3` (k = 3, có augmentation, M0 có class weight); ISIC `v8` (k = 3) chưa từng chạy. Cấu hình hiện tại ghi vào ISIC `v9` và Brain Tumor `bt_v4`. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 
 ## Tương thích artefact trên Drive

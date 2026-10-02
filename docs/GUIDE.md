@@ -2,7 +2,22 @@
 
 Tài liệu dành cho người mới tiếp cận dự án, đồng thời là nguồn tham chiếu khi viết phần *Phương pháp* và *Thực
 nghiệm* của bài báo. Mọi công thức, con số và tham số dưới đây khớp với code (`src/dass/`) và cấu hình (`configs/`)
-của phiên bản **1.2.0**. Khi đổi code hoặc cấu hình, cập nhật file này.
+của phiên bản **1.4.0** (k = 2, classifier không augmentation, Imbalanced Baseline không class weight; ISIC `v9`,
+Brain Tumor `bt_v4`). Khi đổi code hoặc cấu hình, cập nhật file này.
+
+**Tên phương pháp:** trong code và file kết quả dùng **mã nội bộ** (M0, M0b, M1–M6); trong bảng bài báo dùng **tên
+hiển thị** (`evaluation.method_labels`):
+
+| Nhóm | Mã | Tên trong bài báo |
+|---|---|---|
+| Real Data Baselines | M0 (`M0_real_only`) | **Imbalanced Baseline** |
+| | M0b (`M0b_real_oversample`) | **Random Oversampling (ROS)** |
+| Generative Augmentation (StyleGAN2-ADA) | M1 (`M1_random`) | **Unfiltered GAN (Random Selection)** |
+| | M2 (`M2_visual`) | **Visual-only Filter (M_v)** |
+| | M3 (`M3_disease`) | **Disease-only Filter (M_d)** |
+| | M5 (`M5_diversity`) | **Diversity-only Filter (S_div)** |
+| | M4 (`M4_visual_disease`) | **Dual-Margin Filter (M_v + M_d)** |
+| | M6 (`M6_dass`) | **DASS (Ours)** |
 
 Tài liệu liên quan: [ARCHITECTURE.md](ARCHITECTURE.md) (cấu trúc code), [WORKFLOW.md](WORKFLOW.md) (làm việc hằng
 ngày), [RESULTS_FORMAT.md](RESULTS_FORMAT.md) (ý nghĩa từng cột kết quả).
@@ -120,19 +135,20 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 | | ISIC 2016 | Brain Tumor |
 |---|---|---|
 | n = n_maj − n_min | 618 − 148 = **470** | 1.401 − 281 = **1.120** |
-| k (`pool_mult`) | 3 | 3 |
-| N = ⌈k · n⌉ (pool) | **1.410** | **3.360** |
+| k (`pool_mult`) | 2 | 2 |
+| N = ⌈k · n⌉ (pool) | **940** | **2.240** |
 | Tập train sau khi thêm ảnh sinh | 618 : (148 + 470) = **1 : 1** | 1.401 : (281 + 1.120) = **1 : 1** |
 
 - **n quyết định tỉ lệ lớp cuối cùng** (luôn 1 : 1). **k chỉ quyết định độ chọn lọc:** DASS giữ 1/k pool.
   - k = 1: pool đúng bằng n, nên mọi biến thể M1–M6 chọn **cùng một tập** (không có gì để chọn).
-  - k = 3: mỗi biến thể giữ 1/3 pool. k lớn hơn thì chọn lọc kỹ hơn nhưng tốn thời gian sinh ảnh hơn, và các ảnh ở
-    rìa phân phối bị loại nhiều hơn.
-- k = 3 được **cố định trước** thực nghiệm chính, dùng chung cho cả hai bộ dữ liệu (cùng bậc với tỉ lệ của bài gốc mà
-  notebook v5 tham chiếu: 2.000 ứng viên cho 554 ảnh, ≈ 3,6). k **không** được chọn theo kết quả test, và không chạy
-  ablation theo k.
+  - k = 2: mỗi biến thể giữ 1/2 pool. k lớn hơn thì chọn lọc gắt hơn, nhưng tập được chọn lệch xa phân phối ảnh
+    thật hơn.
+- **k = 2** (phiên bản 1.4.0; trước đó k = 3), dùng chung cho cả hai bộ dữ liệu. Lý do đổi: chẩn đoán chất lượng ảnh
+  (chỉ dùng ảnh train, không dùng test) cho thấy với k = 3, tập DASS lệch xa phân phối ảnh thật (Brain: KID 0,100 so
+  với 0,029 của toàn pool; độ đa dạng 0,168 so với 0,241). **Phải nêu trong bài báo** rằng k được đổi sau lần chạy
+  đầu, kèm lý do này. Kết quả k = 3 (Brain `bt_v3`) được giữ nguyên để đối chiếu. Không chạy ablation theo k.
 - **Mốc tham chiếu khi đọc Jaccard:** hai tập con ngẫu nhiên độc lập, mỗi tập chiếm 1/k pool, có Jaccard kỳ vọng
-  1/(2k − 1) = **0,2** khi k = 3.
+  1/(2k − 1) = **1/3 ≈ 0,33** khi k = 2.
 
 ---
 
@@ -243,21 +259,21 @@ lặp đến khi |S| = n:
 
 M1–M6 chọn **đúng n ảnh sinh từ cùng một pool**. M0 và M0b không dùng ảnh sinh:
 
-| ID | Tiêu chí chọn | Đa dạng | Biến thể này cô lập yếu tố gì |
-|---|---|---|---|
-| M0 | không dùng ảnh sinh (ảnh thật + class weight) | – | **baseline** |
-| M0b | không dùng ảnh sinh: **nhân bản ảnh thật** lớp thiểu số lên 1 : 1 (random oversampling, không class weight) | – | **baseline oversampling**: cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6 |
-| M1 | ngẫu nhiên (seed 2026) | – | tác dụng của ảnh sinh khi không chọn lọc |
-| M2 | M_v | – | chỉ không gian thị giác |
-| M3 | M_d | – | chỉ không gian bệnh |
-| M4 | α·M̃_v + β·M̃_d | – | kết hợp hai không gian, chưa có đa dạng |
-| M5 | 0 (k-center greedy, γ = 1) | ✓ | chỉ đa dạng, không có điểm lề |
-| **M6** | **α·M̃_v + β·M̃_d** | **γ = 0,5** | **DASS đầy đủ (phương pháp đề xuất)** |
+| ID | Tên trong bài báo | Tiêu chí chọn | Đa dạng | Biến thể này cô lập yếu tố gì |
+|---|---|---|---|---|
+| M0 | Imbalanced Baseline | không dùng ảnh sinh, **không cân bằng** (dữ liệu thật 5 : 1 / 4,2 : 1, không class weight) | – | **baseline** |
+| M0b | Random Oversampling (ROS) | không dùng ảnh sinh: **nhân bản ảnh thật** lớp thiểu số lên 1 : 1 | – | **baseline oversampling**: cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6 |
+| M1 | Unfiltered GAN (Random Selection) | ngẫu nhiên (seed 2026) | – | tác dụng của ảnh sinh khi không chọn lọc |
+| M2 | Visual-only Filter (M_v) | M_v | – | chỉ không gian thị giác |
+| M3 | Disease-only Filter (M_d) | M_d | – | chỉ không gian bệnh |
+| M5 | Diversity-only Filter (S_div) | 0 (k-center greedy, γ = 1) | ✓ | chỉ đa dạng, không có điểm lề |
+| M4 | Dual-Margin Filter (M_v + M_d) | α·M̃_v + β·M̃_d | – | kết hợp hai không gian, chưa có đa dạng |
+| **M6** | **DASS (Ours)** | **α·M̃_v + β·M̃_d** | **γ = 0,5** | **DASS đầy đủ (phương pháp đề xuất)** |
 
 **Cách M0b nhân bản ảnh** (`data.variants.oversample_indices`, seed 2026): cần thêm n bản sao từ n_min ảnh thật, nên
 mỗi ảnh được lặp q = ⌊n / n_min⌋ lần, và r = n mod n_min ảnh (chọn ngẫu nhiên, không lặp) được lặp thêm một lần. Số
 lần xuất hiện của các ảnh vì thế chênh nhau tối đa 1. Ví dụ Brain Tumor: 1.120 = 281 × 3 + 277, nên mỗi ảnh positive
-thật xuất hiện 4 hoặc 5 lần trong tập train. Mỗi lần xuất hiện được augmentation khác nhau. M0b không chọn gì từ pool
+thật xuất hiện 4 hoặc 5 lần trong tập train (bản sao giống hệt, vì classifier không dùng augmentation). M0b không chọn gì từ pool
 nên không nằm trong `selections.json`; tập train của M0b được ghép ở bước `train` (bật bằng
 `selection.oversample_variant`, mặc định bật). Lý do có M0b: theo Buda et al. (2018), oversampling tới 1 : 1 là cách
 xử lý mất cân bằng đơn giản mạnh nhất với CNN, nên **M6 vs M0b** là phép so sánh công bằng nhất cho đóng góp của
@@ -280,12 +296,18 @@ thực nghiệm chính.
 
 | | Số ảnh train (Brain Tumor) | Bước mỗi epoch | Cân bằng bằng |
 |---|---|---|---|
-| M0 | 1.401 : 281 | 106 | **class weight** w_c = N_train / (2 · n_c) |
-| M0b | 1.401 : (281 + 1.120 bản sao) | 176 | dữ liệu (ảnh thật nhắc lại), không class weight |
-| M1–M6 | 1.401 : (281 + 1.120 ảnh sinh) | 176 | dữ liệu (ảnh sinh), không class weight |
+| M0 (Imbalanced Baseline) | 1.401 : 281 | 106 | **không cân bằng** (không class weight) |
+| M0b (ROS) | 1.401 : (281 + 1.120 bản sao) | 176 | dữ liệu (ảnh thật nhắc lại) |
+| M1–M6 | 1.401 : (281 + 1.120 ảnh sinh) | 176 | dữ liệu (ảnh sinh) |
 
-Như vậy mọi biến thể đều được huấn luyện với tỉ lệ lớp hiệu dụng 1 : 1, và ngưỡng 0,5 so sánh được giữa các biến thể.
-M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách cân bằng; chỉ khác **nội dung** ảnh thêm vào.
+- **Không có can thiệp dữ liệu nào khác khi train classifier:** không augmentation (`classifier.augment: false`), không
+  class weight (`classifier.baseline_class_weight: false`). Khác biệt giữa các biến thể **chỉ** đến từ dữ liệu train.
+- M0 được train trên dữ liệu mất cân bằng đúng nghĩa. Ở ngưỡng cố định 0,5, M0 dự kiến có sensitivity thấp; đó là
+  điểm xuất phát mà mọi phương pháp cân bằng được so sánh.
+- M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách cân bằng; chỉ khác **nội dung** ảnh thêm vào. Vì vậy
+  **M6 vs M0b** là phép so sánh chặt chẽ nhất.
+- Hai tuỳ chọn trên vẫn bật lại được (ví dụ cho phân tích độ nhạy) bằng `--set classifier.augment=true` /
+  `--set classifier.baseline_class_weight=true` kèm `--tag` riêng.
 
 **Backbone (pretrain ImageNet):**
 
@@ -294,10 +316,15 @@ M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách
 | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny | CNN | `keras.applications` | pooling trung bình → Dropout 0,3 → Dense(1, sigmoid) |
 | ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
-**Augmentation** (chỉ áp dụng cho tập train, **giống hệt nhau cho mọi biến thể, kể cả M0**): lật ngang và dọc, xoay
-ngẫu nhiên tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %. Augmentation được áp dụng
-trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng số ảnh và không đổi tỉ lệ lớp. Vì vậy M0 là baseline
-"ảnh thật + augmentation chuẩn + class weight", và tác dụng của ảnh sinh được đo **trên nền** augmentation.
+**Augmentation:** **tắt** cho mọi classifier (M0, M0b, M1–M6). Mỗi epoch, mỗi ảnh được đưa vào đúng như đã lưu
+(chỉ resize về 224 × 224 và chuẩn hoá theo backbone). Những nơi duy nhất còn augmentation là hai thành phần **trước**
+bước phân loại, không thuộc thiết lập so sánh:
+- **ADA của StyleGAN2-ADA** (augmentation cho discriminator khi train GAN; GAN được dùng lại, đã train xong);
+- **E_d** (encoder bệnh của DASS) vẫn train với augmentation và class weight như trước, vì đây là một thành phần của
+  phương pháp chọn ảnh.
+
+Tiền xử lý dữ liệu (cắt viền đen ở ISIC; đệm vuông và ép xám ở Brain Tumor) là làm sạch dữ liệu, áp dụng như nhau cho
+mọi ảnh, không phải augmentation.
 
 **Huấn luyện 2 giai đoạn** (loss binary cross-entropy, ảnh 224 × 224, batch 16):
 1. Đóng băng backbone, train lớp đầu ra **5 epoch** (AdamW, lr 1e-3).
@@ -320,9 +347,9 @@ trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng
 |---|---|
 | **Biến độc lập (yếu tố nghiên cứu)** | phương pháp cân bằng / chọn ảnh: M0, M0b, M1–M6 |
 | **Yếu tố khối (để kiểm tra tính tổng quát)** | backbone (6), bộ dữ liệu (2) |
-| **Lặp lại** | seed classifier: 2026, 2027, 2028 (khởi tạo đầu ra, thứ tự trộn dữ liệu, augmentation) |
+| **Lặp lại** | seed classifier: 2026, 2027, 2028 (khởi tạo đầu ra, thứ tự trộn dữ liệu) |
 | **Biến phụ thuộc** | metric phân loại trên test ([mục 5.1](#51-metric-phân-loại)); KID và các chỉ số chẩn đoán của tập ảnh được chọn |
-| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng n, cùng siêu tham số train, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
+| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng n, cùng siêu tham số train, **không augmentation, không class weight cho mọi biến thể**, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
 
 ### 4.2 Ma trận thực nghiệm
 
@@ -336,7 +363,9 @@ trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng
 
 - Tham số DASS (K = 5, λ = 1, α = β = 1, γ = 0,5) lấy theo công thức của notebook ISIC v5. Lịch train E_d và mọi siêu
   tham số classifier được **dùng chung cho cả hai bộ dữ liệu và mọi backbone**.
-- k = 3 được chốt trước thực nghiệm chính.
+- k = 2 (đổi từ 3 dựa trên chẩn đoán chất lượng ảnh chỉ dùng ảnh train; xem [mục 2.4](#24-ngân-sách-sinh-và-ý-nghĩa-của-k)).
+- Bỏ augmentation và class weight của classifier là **quyết định thiết kế** để mọi khác biệt chỉ đến từ dữ liệu train,
+  không dựa trên kết quả test.
 - **Không có tham số nào được dò trên test.** Val chỉ dùng để chọn epoch.
 - Không dò siêu tham số riêng cho từng backbone. Cách này công bằng giữa các phương pháp, nhưng có thể chưa tối ưu cho
   từng backbone (xem [mục 7](#7-hạn-chế-đã-biết)).
@@ -428,7 +457,7 @@ Có hai hàng tham chiếu:
 |---|---|---|
 | AUC probe | hai lớp bệnh tách nhau đến đâu trong E_v và E_d (logistic, CV 5 fold). Dòng **val** gần khách quan (E_d không học trên val, chỉ dùng val để chọn epoch); dòng train thì lạc quan | `select` |
 | Kiểm tra shortcut | AUC tách ảnh thật / ảnh sinh trong E_v cho từng biến thể; hàng tham chiếu là AUC tách hai lớp bệnh thật | `select` |
-| Jaccard giữa các biến thể | các tiêu chí có thật sự chọn ra các tập khác nhau không (mốc ngẫu nhiên 0,2 khi k = 3) | `select` |
+| Jaccard giữa các biến thể | các tiêu chí có thật sự chọn ra các tập khác nhau không (mốc ngẫu nhiên 1/3 ≈ 0,33 khi k = 2) | `select` |
 | Hình ảnh | phân tán M_v–M_d, ảnh được chọn và bị loại, ảnh sinh cạnh ảnh thật gần nhất (kiểm tra GAN có "học thuộc" không) | `select` |
 | Dấu vân tay tần số (Frank et al., ICML 2020) | ảnh xám → DCT 2 chiều → log → chuẩn hoá → CNN nông và hồi quy; ≤ 400 ảnh mỗi phía, 15 epoch. AUC ≈ 1 nghĩa là ảnh sinh mang dấu vết GAN. **Chỉ đo, không sửa ảnh** | `fingerprint` (tuỳ chọn) |
 
@@ -446,19 +475,20 @@ Có hai hàng tham chiếu:
 | Test chỉ dự đoán một lần | dự đoán sau khi nạp checkpoint tốt nhất; không có vòng lặp nào dùng kết quả test |
 | GAN dùng lại hợp lệ | split phải trùng split mà GAN đã train (Brain Tumor: kiểm tra tự động; ISIC: test regression) |
 | Không có shortcut định dạng | mọi ảnh lưu PNG; Brain Tumor: 3 kênh bằng nhau cho cả ảnh thật và ảnh sinh |
-| So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train, cùng augmentation; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
+| So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train; **không augmentation, không class weight** ở mọi classifier; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
 
 ### 6.2 Các mối đe doạ đến tính hợp lệ
 
 | Loại | Mối đe doạ | Cách xử lý hoặc đo |
 |---|---|---|
 | Nội tại | Ảnh sinh **chỉ** nằm ở lớp thiểu số, nên đặc điểm "trông như ảnh GAN" tương quan với nhãn trong tập train | Test toàn ảnh thật nên điều này không thổi phồng kết quả test, nhưng có thể làm giảm lợi ích. Đo bằng AUC thật-vs-sinh và fingerprint; M7 (tuỳ chọn) là đối chứng |
-| Nội tại | M0 có ít bước train hơn (106 so với 176 bước mỗi epoch) và cân bằng bằng loss thay vì bằng dữ liệu, nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
+| Nội tại | M0 (Imbalanced Baseline) vừa không cân bằng vừa có ít bước train hơn (106 so với 176 bước mỗi epoch), nên M6 vs M0 lẫn tác dụng của việc cân bằng, số bước train và nội dung ảnh sinh | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh. Không coi M6 > M0 là bằng chứng đủ cho giá trị của ảnh sinh |
+| Nội tại | Không augmentation: classifier dễ overfit hơn, nhất là M0b (mỗi ảnh positive lặp lại 4–5 lần, giống hệt nhau) | Áp dụng như nhau cho mọi biến thể; early stopping theo val; nêu trong bài. Có thể chạy lại với `classifier.augment=true` làm phân tích độ nhạy |
 | Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026); M0b cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 / M0b |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
 | Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy | Kiểm tra ảnh sinh cạnh ảnh thật gần nhất (học thuộc) |
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
-| Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc hiệu chỉnh xác suất; M0 (class weight) và M1–M6 (cân bằng bằng dữ liệu) có thể hiệu chỉnh khác nhau | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
+| Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
 | Cấu trúc | Tập thật lớp thiểu số nhỏ (148 / 281) | KID là chỉ số chính, kèm std; FID chỉ tham khảo |
 | Thống kê | Chỉ 3 seed; test nhỏ (75 / 60 ca dương); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; H1–H3 là kiểm định chính (Holm trong từng backbone) |
 | Ngoại tại | Hai bộ dữ liệu, chỉ bài toán nhị phân, một họ GAN, ảnh 256 px | Nêu trong phần hạn chế |
@@ -526,14 +556,14 @@ EXTRA = ""                                                  # ghi đè, ví dụ
 | | Smoke (`PROFILE = "configs/experiments/smoke.yaml"`) | Chạy thật (`PROFILE = ""`) |
 |---|---|---|
 | Mục đích | kiểm tra mọi bước chạy thông, **không dùng để báo cáo** | kết quả cho bài báo |
-| Pool | k = 1,2 | k = 3 |
+| Pool | k = 1,2 | k = 2 |
 | E_d | 1 + 1 epoch | 5 + 20 epoch |
 | Classifier | EfficientNetV2B0, 1 seed, 1 + 1 epoch | 6 backbone, 3 seed, 5 + 30 epoch |
 | Thư mục | `checkpoints_smoke/`, `results_smoke/` | `checkpoints_<run_tag>/`, `results_<run_tag>/` |
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
-1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra có `"run_tag": "bt_v3"` (hoặc `"v8"` với
-   ISIC) và `"pool_mult": 3.0`.
+1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra có `"run_tag": "bt_v4"` (hoặc `"v9"` với
+   ISIC), `"pool_mult": 2.0`, `"augment": false`, `"baseline_class_weight": false`.
 2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
    đọc thư mục của smoke.
 3. Chạy tiếp từ `prepare` trở xuống.
@@ -599,13 +629,13 @@ Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi �
 
 | Bước | Brain Tumor: phải thấy | ISIC: phải thấy | Nếu khác |
 |---|---|---|---|
-| `prepare` | `Thiểu số = positive (281) \| đa số = negative (1401) \| cần chọn 1120 \| pool 3360 ảnh \| 3 kênh`; `Split trùng khớp split tham chiếu real_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 1410 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
-| `gan` | KID tốt nhất 0,02985 tại 1.200 kimg, không train lại | dùng `checkpoints_v5`, không train lại | sai `gan_tag` |
-| `sample` | `DONE 3360 … force_gray=1` | `DONE 1410 …` | |
-| `select` | `M6_dass: chọn 1120 / 3360 ảnh sinh` | `M6_dass: chọn 470 / 1410 ảnh sinh` | |
-| `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 0,2 | như bên trái | ghi lại, nêu trong bài |
+| `prepare` | `Thiểu số = positive (281) \| đa số = negative (1401) \| cần chọn 1120 \| pool 2240 ảnh \| 3 kênh`; `Split trùng khớp split tham chiếu real_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 940 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
+| `gan` | KID tốt nhất 0,02985 tại 1.200 kimg, không train lại | dùng `checkpoints_v5` (KID 0,0201 tại 1.800 kimg), không train lại | sai `gan_tag` |
+| `sample` | `DONE 2240 … force_gray=1` | `DONE 940 …` | |
+| `select` | `M6_dass: chọn 1120 / 2240 ảnh sinh` | `M6_dass: chọn 470 / 940 ảnh sinh` | |
+| `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 0,33 | như bên trái | ghi lại, nêu trong bài |
 | `train` | mỗi lần chạy in `test ROC-AUC = …`; `best fine-tune epoch` không phải lúc nào cũng bằng 1 | như bên trái | nếu luôn bằng 1: lr / val có vấn đề |
-| `train` (M0b) | log ghép dữ liệu: `M0b_real_oversample_p3: {'train': {'negative': 1401, 'positive': 1401}, ...}` | `M0b_real_oversample_p3: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
+| `train` (ghép dữ liệu) | `M0_real_only_p2: {'train': {'negative': 1401, 'positive': 281}, ...}` và `M0b_real_oversample_p2: {'train': {'negative': 1401, 'positive': 1401}, ...}` | `M0b_real_oversample_p2: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
 | `evaluate` | `Phân loại: 144 lần chạy, 48 nhóm` khi đủ 6 backbone | như bên trái | thiếu: còn backbone chưa xong |
 
 ---
@@ -619,9 +649,9 @@ Kết quả nằm trong thư mục của từng bộ dữ liệu. Không bao gi�
 | | Brain Tumor (`…/BrainTumor_GAN/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
 | GAN | `checkpoints_bt/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_bt_v3/` | `checkpoints_v8/` |
-| Dự đoán, số liệu thô, **bảng**, hình | `results_bt_v3/` | `results_v8/` |
-| Kết quả cũ (giữ nguyên, **không trộn** vào bài) | `results_bt/` (notebook v1, công thức cũ) | `results_v7/`, `checkpoints_v7/` (notebook v5, k = 4) |
+| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_bt_v4/` | `checkpoints_v9/` |
+| Dự đoán, số liệu thô, **bảng**, hình | `results_bt_v4/` | `results_v9/` |
+| Kết quả cũ (giữ nguyên, **không trộn** vào bài) | `results_bt_v3/` (k = 3, có augmentation, M0 có class weight); `results_bt/` (notebook v1, công thức cũ) | `results_v7/`, `checkpoints_v7/` (notebook v5, k = 4); `v8` không dùng |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
 
 Trong `results_<run_tag>/` có:
@@ -637,13 +667,13 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 
 | Bảng / chỉ số | Đọc thế nào |
 |---|---|
-| `classification` | So M6 với M0 (H1), M1 (H2) và M2–M5 (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
-| `significance` | Cột `vs` cho biết đối chứng (M0, M0b hoặc M1). ΔAUC > 0 và khoảng tin cậy 95 % không chứa 0 thì phương pháp hơn đối chứng có ý nghĩa thống kê (lưu ý đa so sánh, mục 5.2). Hàng **M6 vs M0b** là bằng chứng mạnh nhất cho giá trị của ảnh sinh |
+| `classification` | Hàng đã dùng tên hiển thị và chia nhóm (cột `Group`: Real Data Baselines / Generative Augmentation). So DASS (Ours) với Imbalanced Baseline (H1), ROS (H2), Unfiltered GAN (H3) và các Filter (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
+| `significance` | Cột `vs` cho biết đối chứng (Imbalanced Baseline, ROS hoặc Unfiltered GAN). ΔAUC > 0 và khoảng tin cậy 95 % không chứa 0 thì phương pháp hơn đối chứng có ý nghĩa thống kê (lưu ý đa so sánh, mục 5.2). Hàng **DASS vs ROS** là bằng chứng mạnh nhất cho giá trị của ảnh sinh |
 | Tính nhất quán | đếm số backbone (trên 6) mà M6 > M0, ở mỗi bộ dữ liệu; một kết quả tốt ở một backbone chưa đủ để kết luận |
 | KID | thấp hơn là gần ảnh thật hơn; đọc tương đối so với hàng `real val vs real train` và `all candidates` |
 | AUC thật-vs-sinh (`shortcut_check`) | gần 0,5 là khó phân biệt (tốt); gần 1 nghĩa là ảnh sinh dễ nhận ra, có nguy cơ shortcut |
 | AUC probe (dòng val) | E_d > E_v nghĩa là không gian bệnh tách lớp tốt hơn, đúng mục đích thiết kế E_d |
-| Jaccard | so với mốc ngẫu nhiên 0,2; thấp nghĩa là các tiêu chí chọn ra tập ảnh khác nhau |
+| Jaccard | so với mốc ngẫu nhiên 1/3 ≈ 0,33 (k = 2); thấp nghĩa là các tiêu chí chọn ra tập ảnh khác nhau |
 
 ---
 
@@ -671,7 +701,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | GAN | cfg / batch / R1 γ / mirror / ADA target | paper256 / 16 / 1.0 / có / 0.6 | `configs/_base_/generator.yaml` |
 | GAN | max kimg / snapshot / min kimg / patience / Δ tối thiểu | 3000 / 100 / 400 / 5 / 2 % | |
 | GAN | KID khi train: số ảnh / tập con / seed | 1000 / 50 / 123 | |
-| Pool | k = `pool_mult` (chung hai bộ dữ liệu) / ψ / seed | 3 / 1.0 / 777 | `configs/_base_/selection.yaml` |
+| Pool | k = `pool_mult` (chung hai bộ dữ liệu) / ψ / seed | 2 / 1.0 / 777 | `configs/_base_/selection.yaml` |
 | DASS | K / λ_v / λ_d / α / β / γ | 5 / 1 / 1 / 1 / 1 / 0.5 | |
 | Biến thể | M0b oversampling (`oversample_variant`) / M7 (`both_classes_variant`) | bật / tắt | |
 | E_d | backbone / seed / epoch | DenseNet121 / 4242 / 5 + 20 | |
@@ -679,7 +709,9 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |
 | Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_macro_recall` | |
+| Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | tắt / tắt | |
 | Đánh giá | ngưỡng / bootstrap / KID (tập con, kích thước tối đa) / cặp SSIM | 0.5 / 2000 / 50, 1000 / 200 | `configs/_base_/evaluation.yaml` |
 | Đánh giá | đối chứng chính / cặp bổ sung (`comparisons`) | M0 / M6 vs M0b, M6 vs M1 | |
+| Đánh giá | tên hiển thị / nhóm (`method_labels`, `method_groups`) | xem đầu tài liệu | |
 | Chung | seed toàn cục / tất định | 2026 / false | `configs/_base_/runtime.yaml` |
 | Dữ liệu | nguồn, tiền xử lý, cách chia, số kênh, thư mục Drive, `gan_tag`, `run_tag` | theo bộ dữ liệu | `configs/datasets/*.yaml` |
