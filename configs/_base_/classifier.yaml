@@ -13,10 +13,10 @@ classifier:
   dropout: 0.3
   early_stop_patience: 8
   monitor: val_macro_recall     # (sensitivity + specificity) / 2 ở ngưỡng 0.5
-  # Không can thiệp dữ liệu khi train classifier: không augmentation, baseline (M0) không class weight
-  # -> khác biệt giữa các biến thể CHỈ đến từ dữ liệu train (ảnh thật, bản sao ảnh thật, ảnh sinh).
-  augment: false                # true: lật / xoay / zoom / sáng / tương phản (chỉ tập train)
-  baseline_class_weight: false  # true: M0 train với class weight (cân bằng trong loss)
+  # Giống ISIC v7 (notebook v5): augmentation chuẩn cho MỌI biến thể, baseline (M0) có class weight.
+  # (1.4.0 / v9 / bt_v4 tắt cả hai — kết quả đó được giữ nguyên để đối chiếu.)
+  augment: true                 # lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
+  baseline_class_weight: true   # M0 train với class weight (cân bằng trong loss)
   mixed_precision: false
   save_weights_to_drive: true
   vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px

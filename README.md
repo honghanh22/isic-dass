@@ -25,12 +25,12 @@ S_DASS(x) = α · M̃_v(x) + β · M̃_d(x) + γ · S̃_div(x)    (~ : min-max n
 
 `E_v`: frozen ImageNet EfficientNet-B0. `E_d`: a separate DenseNet-121 trained with cross-entropy on real training
 labels only. Selection is greedy and picks exactly `n_select = |majority| − |minority|` images from a pool of
-`k · n_select` candidates (`k = pool_mult = 2` for both datasets), so every balanced variant trains on a 1 : 1 class
+`k · n_select` candidates (`k = pool_mult = 1.5` for both datasets), so every balanced variant trains on a 1 : 1 class
 ratio.
 
 | Group | Method (paper name) | Internal ID | Training set of the minority class |
 |---|---|---|---|
-| Real Data Baselines | **Imbalanced Baseline** | M0 | real images only (no re-balancing, no class weights) |
+| Real Data Baselines | **Imbalanced Baseline (class-weighted)** | M0 | real images only, imbalanced; class weights in the loss |
 | | **Random Oversampling (ROS)** | M0b | real images duplicated to 1 : 1 |
 | Generative Augmentation (StyleGAN2-ADA) | **Unfiltered GAN (Random Selection)** | M1 | real + random synthetic |
 | | **Visual-only Filter (M_v)** | M2 | real + top-n by M̃_v |
@@ -39,10 +39,10 @@ ratio.
 | | **Dual-Margin Filter (M_v + M_d)** | M4 | real + top-n by α·M̃_v + β·M̃_d |
 | | **DASS (Ours)** | M6 | real + greedy α·M̃_v + β·M̃_d + γ·S̃_div |
 
-**No data intervention in classifier training:** no data augmentation and no class weights for any variant, so the
-variants differ *only* in their training images. ROS and the GAN-based variants also share the training-set size, the
-number of optimisation steps and the balancing mechanism, so **DASS vs ROS** isolates the contribution of the
-synthetic image *content* and **DASS vs Unfiltered GAN** that of the selection. Paired bootstrap tests are reported
+**Identical training protocol:** every variant uses the same online data augmentation, hyper-parameters and seeds; the
+baseline compensates the imbalance with class weights. ROS and the GAN-based variants also share the training-set
+size, the number of optimisation steps and the balancing mechanism (data, not loss weights), so **DASS vs ROS**
+isolates the contribution of the synthetic image *content* and **DASS vs Unfiltered GAN** that of the selection. Paired bootstrap tests are reported
 for every method vs the Imbalanced Baseline and for DASS vs ROS and DASS vs Unfiltered GAN. Internal IDs are kept in
 all artefacts; paper names are applied when tables are written (`evaluation.method_labels`). Full method,
 experimental design and statistics: [docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
@@ -73,15 +73,15 @@ experimental design and statistics: [docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
 configs/
 ├── _base_/                    shared hyper-parameters: ONE recipe for every dataset
 │   ├── generator.yaml         StyleGAN2-ADA (paper256, ADA target 0.6), KID early stopping, pool seed
-│   ├── selection.yaml         DASS (pool_mult k = 2, K, λ, α, β, γ), M0b / M7 switches, E_d (DenseNet121, seed 4242)
+│   ├── selection.yaml         DASS (pool_mult k = 1.5, K, λ, α, β, γ), M0b / M7 switches, E_d (DenseNet121, seed 4242)
 │   ├── classifier.yaml        6 backbones, seeds 2026–2028, two-stage training, val_macro_recall,
-│   │                          no augmentation, no class weights
+│   │                          online augmentation, class-weighted baseline
 │   ├── evaluation.yaml        fixed threshold 0.5, baseline M0 + extra comparisons, paper names / groups, bootstrap
 │   └── runtime.yaml           global seed, local paths, fingerprint settings
 ├── datasets/                  dataset-specific settings ONLY (paths, source, channels, preprocessing, split)
 │   ├── _template.yaml         starting point for a new dataset
-│   ├── isic2016.yaml          CSV source, dark-border crop, holdout_val split, run_tag v9
-│   └── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v4
+│   ├── isic2016.yaml          CSV source, dark-border crop, holdout_val split, run_tag v10
+│   └── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v5
 └── experiments/               experiment = _base_ + dataset (+ overrides)
     ├── isic2016_dass.yaml
     ├── brain_tumor_dass.yaml
@@ -204,9 +204,9 @@ Every stage is resumable: finished artefacts are restored from Drive or skipped.
     └── run_manifest.json                      resolved config, library versions, stage commands
 ```
 
-Current tags: ISIC `gan_tag v5`, `run_tag v9`; Brain Tumor `gan_tag bt`, `run_tag bt_v4`; quick checks `run_tag smoke`.
-Earlier configurations are kept untouched: ISIC `v7` (k = 4), Brain Tumor `bt_v3` (k = 3, with augmentation and a
-class-weighted baseline).
+Current tags: ISIC `gan_tag v5`, `run_tag v10`; Brain Tumor `gan_tag bt`, `run_tag bt_v5`; quick checks `run_tag smoke`.
+Earlier configurations are kept untouched and reported separately: ISIC `v7` (k = 4), ISIC `v9` / Brain Tumor `bt_v4`
+(k = 2, no augmentation, unweighted baseline), Brain Tumor `bt_v3` (k = 3).
 Artefacts are never deleted; a new configuration gets a new `run_tag` (or `--tag`).
 
 ### `notebooks/`, `scripts/`, `tests/`, `docs/`
@@ -315,8 +315,8 @@ seeds and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RE
   channels only in memory, immediately before ImageNet-pretrained networks / Inception-v3.
 - The generator checkpoint used downstream is the snapshot with the **lowest minority-class KID**.
 - Splits are deterministic (global seed) and validated against the split the reused generator was trained on.
-- Classifiers are trained **without data augmentation and without class weights**; the methods differ only in their
-  training images.
+- All classifiers share the same online augmentation; the real-data baseline uses class weights, every other variant
+  is balanced 1 : 1 by data.
 - Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against the Imbalanced
   Baseline, and for DASS against ROS and Unfiltered GAN.
 

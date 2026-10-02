@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 METHOD_LABELS = {
-    "M0_real_only": "Imbalanced Baseline",
+    "M0_real_only": "Imbalanced Baseline (class-weighted)",
     "M0b_real_oversample": "Random Oversampling (ROS)",
     "M1_random": "Unfiltered GAN (Random Selection)",
     "M2_visual": "Visual-only Filter ($M_v$)",
@@ -130,7 +130,7 @@ class AnalysisConfig:
 
 @dataclass
 class SelectionConfig:
-    pool_mult: float = 2.0           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
+    pool_mult: float = 1.5           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
     sim_topk: int = 5                # S⁺, S⁻ = trung bình cosine với TOP-K ảnh thật gần nhất
     lambda_v: float = 1.0
     lambda_d: float = 1.0
@@ -169,8 +169,8 @@ class ClassifierConfig:
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_macro_recall"
-    augment: bool = False            # augmentation khi train classifier (mặc định tắt: không can thiệp dữ liệu)
-    baseline_class_weight: bool = False  # M0 có class weight không (mặc định không: baseline mất cân bằng thật)
+    augment: bool = True             # augmentation khi train classifier (mọi biến thể, chỉ tập train)
+    baseline_class_weight: bool = True   # M0 có class weight (false: baseline mất cân bằng thật, như v9 / bt_v4)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"

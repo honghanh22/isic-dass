@@ -2,8 +2,9 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
   gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
-  run_tag: v9            # k = 2, classifier không augmentation, M0 không class weight -> checkpoints_v9/, results_v9/.
-                         # (v8 = cấu hình k = 3 chưa từng chạy; v7 = notebook v5 với k = 4, giữ nguyên)
+  run_tag: v10           # như v7 (augmentation, M0 có class weight) nhưng k = 1,5, có ROS, 3 seed -> *_v10/.
+                         # Giữ nguyên: v9 (k = 2, không augmentation, M0 không class weight), v7 (notebook v5, k = 4);
+                         # v8 (k = 3) chưa từng chạy.
 
 data:
   name: isic2016

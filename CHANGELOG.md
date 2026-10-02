@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.5.0 — huấn luyện như ISIC v7, k = 1,5
+- **Quay lại thiết lập huấn luyện của ISIC v7** (theo yêu cầu người dùng): `classifier.augment: true` (cùng
+  augmentation cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 có class weight). Tên hiển thị của M0:
+  "Imbalanced Baseline (class-weighted)".
+- **k = 1,5** (trước: 2). Pool: ISIC 705, Brain Tumor 1.680; mốc Jaccard ngẫu nhiên 0,5.
+- Giữ từ các bản sau v7: ROS (M0b), 3 seed, các cặp kiểm định bổ sung, tên hiển thị / nhóm.
+- Run tag mới: ISIC **`v10`**, Brain Tumor **`bt_v5`**. Giữ nguyên `v9` / `bt_v4` (1.4.0: k = 2, không augmentation,
+  M0 không class weight) để báo cáo riêng.
+- Ghi chú sửa lại: mục 1.1.0 ghi "k chọn theo CosSIF ≈ 3,6" — không chính xác; CosSIF (FAGT) chỉ loại 15–25 % ảnh sinh
+  (k ≈ 1,2–1,3).
+
 ## 1.4.0 — classifier không can thiệp dữ liệu, k = 2, tên phương pháp cho bài báo
 - **Không augmentation khi train classifier** (`classifier.augment: false`) cho mọi biến thể. E_d (thành phần của DASS)
   vẫn train có augmentation; ADA của GAN giữ nguyên.
