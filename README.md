@@ -40,8 +40,8 @@ ratio.
 | | **Dual-Margin Filter (M_v + M_d)** | M4 | real + top-n by α·M̃_v + β·M̃_d |
 | | **DASS (Ours)** | M6 | real + greedy α·M̃_v + β·M̃_d + γ·S̃_div |
 
-**Identical training protocol:** every variant uses the same online data augmentation, hyper-parameters and seeds; the
-baseline compensates the imbalance with class weights. ROS and the GAN-based variants also share the training-set
+**Identical training protocol:** within a dataset, every variant uses the same online data augmentation (none for RSNA
+Pneumonia), hyper-parameters and seeds; the baseline compensates the imbalance with class weights. ROS and the GAN-based variants also share the training-set
 size, the number of optimisation steps and the balancing mechanism (data, not loss weights), so **DASS vs ROS**
 isolates the contribution of the synthetic image *content* and **DASS vs Unfiltered GAN** that of the selection. Paired bootstrap tests are reported
 for every method vs the Imbalanced Baseline and for DASS vs ROS and DASS vs Unfiltered GAN. Internal IDs are kept in
@@ -83,7 +83,7 @@ configs/
 │   ├── _template.yaml         starting point for a new dataset
 │   ├── isic2016.yaml          CSV source, dark-border crop, holdout_val split, run_tag v10
 │   ├── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v5
-│   └── rsna_pneumonia.yaml    DICOM source, 1 channel, upright augmentation, one image per patient, "Exclude" removed, run_tag rsna_v2
+│   └── rsna_pneumonia.yaml    DICOM source, 1 channel, one image per patient, "Exclude" removed, no classifier augmentation, GAN without x-flips, run_tag rsna_v2
 └── experiments/               experiment = _base_ + dataset (+ overrides)
     ├── isic2016_dass.yaml
     ├── brain_tumor_dass.yaml
@@ -124,7 +124,7 @@ src/dass/
 │   ├── variants.py            assembles train/val folders per variant (real + selected synthetic, or real copies for
 │   │                          M0b); balanced oversampling indices; asserts val/test are real
 │   ├── manifest.py            dataset card (counts per split / class, channels, split hash)
-│   └── loaders.py             tf.data pipelines, optional augmentation (off for classifiers), 1 -> 3 channel replication
+│   └── loaders.py             tf.data pipelines, optional online augmentation, 1 -> 3 channel replication
 │
 ├── models/                    MODEL BACKBONES
 │   ├── generator/             StyleGAN2-ADA (PyTorch, imported inside functions only)
@@ -320,8 +320,8 @@ seeds and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RE
   channels only in memory, immediately before ImageNet-pretrained networks / Inception-v3.
 - The generator checkpoint used downstream is the snapshot with the **lowest minority-class KID**.
 - Splits are deterministic (global seed) and validated against the split the reused generator was trained on.
-- All classifiers share the same online augmentation; the real-data baseline uses class weights, every other variant
-  is balanced 1 : 1 by data.
+- Within a dataset, all classifiers share the same online augmentation (ISIC and Brain Tumor: on; RSNA Pneumonia:
+  off); the real-data baseline uses class weights, every other variant is balanced 1 : 1 by data.
 - Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against the Imbalanced
   Baseline, and for DASS against ROS and Unfiltered GAN.
 

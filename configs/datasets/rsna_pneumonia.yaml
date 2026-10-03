@@ -42,3 +42,9 @@ generator:
   # X-quang ngực không đối xứng trái / phải (tim, quai động mạch chủ, chữ đánh dấu L / R): GAN không học bản lật ngang,
   # nếu không khoảng một nửa ảnh sinh có tim bên phải. Mọi tham số GAN khác giữ như ISIC / Brain Tumor.
   mirror: false
+
+classifier:
+  # Người dùng quyết định (2026-10-04, trước khi train classifier RSNA): classifier của MỌI biến thể train KHÔNG
+  # augmentation. Khác v10 / bt_v5 (có augmentation) -> nêu trong bài báo. Class weight cho M0 giữ nguyên (bật);
+  # E_d vẫn train có augmentation (thành phần của DASS); ADA của GAN giữ nguyên.
+  augment: false

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.2 — RSNA: classifier không augmentation
+- `configs/datasets/rsna_pneumonia.yaml`: `classifier.augment: false` (người dùng quyết định, trước khi train
+  classifier RSNA). Mọi biến thể của RSNA cùng không augmentation nên vẫn so sánh công bằng; khác `v10` / `bt_v5` (có
+  augmentation) -> nêu trong bài báo. Class weight cho M0 giữ nguyên (bật); E_d vẫn train có augmentation; ADA của
+  GAN không đổi. ISIC / Brain Tumor không đổi. Test: classifier RSNA chỉ khác ISIC ở `augment`.
+
 ## 1.8.1 — RSNA: GAN không học bản lật ngang
 - `configs/datasets/rsna_pneumonia.yaml`: `generator.mirror: false`. X-quang ngực không đối xứng trái / phải; với
   `mirror: true`, khoảng một nửa ảnh sinh sẽ có tim bên phải và chữ L / R bị ngược. Mọi tham số GAN khác giống ISIC /

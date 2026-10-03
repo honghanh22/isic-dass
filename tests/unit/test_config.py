@@ -35,9 +35,10 @@ def test_oversampling_baseline_and_extra_comparisons_enabled(name):
 
 @pytest.mark.parametrize("name", EXPERIMENTS)
 def test_classifier_training_like_isic_v7(name):
-    """Như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight (v9 / bt_v4 tắt cả hai)."""
+    """Như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight (v9 / bt_v4 tắt cả hai).
+    Ngoại lệ: RSNA tắt augmentation classifier (người dùng quyết định, 1.8.2)."""
     clf = load_config([CONFIGS / "experiments" / name]).classifier
-    assert clf.augment is True and clf.baseline_class_weight is True
+    assert clf.augment is (name != "rsna_pneumonia_dass.yaml") and clf.baseline_class_weight is True
 
 
 def test_display_names_and_groups():
@@ -58,7 +59,10 @@ def test_rsna_config_and_augment_profiles():
     assert rsna.paths.gan_tag == "rsna" and rsna.data.split.type == "stratified"
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC / Brain
-    assert rsna.selection == isic.selection and rsna.classifier == isic.classifier   # cùng công thức
+    assert rsna.selection == isic.selection and rsna.encoder == isic.encoder        # cùng công thức DASS / E_d
+    # classifier: chỉ khác augmentation (người dùng tắt cho RSNA); class weight M0 và mọi siêu tham số khác giống ISIC
+    assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is True
+    assert dataclasses.replace(rsna.classifier, augment=True) == isic.classifier
     # GAN: chỉ khác mirror (X-quang ngực không đối xứng trái / phải), mọi tham số khác giống ISIC
     assert isic.generator.mirror is True and rsna.generator.mirror is False
     assert dataclasses.replace(rsna.generator, mirror=True) == isic.generator

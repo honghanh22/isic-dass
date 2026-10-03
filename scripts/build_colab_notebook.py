@@ -183,7 +183,8 @@ md("""
 ## 7. Train classifier — 6 backbone × 8 phương pháp × 3 seed
 
 Mỗi cell một backbone, train cả 8 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
-trên Drive sẽ bỏ qua). Mọi phương pháp dùng cùng augmentation; baseline cân bằng bằng class weight.
+trên Drive sẽ bỏ qua). Trong một bộ dữ liệu, mọi phương pháp dùng cùng augmentation (RSNA: không augmentation);
+baseline cân bằng bằng class weight.
 
 - **Real Data Baselines:** Imbalanced Baseline (class-weighted) (`M0_real_only`), Random Oversampling (ROS)
   (`M0b_real_oversample`)

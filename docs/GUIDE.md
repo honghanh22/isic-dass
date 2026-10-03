@@ -14,8 +14,9 @@ Brain Tumor `bt_v5`). Khi đổi code hoặc cấu hình, cập nhật file này
 | `v9` / `bt_v4` | 2 | **không** | **không** | ISIC: EfficientNetV2B0, ResNet50 |
 | **`v10` / `bt_v5`** | **1,5** | **có** | **có** | **cấu hình hiện tại** |
 
-RSNA Pneumonia (mục 2.5) dùng cùng công thức với `v10` / `bt_v5`: `rsna_v2` là cấu hình chính (toàn bộ ảnh, đã loại
-"Exclude"); `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
+RSNA Pneumonia (mục 2.5) dùng cùng công thức DASS với `v10` / `bt_v5` (k = 1,5, M0 có class weight) **nhưng classifier
+không augmentation** (người dùng quyết định, 1.8.2, trước khi train classifier RSNA): `rsna_v2` là cấu hình chính
+(toàn bộ ảnh, đã loại "Exclude"); `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
 
 **Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`, `bt_v3`) và mọi E_d cũ dùng augmentation tương quan này; `v10` / `bt_v5` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
 
@@ -181,7 +182,7 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 | Quy mô | **toàn bộ** sau khi lọc (`subset_size: 0`): khoảng 12,2 nghìn ảnh, khoảng 12 % positive. Tỉ lệ dương thấp hơn 23,7 % của 30.000 ảnh vì người có đám mờ được chụp lại nhiều lần (2,7 ảnh / bệnh nhân dương so với 1,35 ở ảnh Normal) |
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
-| Augmentation | `upright`: lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
+| Augmentation | classifier: **không** (`classifier.augment: false`, người dùng quyết định); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
 | GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược) |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
@@ -362,6 +363,9 @@ thực nghiệm chính.
   **M6 vs M0b** là phép so sánh chặt chẽ nhất.
 - Cấu hình không can thiệp dữ liệu (`v9` / `bt_v4`) chạy lại được bằng `--set classifier.augment=false
   --set classifier.baseline_class_weight=false` kèm `--tag` riêng.
+- **RSNA (`rsna_v2`): classifier không augmentation** (`classifier.augment: false` trong `configs/datasets/`), M0 vẫn có
+  class weight. Vẫn công bằng vì mọi biến thể cùng không augmentation; khác `v10` / `bt_v5` ở điểm này, phải nêu
+  trong bài báo.
 
 **Backbone (pretrain ImageNet):**
 
@@ -763,7 +767,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |
 | Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_macro_recall` | |
-| Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | bật / bật | |
+| Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | bật / bật (RSNA: tắt / bật) | |
 | Đánh giá | ngưỡng / bootstrap / KID (tập con, kích thước tối đa) / cặp SSIM | 0.5 / 2000 / 50, 1000 / 200 | `configs/_base_/evaluation.yaml` |
 | Đánh giá | đối chứng chính / cặp bổ sung (`comparisons`) | M0 / M6 vs M0b, M6 vs M1 | |
 | Đánh giá | tên hiển thị / nhóm (`method_labels`, `method_groups`) | xem đầu tài liệu | |
