@@ -1,7 +1,7 @@
 # RSNA Pneumonia Detection Challenge 2018 (X-quang ngực, có / không có đám mờ phổi) — CHỈ các thiết lập phụ thuộc dữ liệu.
 # Nguồn: RSNA + NIH ChestX-ray8 (Shih et al., Radiology: AI 2019, doi:10.1148/ryai.2019180041). Mỗi bệnh nhân một ảnh.
 paths:
-  drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia
+  drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia/Result_Pneumonia   # KẾT QUẢ
   gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh): checkpoints_rsna/stylegan2ada
   run_tag: rsna_v1
 
@@ -13,7 +13,10 @@ data:
   classes: {negative: 0, positive: 1}
   source:
     type: dicom_csv
-    train_images: .      # tìm *.dcm đệ quy trong drive_root (tự giải nén .zip / .tar nếu chưa giải nén)
+    # DỮ LIỆU GỐC (đường dẫn tuyệt đối, tách khỏi drive_root như Brain Tumor): tìm *.dcm + CSV nhãn đệ quy, tự giải nén
+    # .zip / .tar nếu cần, bỏ qua thư mục kết quả. Thư mục này không có dữ liệu mà có đúng một bản "RSNA Pneumonia (1)"
+    # (Google Drive tạo khi trùng tên) chứa dữ liệu -> tự đọc từ bản đó.
+    train_images: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia
     train_labels: ""     # "" = tự tìm CSV có cột patientId + Target (ví dụ stage_2_train_labels.csv)
     id_column: patientId
     label_column: Target # 1 = có đám mờ phổi (positive); 0 = Normal + "No Lung Opacity / Not Normal" (negative)

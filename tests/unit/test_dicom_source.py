@@ -143,6 +143,11 @@ def test_outputs_are_ignored_when_searching_source_files(tmp_path):
     (tmp_path / "results_x" / "m.csv").write_text("a\n")
     (tmp_path / "labels.csv").write_text("a\n")
     assert [p.name for p in find_files(tmp_path, (".csv",))] == ["labels.csv"]
+    nested = tmp_path / "Result_Pneumonia" / "checkpoints_rsna_v1" / "data"     # kết quả nằm TRONG thư mục dữ liệu
+    nested.mkdir(parents=True)
+    (nested / "pool_positive_n10_c1.zip").write_bytes(b"")
+    (nested / "dicom_metadata.csv").write_text("a\n")
+    assert [p.name for p in find_files(tmp_path, (".csv", ".zip"))] == ["labels.csv"]
 
 
 def test_subset_is_stratified_and_deterministic():

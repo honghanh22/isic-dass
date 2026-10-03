@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.3 — RSNA: tách dữ liệu gốc và kết quả
+- `configs/datasets/rsna_pneumonia.yaml`: kết quả ghi vào `RSNA Pneumonia/Result_Pneumonia` (`drive_root`), dữ liệu gốc
+  đọc từ `RSNA Pneumonia` (`train_images`, đường dẫn tuyệt đối) — như Brain Tumor.
+- Nguồn DICOM bỏ qua thư mục kết quả (`checkpoints_*`, `results_*`) ở MỌI cấp (thư mục kết quả có thể nằm bên trong
+  thư mục dữ liệu).
+
 ## 1.6.2 — RSNA: thư mục trùng tên do Google Drive tạo
 - Nguồn DICOM: thư mục cấu hình không có dữ liệu nguồn mà có đúng một bản `<tên> (N)` chứa dữ liệu -> đọc dữ liệu từ bản
   đó (cảnh báo trong log); kết quả vẫn ghi vào thư mục cấu hình. Nếu không, lỗi in nội dung các bản trùng tên.

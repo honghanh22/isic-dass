@@ -40,12 +40,14 @@ def test_brain_tumor_artifact_paths():
 
 
 def test_rsna_artifact_paths():
-    root = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia")
+    """Dữ liệu gốc (RSNA Pneumonia) tách khỏi kết quả (RSNA Pneumonia/Result_Pneumonia), như Brain Tumor."""
+    data = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia")
+    out = data / "Result_Pneumonia"
     lay = _layout("rsna_pneumonia_dass.yaml")
-    assert lay.gan_best_pkl == root / "checkpoints_rsna/stylegan2ada/best.pkl"      # GAN mới, riêng cho RSNA
-    assert lay.results_dir == root / "results_rsna_v1"
-    assert lay.drive_train_images == root and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
-    assert lay.dicom_metadata_csv == root / "checkpoints_rsna_v1/data/dicom_metadata.csv"
+    assert lay.gan_best_pkl == out / "checkpoints_rsna/stylegan2ada/best.pkl"       # GAN mới, riêng cho RSNA
+    assert lay.results_dir == out / "results_rsna_v1"
+    assert lay.drive_train_images == data and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
+    assert lay.dicom_metadata_csv == out / "checkpoints_rsna_v1/data/dicom_metadata.csv"
     assert "rsna_pneumonia" in lay.train_raw.parts and lay.expected_split is None
 
 

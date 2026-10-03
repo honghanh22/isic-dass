@@ -181,6 +181,10 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
   sang PNG và ghi `checkpoints_rsna_v1/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi).
+- **Vị trí trên Drive:** dữ liệu gốc ở `ColabData/RSNA Pneumonia` (`source.train_images`, đường dẫn tuyệt đối); kết
+  quả ở `ColabData/RSNA Pneumonia/Result_Pneumonia` (`paths.drive_root`). Khi tìm dữ liệu, các thư mục kết quả
+  (`checkpoints_*`, `results_*`) được bỏ qua ở mọi cấp; nếu thư mục dữ liệu rỗng mà có đúng một bản `RSNA Pneumonia (1)`
+  chứa dữ liệu thì tự đọc từ bản đó.
 - **Shortcut cần kiểm tra:** bệnh nhân nặng thường chụp tư thế AP. Log của `prepare` in tỉ lệ AP / PA theo lớp; nên báo
   cáo trong bài.
 

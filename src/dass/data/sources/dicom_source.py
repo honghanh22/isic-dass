@@ -57,12 +57,17 @@ def _listing(root: Path, limit: int = 15) -> str:
     return "\n".join(lines) or "  (rỗng)"
 
 
+def _in_outputs(p: Path, root: Path) -> bool:
+    """Nằm trong thư mục kết quả của pipeline (`checkpoints_*`, `results_*`) ở BẤT KỲ cấp nào dưới `root` — thư mục kết
+    quả có thể nằm bên trong thư mục dữ liệu (ví dụ `RSNA Pneumonia/Result_Pneumonia/checkpoints_rsna_v1/`)."""
+    return any(part.startswith(OUTPUT_DIR_PREFIXES) for part in p.relative_to(root).parts[:-1])
+
+
 def find_files(root: Path, suffixes: tuple[str, ...]) -> list[Path]:
-    """File có đuôi `suffixes` dưới `root` (đệ quy), bỏ qua thư mục kết quả của pipeline ở cấp đầu."""
+    """File có đuôi `suffixes` dưới `root` (đệ quy), bỏ qua thư mục kết quả của pipeline."""
     root = Path(root)
     return sorted(p for p in root.rglob("*")
-                  if p.is_file() and p.name.lower().endswith(suffixes)
-                  and not p.relative_to(root).parts[0].startswith(OUTPUT_DIR_PREFIXES))
+                  if p.is_file() and p.name.lower().endswith(suffixes) and not _in_outputs(p, root))
 
 
 def extract_archives(archives: list[Path], out_dir: Path) -> None:
@@ -92,7 +97,7 @@ def inventory(roots: list[Path], limit: int = 40) -> str:
         if not root.is_dir():
             continue
         for p in sorted(root.rglob("*")):
-            if not p.is_file() or p.relative_to(root).parts[0].startswith(OUTPUT_DIR_PREFIXES):
+            if not p.is_file() or _in_outputs(p, root):
                 continue
             ext = "".join(p.suffixes[-2:]).lower() or "(không đuôi)"
             by_ext[ext] = by_ext.get(ext, 0) + 1
