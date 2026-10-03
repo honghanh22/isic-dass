@@ -2,8 +2,9 @@
 # Nguồn: RSNA + NIH ChestX-ray8 (Shih et al., Radiology: AI 2019, doi:10.1148/ryai.2019180041). Mỗi bệnh nhân một ảnh.
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia/Result_Pneumonia   # KẾT QUẢ
-  gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh): checkpoints_rsna/stylegan2ada
-  run_tag: rsna_v1
+  gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh, split của rsna_v2): checkpoints_rsna/stylegan2ada
+  # rsna_v1 (tập con 6.000 ảnh, chưa loại "Exclude") chỉ chạy đến prepare, giữ nguyên trên Drive.
+  run_tag: rsna_v2
 
 data:
   name: rsna_pneumonia
@@ -25,8 +26,10 @@ data:
     id_column: patientId
     label_column: Target
     positive_labels: [Lung Opacity]
+    # "Exclude": 106 ảnh không dùng được (chụp nghiêng, ổ bụng, ảnh hỏng), 75 ảnh không có nhãn lâm sàng nào -> loại
+    exclude_labels: [Exclude]
     one_per_patient: true   # dùng mapping NIH (pneumonia-challenge-dataset-mappings_2018.json): 1 ảnh / bệnh nhân
-    subset_size: 6000    # tập con phân tầng giữ nguyên tỉ lệ lớp (seed 2026); 0 = toàn bộ (~26.7 nghìn ảnh)
+    subset_size: 0       # toàn bộ (~12,2 nghìn ảnh sau khi lọc 1 ảnh / bệnh nhân, ~12 % dương); > 0 = tập con phân tầng
   preprocess:
     crop_dark_border: false
     resize: stretch      # ảnh gốc đã vuông (1024 × 1024)

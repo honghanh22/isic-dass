@@ -14,6 +14,9 @@ Brain Tumor `bt_v5`). Khi đổi code hoặc cấu hình, cập nhật file này
 | `v9` / `bt_v4` | 2 | **không** | **không** | ISIC: EfficientNetV2B0, ResNet50 |
 | **`v10` / `bt_v5`** | **1,5** | **có** | **có** | **cấu hình hiện tại** |
 
+RSNA Pneumonia (mục 2.5) dùng cùng công thức với `v10` / `bt_v5`: `rsna_v2` là cấu hình chính (toàn bộ ảnh, đã loại
+"Exclude"); `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
+
 **Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`, `bt_v3`) và mọi E_d cũ dùng augmentation tương quan này; `v10` / `bt_v5` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
 
 Cấu hình được đổi nhiều lần sau khi đã xem kết quả test. Khi viết bài báo phải nêu rõ điều này, và nên báo cáo kết
@@ -172,26 +175,35 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 |---|---|
 | Nguồn | RSNA + NIH ChestX-ray8; nhãn do bác sĩ X-quang gán (Shih et al., *Radiology: AI* 2019) |
 | Ảnh | DICOM xám 1024 × 1024, **mỗi bệnh nhân một ảnh** |
-| Nhãn | positive = có đám mờ phổi (Kaggle: `Target = 1`; bản MD.ai của trang RSNA: chú thích "Lung Opacity", file `…annotations-adjudicated-kaggle_2018.json`); negative = *Normal* + *No Lung Opacity / Not Normal* |
-| Bệnh nhân | mapping NIH (`…dataset-mappings_2018.json`) -> giữ **1 ảnh / bệnh nhân** (`one_per_patient`), tránh rò rỉ giữa train / val / test |
-| Quy mô | tập con phân tầng **6.000 ảnh** (`subset_size`, seed 2026), giữ tỉ lệ khoảng 22 % positive |
+| Nhãn | positive = có đám mờ phổi (Kaggle: `Target = 1`; bản MD.ai của trang RSNA: chú thích "Lung Opacity" — nhãn cuối cùng sau hội chẩn, file `…annotations-adjudicated-kaggle_2018.json`); negative = *Normal* + *No Lung Opacity / Not Normal* |
+| Loại bỏ | 106 ảnh mang nhãn "Exclude" (`exclude_labels`): chụp nghiêng, ổ bụng, ảnh hỏng; 75 ảnh trong số đó không có nhãn lâm sàng nào |
+| Bệnh nhân | mapping NIH (`…dataset-mappings_2018.json`) -> giữ **1 ảnh / bệnh nhân** (`one_per_patient`, chọn ngẫu nhiên theo seed), tránh rò rỉ giữa train / val / test |
+| Quy mô | **toàn bộ** sau khi lọc (`subset_size: 0`): khoảng 12,2 nghìn ảnh, khoảng 12 % positive. Tỉ lệ dương thấp hơn 23,7 % của 30.000 ảnh vì người có đám mờ được chụp lại nhiều lần (2,7 ảnh / bệnh nhân dương so với 1,35 ở ảnh Normal) |
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
 | Augmentation | `upright`: lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
 | GAN | train mới (`gan_tag: rsna`), cùng cấu hình và cùng cách dừng sớm theo KID |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
-  sang PNG và ghi `checkpoints_rsna_v1/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi).
+  sang PNG và ghi `checkpoints_rsna_v2/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi). Đổi thiết lập nguồn
+  trong cùng runtime (ví dụ `subset_size`) thì ảnh cục bộ được đồng bộ lại; kết quả của run_tag cũ được bảo vệ bởi
+  split đã lưu trên Drive (khác split -> báo lỗi, phải đổi run_tag).
+- Các lần chạy: `rsna_v1` (tập con 6.000 ảnh, chưa loại "Exclude") chỉ chạy đến `prepare`; `rsna_v2` là cấu hình
+  chính.
+- **Nhiễu nhãn (nêu trong bài):** khoảng 11 % ảnh âm từng được một bác sĩ khoanh "Lung Opacity (… Prob)" và khoảng 12 %
+  ảnh dương từng được một bác sĩ ghi "No Lung Opacity / Not Normal"; dùng nhãn cuối cùng sau hội chẩn.
 - **Vị trí trên Drive:** dữ liệu gốc ở `ColabData/RSNA Pneumonia` (`source.train_images`, đường dẫn tuyệt đối); kết
   quả ở `ColabData/RSNA Pneumonia/Result_Pneumonia` (`paths.drive_root`). Khi tìm dữ liệu, các thư mục kết quả
   (`checkpoints_*`, `results_*`) được bỏ qua ở mọi cấp; nếu thư mục dữ liệu rỗng mà có đúng một bản `RSNA Pneumonia (1)`
   chứa dữ liệu thì tự đọc từ bản đó.
 - **Shortcut cần kiểm tra:** bệnh nhân nặng thường chụp tư thế AP. Log của `prepare` in tỉ lệ AP / PA theo lớp; nên báo
-  cáo trong bài.
+  cáo trong bài. Ở `rsna_v1`: AP chiếm 58,5 % ảnh dương nhưng chỉ 22,7 % ảnh âm, tức đoán theo tư thế đã đạt AUC
+  khoảng 0,68.
 - **Xem nhãn theo ảnh:** `dass -c configs/experiments/rsna_pneumonia_dass.yaml label-stats` in, cho từng tên nhãn trong
   JSON MD.ai, số chú thích, số ảnh, % trên tổng số ảnh, số ảnh theo lớp cuối cùng, số bệnh nhân; `--focus Exclude Flag`
   in thêm các nhãn đi kèm; `--samples 4` vẽ 4 ảnh ngẫu nhiên mỗi nhãn (khung đỏ = vùng đám mờ, dưới ảnh: lớp · tư thế
-  chụp) vào `results_rsna_v1/label_samples.png`. Không đổi dữ liệu dùng để train.
+  chụp) vào `results_rsna_v2/label_samples.png`; cột "bị loại" = số ảnh bị `exclude_labels` loại. Không đổi dữ liệu
+  dùng để train.
 
 ---
 

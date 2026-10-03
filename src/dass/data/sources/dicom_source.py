@@ -218,19 +218,33 @@ def sample_per_label(pairs: list[tuple[str, str]], n: int, seed: int) -> dict[st
     return out
 
 
-def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, int]) -> tuple[pd.Series, dict]:
+def images_with_labels(pairs: list[tuple[str, str]], names: list[str] | tuple[str, ...]) -> set[str]:
+    """Mã các ảnh có ít nhất một chú thích mang tên trong `names` (không phân biệt hoa thường)."""
+    wanted = {n.strip().lower() for n in names}
+    return {key for key, name in pairs if name.lower() in wanted}
+
+
+def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, int],
+                     exclude_labels: list[str] | tuple[str, ...] = ()) -> tuple[pd.Series, dict]:
     """JSON xuất từ MD.ai -> (Series mã ảnh -> tên lớp, {tên nhãn: số chú thích}). Ảnh dương nếu có ít nhất một chú
-    thích mang tên trong `positive_labels`, ngược lại âm."""
+    thích mang tên trong `positive_labels`, ngược lại âm. Ảnh có chú thích trong `exclude_labels` (ví dụ "Exclude":
+    ảnh chụp nghiêng, ảnh ổ bụng, ảnh hỏng — đa số không có nhãn lâm sàng) bị loại hẳn."""
     positive = {n.strip().lower() for n in positive_labels}
     by_idx = {i: c for c, i in classes.items()}
+    pairs = mdai_annotations(obj)
     per_image, usage = {}, {}
-    for key, name in mdai_annotations(obj):
+    for key, name in pairs:
         usage[name] = usage.get(name, 0) + 1
         per_image[key] = per_image.get(key, False) or name.lower() in positive
     if not per_image:
         raise ValueError(f"JSON MD.ai không có chú thích dùng được (khoá cấp đầu: {list(obj)[:10]}, "
                          f"{len(obj.get('labelGroups', []))} nhóm nhãn)")
     labels = pd.Series({k: by_idx[1] if v else by_idx[0] for k, v in per_image.items()}).sort_index()
+    if exclude_labels:
+        dropped = images_with_labels(pairs, exclude_labels)
+        log.info("Loại %d ảnh mang nhãn %s: %s", len(dropped), list(exclude_labels),
+                 labels[labels.index.isin(dropped)].value_counts().to_dict())
+        labels = labels[~labels.index.isin(dropped)]
     if (labels == by_idx[1]).sum() == 0:
         raise ValueError(f"Không có ảnh dương: không nhãn nào trùng positive_labels={positive_labels}. "
                          f"Nhãn có trong file: {usage}")
@@ -238,9 +252,10 @@ def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, i
 
 
 def label_image_table(pairs: list[tuple[str, str]], labels: pd.Series, class_names: list[str],
-                      patients: dict[str, str] | None = None) -> pd.DataFrame:
+                      patients: dict[str, str] | None = None, excluded: set[str] | None = None) -> pd.DataFrame:
     """Thống kê theo từng tên nhãn: số chú thích, số ẢNH mang nhãn (nhiều khung / nhiều bác sĩ trên cùng một ảnh chỉ tính
-    một lần), % trên tổng số ảnh có nhãn, số ảnh đó theo lớp cuối cùng, số bệnh nhân NIH. Dòng cuối "TỔNG"."""
+    một lần), % trên tổng số ảnh có nhãn, số ảnh đó theo lớp cuối cùng, số bệnh nhân NIH, số ảnh bị loại
+    (`excluded`, theo `exclude_labels`). `labels` là nhãn TRƯỚC khi loại. Dòng cuối "TỔNG"."""
     df = pd.DataFrame(pairs, columns=["image_id", "name"])
     images = df.drop_duplicates()
     images = images.assign(cls=images["image_id"].map(labels))
@@ -252,6 +267,10 @@ def label_image_table(pairs: list[tuple[str, str]], labels: pd.Series, class_nam
     if patients:
         table["bệnh nhân"] = images.assign(p=images["image_id"].map(patients)).groupby("name")["p"].nunique()
         total["bệnh nhân"] = labels.index.map(patients).dropna().nunique()
+    if excluded is not None:
+        table["bị loại"] = images[images["image_id"].isin(excluded)]["name"].value_counts()
+        table["bị loại"] = table["bị loại"].fillna(0)
+        total["bị loại"] = len(excluded)
     table = table.sort_values(["ảnh", "chú thích"], ascending=False)
     table.loc["TỔNG"] = pd.Series(total)
     counts = [c for c in table.columns if c != "% ảnh"]
@@ -353,13 +372,15 @@ def dicom_index(files: list[Path]) -> dict[str, Path]:
 class DicomCsvSource(DatasetSource):
     def __init__(self, classes: dict[str, int], images_root: Path, labels_path: Path | None, id_column: str,
                  label_column: str, subset_size: int, seed: int, extract_dir: Path, metadata_csv: Path,
-                 positive_labels: list[str] | tuple[str, ...] = (), one_per_patient: bool = False):
+                 positive_labels: list[str] | tuple[str, ...] = (), one_per_patient: bool = False,
+                 exclude_labels: list[str] | tuple[str, ...] = ()):
         super().__init__(classes)
         self.images_root, self.labels_path = Path(images_root), labels_path
         self.id_column, self.label_column = id_column, label_column
         self.subset_size, self.seed = subset_size, seed
         self.extract_dir, self.metadata_csv = Path(extract_dir), Path(metadata_csv)
         self.positive_labels, self.one_per_patient = list(positive_labels), one_per_patient
+        self.exclude_labels = list(exclude_labels)
         self._diag, self._files = None, None          # cache cho lệnh chẩn đoán label-stats
 
     @property
@@ -426,9 +447,12 @@ class DicomCsvSource(DatasetSource):
         csv = self.labels_path if self.labels_path is not None else \
             search_label_csv(roots, self.id_column, self.label_column)[0]
         if csv is not None:
+            if self.exclude_labels:
+                raise ValueError(f"exclude_labels = {self.exclude_labels} cần nhãn JSON MD.ai (có tên nhãn); CSV "
+                                 f"{csv.name} chỉ có cột {self.label_column}")
             return read_dicom_labels(csv, self.id_column, self.label_column, self.classes), csv.name, patients
         if mdai is not None:
-            labels, usage = read_mdai_labels(mdai[0], self.positive_labels, self.classes)
+            labels, usage = read_mdai_labels(mdai[0], self.positive_labels, self.classes, self.exclude_labels)
             log.info("Nhãn MD.ai %s — số chú thích theo nhãn: %s (dương = %s)", mdai[1].name, usage,
                      self.positive_labels)
             return labels, mdai[1].name, patients
@@ -471,12 +495,14 @@ class DicomCsvSource(DatasetSource):
         return self._files
 
     def label_report(self, focus: list[str] | tuple[str, ...] = ()) -> tuple[str, pd.DataFrame, dict[str, pd.Series]]:
-        """Thống kê nhãn theo ẢNH -> (tên file nhãn, `label_image_table`, {nhãn trong `focus`: `cooccurring_labels`})."""
+        """Thống kê nhãn theo ẢNH (trước khi loại `exclude_labels`; cột "bị loại" nếu có) -> (tên file nhãn,
+        `label_image_table`, {nhãn trong `focus`: `cooccurring_labels`})."""
         obj, name, labels, patients = self._mdai()
         if patients and not set(labels.index) <= set(patients):
             patients = expand_patients(patients, self._dicom_files())
         pairs = mdai_annotations(obj)
-        table = label_image_table(pairs, labels, list(self.classes), patients)
+        excluded = images_with_labels(pairs, self.exclude_labels) if self.exclude_labels else None
+        table = label_image_table(pairs, labels, list(self.classes), patients, excluded)
         return name, table, {f: cooccurring_labels(pairs, f) for f in focus}
 
     def label_samples(self, n: int, size: int = 256) -> dict[str, list[tuple[np.ndarray, list, str]]]:
@@ -503,11 +529,17 @@ class DicomCsvSource(DatasetSource):
         return out
 
     def _signature(self) -> dict:
-        return {"labels": str(self.labels_path or "auto"), "id_column": self.id_column,
-                "label_column": self.label_column, "positive_labels": self.positive_labels,
-                "one_per_patient": self.one_per_patient, "subset_size": self.subset_size, "seed": self.seed}
+        sig = {"labels": str(self.labels_path or "auto"), "id_column": self.id_column,
+               "label_column": self.label_column, "positive_labels": self.positive_labels,
+               "one_per_patient": self.one_per_patient, "subset_size": self.subset_size, "seed": self.seed}
+        if self.exclude_labels:                       # chỉ thêm khi dùng -> đánh dấu của thiết lập cũ vẫn hợp lệ
+            sig["exclude_labels"] = self.exclude_labels
+        return sig
 
     def ingest(self, subset: str, dst_root: str | Path) -> dict[str, int]:
+        """Đồng bộ `dst_root/<lớp>/` ĐÚNG bằng tập ảnh của thiết lập hiện tại: ảnh đã chuyển thì giữ, ảnh thiếu thì
+        chuyển, ảnh thừa (của thiết lập trước trong cùng runtime) thì xoá. Bản cục bộ, không đụng Drive; kết quả của
+        run_tag cũ được bảo vệ bởi split đã lưu trên Drive."""
         if subset != "train":
             raise ValueError("Nguồn DICOM chỉ có tập train (test tách bằng split)")
         dst_root = Path(dst_root)
@@ -516,8 +548,9 @@ class DicomCsvSource(DatasetSource):
             saved = json.loads(marker.read_text())
             if saved.get("signature") == self._signature():
                 return saved["counts"]
-            raise ValueError(f"Ảnh đã chuyển ở {dst_root} theo thiết lập khác ({saved.get('signature')}). "
-                             "Dùng run_tag / data.name mới khi đổi nhãn hoặc subset_size.")
+            log.warning("Thiết lập nguồn đã đổi (%s -> %s): đồng bộ lại ảnh cục bộ ở %s", saved.get("signature"),
+                        self._signature(), dst_root)
+            marker.unlink()
 
         self._check_root()
         labels, source, patients = self._labels()
@@ -568,6 +601,15 @@ class DicomCsvSource(DatasetSource):
         if missing:
             raise FileNotFoundError(f"{len(missing)} ảnh có nhãn nhưng không có file DICOM (ví dụ {missing[:3]}) "
                                     f"dưới {self.images_root}")
+        stale = 0
+        for label in self.classes:
+            keep = {f"{image_id}.png" for image_id in labels.index[labels == label]}
+            for p in (dst_root / label).iterdir():
+                if p.name not in keep:
+                    p.unlink()
+                    stale += 1
+        if stale:
+            log.info("Xoá %d ảnh cục bộ không thuộc thiết lập hiện tại", stale)
 
         meta = pd.DataFrame(meta)
         self.metadata_csv.parent.mkdir(parents=True, exist_ok=True)

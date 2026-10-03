@@ -71,14 +71,16 @@ def test_ingest_converts_labelled_dicoms_to_gray_png(rsna_like, tmp_path):
     assert set(meta.loc[meta["label"] == "positive", "ViewPosition"]) == {"AP"}
 
 
-def test_ingest_is_cached_and_rejects_changed_settings(rsna_like, tmp_path):
+def test_ingest_resyncs_local_images_when_settings_change(rsna_like, tmp_path):
     dst = tmp_path / "raw"
-    counts = _source(rsna_like, tmp_path).ingest("train", dst)
+    full = _source(rsna_like, tmp_path).ingest("train", dst)
+    sub = _source(rsna_like, tmp_path, subset=4).ingest("train", dst)          # cùng runtime, thiết lập khác
+    pngs = lambda: sorted(p.relative_to(dst).as_posix() for p in dst.rglob("*.png"))  # noqa: E731
+    assert sum(sub.values()) == 4 and len(pngs()) == 4                       # ảnh của thiết lập cũ bị xoá
+    assert _source(rsna_like, tmp_path).ingest("train", dst) == full and len(pngs()) == 12
     for p in (rsna_like / "stage_2_train_images").iterdir():
         p.unlink()                                                         # lần sau không cần đọc lại Drive
-    assert _source(rsna_like, tmp_path).ingest("train", dst) == counts
-    with pytest.raises(ValueError, match="thiết lập khác"):
-        _source(rsna_like, tmp_path, subset=4).ingest("train", dst)
+    assert _source(rsna_like, tmp_path).ingest("train", dst) == full
 
 
 def test_ingest_extracts_zip_when_no_dicom(rsna_like, tmp_path):
@@ -187,6 +189,41 @@ def test_mdai_export_labels_and_one_image_per_patient(tmp_path):
     assert meta["nih_patient"].astype(str).str.zfill(8).nunique() == len(meta)       # mỗi bệnh nhân đúng 1 ảnh
 
 
+def _add_exclude(root, studies, targets):
+    """Thêm nhãn "Exclude" cho các ảnh `targets` (chỉ số trong `studies`)."""
+    path = root / "pneumonia-challenge-annotations-adjudicated-kaggle_2018.json"
+    obj = json.loads(path.read_text())
+    obj["labelGroups"][0]["labels"].append({"id": "L_ex", "name": "Exclude"})
+    obj["datasets"][0]["annotations"] += [{"StudyInstanceUID": studies[i], "labelId": "L_ex"} for i in targets]
+    path.write_text(json.dumps(obj))
+    return path
+
+
+def test_exclude_labels_drop_images_before_one_per_patient(tmp_path):
+    root = tmp_path / "data"
+    studies = _mdai_fixture(root)
+    _add_exclude(root, studies, [1, 3, 5])        # 1 dương, 2 âm (5 cùng bệnh nhân với 6 -> giữ 6)
+    src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", positive_labels=["Lung Opacity"], one_per_patient=True,
+                         exclude_labels=["Exclude"])
+    counts = src.ingest("train", tmp_path / "raw")
+    assert counts == {"negative": 2, "positive": 2}
+    kept = {p.stem for p in (tmp_path / "raw").rglob("*.png")}
+    assert kept == {studies[i] for i in (0, 2, 4, 6)}
+    assert json.loads((tmp_path / "raw" / ".ingest.json").read_text())["signature"]["exclude_labels"] == ["Exclude"]
+
+    _, table, _ = src.label_report()
+    assert table.loc["Exclude", "bị loại"] == 3 and table.loc["TỔNG", "bị loại"] == 3
+    assert table.loc["TỔNG", "ảnh"] == 7                                      # bảng = nhãn TRƯỚC khi loại
+
+
+def test_exclude_labels_need_mdai_names(rsna_like, tmp_path):
+    src = DicomCsvSource(CLASSES, rsna_like, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", exclude_labels=["Exclude"])
+    with pytest.raises(ValueError, match="MD.ai"):
+        src.ingest("train", tmp_path / "raw")
+
+
 def test_mdai_wrong_positive_label_lists_available_labels(tmp_path):
     root = tmp_path / "data"
     _mdai_fixture(root)
@@ -199,12 +236,7 @@ def test_mdai_wrong_positive_label_lists_available_labels(tmp_path):
 def test_label_report_counts_images_not_annotations(tmp_path):
     root = tmp_path / "data"
     studies = _mdai_fixture(root)
-    path = root / "pneumonia-challenge-annotations-adjudicated-kaggle_2018.json"
-    obj = json.loads(path.read_text())
-    obj["labelGroups"][0]["labels"].append({"id": "L_ex", "name": "Exclude"})
-    obj["datasets"][0]["annotations"] += [{"StudyInstanceUID": studies[0], "labelId": "L_ex"}] * 2 + \
-                                         [{"StudyInstanceUID": studies[4], "labelId": "L_ex"}]     # 2 bác sĩ / ảnh 0
-    path.write_text(json.dumps(obj))
+    path = _add_exclude(root, studies, [0, 0, 4])                             # 2 bác sĩ đánh dấu ảnh 0
     src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
                          tmp_path / "meta.csv", positive_labels=["Lung Opacity"])
     name, table, co = src.label_report(["Exclude"])

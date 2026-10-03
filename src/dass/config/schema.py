@@ -66,6 +66,7 @@ class SourceConfig:
     subset_size: int = 0             # dicom_csv: > 0 -> tập con phân tầng theo nhãn (seed toàn cục), 0 = tất cả
     positive_labels: list[str] = field(default_factory=list)   # dicom_csv + nhãn MD.ai: tên nhãn = lớp dương
     one_per_patient: bool = False    # dicom_csv: giữ 1 ảnh / bệnh nhân (cần mapping NIH) -> không rò rỉ bệnh nhân
+    exclude_labels: list[str] = field(default_factory=list)    # dicom_csv + nhãn MD.ai: loại ảnh mang nhãn này
 
     @property
     def has_test_set(self) -> bool:
@@ -268,6 +269,11 @@ def validate(cfg: Config) -> None:
     if s.type == "dicom_csv" and (not s.id_column or not s.label_column or s.has_test_set or s.subset_size < 0):
         errors.append("data.source.type = dicom_csv cần id_column, label_column, subset_size >= 0 và không có "
                       "test_images (test tách bằng split)")
+    if s.exclude_labels and s.type != "dicom_csv":
+        errors.append("data.source.exclude_labels chỉ dùng cho nguồn dicom_csv (nhãn JSON MD.ai)")
+    overlap = {n.strip().lower() for n in s.exclude_labels} & {n.strip().lower() for n in s.positive_labels}
+    if overlap:
+        errors.append(f"data.source.exclude_labels trùng positive_labels: {sorted(overlap)}")
     if d.augment_profile not in AUGMENT_PROFILES:
         errors.append(f"data.augment_profile phải là một trong {AUGMENT_PROFILES}, nhận {d.augment_profile!r}")
     if d.preprocess.resize not in RESIZE_MODES:

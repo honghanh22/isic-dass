@@ -68,12 +68,19 @@ def preprocess_tree(src_root: str | Path, dst_root: str | Path, img_size: int, c
     """Tiền xử lý `src_root/<lớp>/*` sang `dst_root/<lớp>/*.png`.
 
     Bỏ qua ảnh đã xử lý ĐÚNG định dạng; ảnh cũ sai định dạng (sai số kênh, hoặc còn lệch kênh khi `force_gray`)
-    được xử lý lại.
+    được xử lý lại. Ảnh đã xử lý không còn ảnh gốc tương ứng (ảnh gốc đổi theo thiết lập nguồn, ví dụ tập con DICOM
+    khác trong cùng runtime) bị xoá, để split không lẫn ảnh của thiết lập trước.
     """
     mode = pil_mode(channels) + (" xám" if force_gray and channels == 3 else "")
     for label in class_names:
         src_dir, dst_dir = Path(src_root) / label, Path(dst_root) / label
         dst_dir.mkdir(parents=True, exist_ok=True)
+        stems = {p.stem for p in src_dir.iterdir()}
+        stale = [p for p in dst_dir.iterdir() if p.stem not in stems]
+        for p in stale:
+            p.unlink()
+        if stale:
+            log.warning("%s: xoá %d ảnh đã tiền xử lý không còn ảnh gốc tương ứng", label, len(stale))
         redone = 0
         for src in tqdm(sorted(src_dir.iterdir()), desc=f"Tiền xử lý {label} ({mode})"):
             dst = dst_dir / (src.stem + ".png")

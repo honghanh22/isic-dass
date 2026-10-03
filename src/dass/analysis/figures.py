@@ -64,7 +64,9 @@ def plot_label_samples(rows: dict[str, list[tuple[np.ndarray, list, str]]], coun
             ax.set_xlabel(caption, fontsize=8)
         head = textwrap.fill(label, 18) + (f"\n({counts[label]} ảnh)" if label in counts else "")
         axes[r, 0].set_ylabel(head, fontsize=9, rotation=0, ha="right", va="center", labelpad=8)
-    fig.suptitle(title, fontsize=11)
+    h = fig.get_figheight()                       # hình cao: lề trên mặc định (12 %) để lại khoảng trắng lớn
+    fig.subplots_adjust(top=1 - 0.9 / h)
+    fig.suptitle(title, fontsize=11, y=1 - 0.35 / h)
     save_figure(fig, path)
 
 

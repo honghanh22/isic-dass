@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0 — RSNA `rsna_v2`: loại ảnh "Exclude", dùng toàn bộ dữ liệu
+- Tuỳ chọn mới `data.source.exclude_labels` (mặc định rỗng; chỉ cho `dicom_csv` + nhãn MD.ai): ảnh có chú thích mang
+  tên này bị loại TRƯỚC bước 1 ảnh / bệnh nhân. Không được trùng `positive_labels`.
+- RSNA: `exclude_labels: [Exclude]` (106 ảnh: chụp nghiêng, ổ bụng, ảnh hỏng; 75 ảnh không có nhãn lâm sàng nào và
+  trước đây bị xếp vào lớp âm), `subset_size: 0` (toàn bộ khoảng 12,2 nghìn ảnh thay vì 6.000), `run_tag: rsna_v2`.
+  `rsna_v1` chỉ chạy đến `prepare`, giữ nguyên trên Drive.
+- Ảnh cục bộ được đồng bộ khi thiết lập nguồn đổi trong cùng runtime: nguồn DICOM chuyển ảnh thiếu và xoá ảnh thừa
+  (trước đây báo lỗi); `preprocess_tree` xoá ảnh đã xử lý không còn ảnh gốc. Tránh việc split mới lẫn ảnh của thiết lập
+  cũ. Chỉ đụng bản cục bộ (/content); kết quả của run_tag cũ vẫn được bảo vệ bởi split lưu trên Drive.
+- `label-stats`: cột "bị loại" khi có `exclude_labels`; bớt khoảng trắng phía trên hình ảnh mẫu.
+
 ## 1.7.2 — `label-stats` vẽ ảnh mẫu mỗi nhãn
 - `label-stats --samples N` (mặc định 4; 0 = không vẽ): mỗi tên nhãn MD.ai một hàng gồm N ảnh ngẫu nhiên (seed), khung
   đỏ = khung của chính nhãn đó, dưới ảnh ghi lớp cuối cùng và tư thế chụp -> `results_<run_tag>/label_samples.png`

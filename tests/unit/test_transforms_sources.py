@@ -44,6 +44,17 @@ def test_preprocess_tree_redoes_wrong_channel_files(tmp_path, gray_tree):
     assert {Image.open(p).mode for p in dst.rglob("*.png")} == {"L"}
 
 
+def test_preprocess_tree_removes_images_without_source(tmp_path, gray_tree):
+    """Ảnh gốc đổi theo thiết lập nguồn (ví dụ tập con DICOM khác) -> ảnh đã xử lý của thiết lập cũ bị xoá."""
+    dst = tmp_path / "pp"
+    preprocess_tree(gray_tree, dst, 16, ["negative", "positive"], channels=1)
+    gone = sorted((gray_tree / "negative").iterdir())[0]
+    gone.unlink()
+    preprocess_tree(gray_tree, dst, 16, ["negative", "positive"], channels=1)
+    assert not (dst / "negative" / f"{gone.stem}.png").exists()
+    assert {p.stem for p in (dst / "negative").iterdir()} == {p.stem for p in (gray_tree / "negative").iterdir()}
+
+
 def test_content_ratio_stats(tmp_path):
     paths = []
     for i in range(3):

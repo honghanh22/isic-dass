@@ -45,9 +45,9 @@ def test_rsna_artifact_paths():
     out = data / "Result_Pneumonia"
     lay = _layout("rsna_pneumonia_dass.yaml")
     assert lay.gan_best_pkl == out / "checkpoints_rsna/stylegan2ada/best.pkl"       # GAN mới, riêng cho RSNA
-    assert lay.results_dir == out / "results_rsna_v1"
+    assert lay.results_dir == out / "results_rsna_v2"
     assert lay.drive_train_images == data and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
-    assert lay.dicom_metadata_csv == out / "checkpoints_rsna_v1/data/dicom_metadata.csv"
+    assert lay.dicom_metadata_csv == out / "checkpoints_rsna_v2/data/dicom_metadata.csv"
     assert "rsna_pneumonia" in lay.train_raw.parts and lay.expected_split is None
 
 

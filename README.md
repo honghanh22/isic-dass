@@ -83,7 +83,7 @@ configs/
 │   ├── _template.yaml         starting point for a new dataset
 │   ├── isic2016.yaml          CSV source, dark-border crop, holdout_val split, run_tag v10
 │   ├── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v5
-│   └── rsna_pneumonia.yaml    DICOM source, 1 channel, upright augmentation, 6,000-image subset, run_tag rsna_v1
+│   └── rsna_pneumonia.yaml    DICOM source, 1 channel, upright augmentation, one image per patient, "Exclude" removed, run_tag rsna_v2
 └── experiments/               experiment = _base_ + dataset (+ overrides)
     ├── isic2016_dass.yaml
     ├── brain_tumor_dass.yaml
@@ -208,7 +208,8 @@ Every stage is resumable: finished artefacts are restored from Drive or skipped.
     └── run_manifest.json                      resolved config, library versions, stage commands
 ```
 
-Current tags: ISIC `gan_tag v5`, `run_tag v10`; Brain Tumor `gan_tag bt`, `run_tag bt_v5`; quick checks `run_tag smoke`.
+Current tags: ISIC `gan_tag v5`, `run_tag v10`; Brain Tumor `gan_tag bt`, `run_tag bt_v5`; RSNA Pneumonia `gan_tag rsna`,
+`run_tag rsna_v2` (`rsna_v1`, a 6,000-image subset, stopped after `prepare`); quick checks `run_tag smoke`.
 Earlier configurations are kept untouched and reported separately: ISIC `v7` (k = 4), ISIC `v9` / Brain Tumor `bt_v4`
 (k = 2, no augmentation, unweighted baseline), Brain Tumor `bt_v3` (k = 3).
 Artefacts are never deleted; a new configuration gets a new `run_tag` (or `--tag`).
