@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.1 — RSNA: tìm nhãn cả trong file nén
+- Nguồn DICOM: chưa thấy CSV nhãn thì giải nén các file .zip / .tar rồi tìm lại (trước đây chỉ giải nén khi thiếu ảnh).
+- Không tìm thấy nhãn / ảnh -> lỗi in số file theo đuôi và tên các file không phải .dcm (chẩn đoán cấu trúc dữ liệu đã
+  tải, ví dụ nhãn ở dạng JSON).
+
 ## 1.6.0 — bộ dữ liệu RSNA Pneumonia (DICOM)
 - Nguồn mới `data.source.type: dicom_csv` (`data/sources/dicom_source.py`): tự tìm file `.dcm` (đệ quy; tự giải nén
   .zip / .tar ra ổ cục bộ nếu chưa giải nén) và CSV nhãn (cột `id_column` + `label_column`; nhiều dòng cùng mã -> nhãn

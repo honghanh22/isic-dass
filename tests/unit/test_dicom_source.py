@@ -92,6 +92,29 @@ def test_ingest_extracts_zip_when_no_dicom(rsna_like, tmp_path):
     assert sum(counts.values()) == 12 and (tmp_path / "extract" / "images.zip.done").exists()
 
 
+def test_labels_and_images_only_inside_archives(rsna_like, tmp_path):
+    """Trường hợp tải từ trang RSNA chưa giải nén: cả CSV nhãn lẫn ảnh nằm trong file nén."""
+    with zipfile.ZipFile(rsna_like / "challenge.zip", "w") as z:
+        for p in (rsna_like / "stage_2_train_images").iterdir():
+            z.write(p, arcname=f"images/{p.name}")
+        z.write(rsna_like / "stage_2_train_labels.csv", arcname="stage_2_train_labels.csv")
+    for p in list((rsna_like / "stage_2_train_images").iterdir()) + [rsna_like / "stage_2_train_labels.csv"]:
+        p.unlink()
+    counts = _source(rsna_like, tmp_path).ingest("train", tmp_path / "raw")
+    assert counts == {"negative": 9, "positive": 3}
+
+
+def test_no_labels_reports_inventory(tmp_path):
+    root = tmp_path / "data"
+    root.mkdir()
+    (root / "annotations.json").write_text("{}")
+    write_dicom(root / "a.dcm", np.zeros((4, 4), np.uint8))
+    with pytest.raises(FileNotFoundError) as err:
+        _source(root, tmp_path).ingest("train", tmp_path / "raw")
+    msg = str(err.value)
+    assert ".dcm: 1" in msg and ".json: 1" in msg and "annotations.json" in msg
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)

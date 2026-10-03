@@ -59,19 +59,49 @@ def extract_archives(archives: list[Path], out_dir: Path) -> None:
         done.write_text("ok")
 
 
-def find_label_csv(root: Path, id_column: str, label_column: str) -> Path:
-    candidates = []
-    for csv in find_files(root, (".csv",)):
-        try:
-            cols = list(pd.read_csv(csv, nrows=0).columns)
-        except Exception:                                    # file CSV hỏng / không phải bảng
+def inventory(roots: list[Path], limit: int = 40) -> str:
+    """Tóm tắt nội dung thư mục để chẩn đoán: số file theo đuôi + tên các file không phải .dcm (kèm dung lượng)."""
+    by_ext, others = {}, []
+    for root in roots:
+        if not root.is_dir():
             continue
-        candidates.append((csv, cols))
-        if id_column in cols and label_column in cols:
-            return csv
-    listing = "\n".join(f"  {c.relative_to(root)}: {cols}" for c, cols in candidates) or "  (không có file CSV nào)"
+        for p in sorted(root.rglob("*")):
+            if not p.is_file():
+                continue
+            ext = "".join(p.suffixes[-2:]).lower() or "(không đuôi)"
+            by_ext[ext] = by_ext.get(ext, 0) + 1
+            if ext != ".dcm":
+                others.append(f"  {p.relative_to(root)}  ({p.stat().st_size / 1e6:.1f} MB)")
+    head = "Số file theo đuôi: " + (", ".join(f"{e}: {n}" for e, n in sorted(by_ext.items())) or "(thư mục rỗng)")
+    tail = others[:limit] + ([f"  … và {len(others) - limit} file khác"] if len(others) > limit else [])
+    return head + "\nCác file không phải .dcm:\n" + ("\n".join(tail) or "  (không có)")
+
+
+def search_label_csv(roots: list[Path], id_column: str, label_column: str) -> tuple[Path | None, list]:
+    """CSV đầu tiên có đủ hai cột; kèm danh sách (CSV, cột) đã xem để báo lỗi."""
+    seen = []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for csv in find_files(root, (".csv",)):
+            try:
+                cols = list(pd.read_csv(csv, nrows=0).columns)
+            except Exception:                                # file CSV hỏng / không phải bảng
+                continue
+            seen.append((csv, cols))
+            if id_column in cols and label_column in cols:
+                return csv, seen
+    return None, seen
+
+
+def find_label_csv(root: Path, id_column: str, label_column: str) -> Path:
+    csv, seen = search_label_csv([root], id_column, label_column)
+    if csv is not None:
+        return csv
+    listing = "\n".join(f"  {c.relative_to(root)}: {cols}" for c, cols in seen) or "  (không có file CSV nào)"
     raise FileNotFoundError(f"Không tìm thấy CSV có cột '{id_column}' và '{label_column}' dưới {root}. CSV tìm thấy:\n"
-                            f"{listing}\nKhai báo đúng data.source.train_labels / id_column / label_column.")
+                            f"{listing}\n{inventory([root])}\n"
+                            "Khai báo đúng data.source.train_labels / id_column / label_column.")
 
 
 def read_dicom_labels(csv: Path, id_column: str, label_column: str, classes: dict[str, int]) -> pd.Series:
@@ -122,6 +152,28 @@ class DicomCsvSource(DatasetSource):
     def has_test_set(self) -> bool:
         return False                      # test tách từ cùng nguồn (split stratified)
 
+    def _extract(self) -> bool:
+        """Giải nén mọi file nén dưới `images_root` ra `extract_dir` (một lần mỗi server). True nếu có file nén."""
+        archives = find_files(self.images_root, ARCHIVE_SUFFIXES)
+        if archives:
+            extract_archives(archives, self.extract_dir)
+        return bool(archives)
+
+    def _labels_csv(self) -> Path:
+        """CSV nhãn: khai báo sẵn, hoặc tự tìm trong thư mục; chưa thấy thì giải nén các file nén rồi tìm lại."""
+        if self.labels_path is not None:
+            return self.labels_path
+        csv, seen = search_label_csv([self.images_root], self.id_column, self.label_column)
+        if csv is None and self._extract():
+            csv, seen = search_label_csv([self.images_root, self.extract_dir], self.id_column, self.label_column)
+        if csv is not None:
+            return csv
+        listing = "\n".join(f"  {c.name}: {cols}" for c, cols in seen) or "  (không có file CSV nào)"
+        raise FileNotFoundError(
+            f"Không tìm thấy CSV nhãn có cột '{self.id_column}' và '{self.label_column}' (đã tìm cả trong file nén).\n"
+            f"CSV tìm thấy:\n{listing}\n{inventory([self.images_root, self.extract_dir])}\n"
+            "Khai báo đúng data.source.train_labels / id_column / label_column.")
+
     def _signature(self) -> dict:
         return {"labels": str(self.labels_path or "auto"), "id_column": self.id_column,
                 "label_column": self.label_column, "subset_size": self.subset_size, "seed": self.seed}
@@ -138,7 +190,7 @@ class DicomCsvSource(DatasetSource):
             raise ValueError(f"Ảnh đã chuyển ở {dst_root} theo thiết lập khác ({saved.get('signature')}). "
                              "Dùng run_tag / data.name mới khi đổi nhãn hoặc subset_size.")
 
-        csv = self.labels_path or find_label_csv(self.images_root, self.id_column, self.label_column)
+        csv = self._labels_csv()
         labels = read_dicom_labels(csv, self.id_column, self.label_column, self.classes)
         log.info("Nhãn từ %s: %d ảnh %s", csv.name, len(labels), labels.value_counts().to_dict())
         labels = stratified_subset(labels, self.subset_size, self.seed)
@@ -146,13 +198,11 @@ class DicomCsvSource(DatasetSource):
             log.info("Tập con phân tầng (seed %d): %d ảnh %s", self.seed, len(labels), labels.value_counts().to_dict())
 
         dicoms = find_files(self.images_root, (".dcm",))
-        if not dicoms:
-            archives = find_files(self.images_root, ARCHIVE_SUFFIXES)
-            if not archives:
-                top = sorted(p.name for p in self.images_root.iterdir()) if self.images_root.is_dir() else []
-                raise FileNotFoundError(f"Không có file .dcm hay file nén dưới {self.images_root}. Có: {top}")
-            extract_archives(archives, self.extract_dir)
+        if not dicoms and self._extract():
             dicoms = find_files(self.extract_dir, (".dcm",))
+        if not dicoms:
+            raise FileNotFoundError(f"Không có file .dcm dưới {self.images_root} (kể cả sau khi giải nén).\n"
+                                    f"{inventory([self.images_root, self.extract_dir])}")
         index = {p.stem: p for p in dicoms}
         log.info("Tìm thấy %d file DICOM", len(index))
 
