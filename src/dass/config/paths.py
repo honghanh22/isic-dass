@@ -34,6 +34,7 @@ class Layout:
         self.selection_fig_dir = self.results_dir / "selection_figures"
         self.gan_fig_dir = self.results_dir / "gan"
         self.run_manifest = self.results_dir / "run_manifest.json"
+        self.label_samples_png = self.results_dir / "label_samples.png"   # label-stats: ảnh mẫu mỗi nhãn (MD.ai)
 
         # ---- checkpoint (Drive) ----
         self.gan_dir = drive / f"checkpoints_{p.gan_tag}" / "stylegan2ada"

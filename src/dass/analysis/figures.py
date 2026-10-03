@@ -36,6 +36,38 @@ def plot_class_distribution(counts: dict[str, list[int]], class_names: list[str]
     save_figure(fig, path)
 
 
+def plot_label_samples(rows: dict[str, list[tuple[np.ndarray, list, str]]], counts: dict[str, int], title: str,
+                       path: Path) -> None:
+    """Mỗi hàng một tên nhãn: ảnh mẫu, khung của chính nhãn đó (đỏ), dưới ảnh ghi "lớp cuối cùng · tư thế chụp"."""
+    import textwrap
+
+    import matplotlib.pyplot as plt
+    from matplotlib.patches import Rectangle
+
+    rows = {k: v for k, v in rows.items() if v}
+    if not rows:
+        raise ValueError("Không có ảnh mẫu nào để vẽ (không tìm thấy file DICOM của các ảnh có nhãn)")
+    n = max(len(v) for v in rows.values())
+    fig, axes = plt.subplots(len(rows), n, figsize=(2.2 * n + 1.6, 2.4 * len(rows)), squeeze=False)
+    for r, (label, items) in enumerate(rows.items()):
+        for c in range(n):
+            ax = axes[r, c]
+            ax.set_xticks([])
+            ax.set_yticks([])
+            if c >= len(items):
+                ax.axis("off")
+                continue
+            img, boxes, caption = items[c]
+            _show(ax, img)
+            for x, y, w, h in boxes:
+                ax.add_patch(Rectangle((x, y), w, h, fill=False, edgecolor="red", linewidth=1.2))
+            ax.set_xlabel(caption, fontsize=8)
+        head = textwrap.fill(label, 18) + (f"\n({counts[label]} ảnh)" if label in counts else "")
+        axes[r, 0].set_ylabel(head, fontsize=9, rotation=0, ha="right", va="center", labelpad=8)
+    fig.suptitle(title, fontsize=11)
+    save_figure(fig, path)
+
+
 def plot_kid_history(history: pd.DataFrame, best_kimg: int, path: Path) -> None:
     import matplotlib.pyplot as plt
 

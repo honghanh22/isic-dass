@@ -190,7 +190,8 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
   cáo trong bài.
 - **Xem nhãn theo ảnh:** `dass -c configs/experiments/rsna_pneumonia_dass.yaml label-stats` in, cho từng tên nhãn trong
   JSON MD.ai, số chú thích, số ảnh, % trên tổng số ảnh, số ảnh theo lớp cuối cùng, số bệnh nhân; `--focus Exclude Flag`
-  in thêm các nhãn đi kèm. Chỉ đọc JSON, không ghi gì.
+  in thêm các nhãn đi kèm; `--samples 4` vẽ 4 ảnh ngẫu nhiên mỗi nhãn (khung đỏ = vùng đám mờ, dưới ảnh: lớp · tư thế
+  chụp) vào `results_rsna_v1/label_samples.png`. Không đổi dữ liệu dùng để train.
 
 ---
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.7.2 — `label-stats` vẽ ảnh mẫu mỗi nhãn
+- `label-stats --samples N` (mặc định 4; 0 = không vẽ): mỗi tên nhãn MD.ai một hàng gồm N ảnh ngẫu nhiên (seed), khung
+  đỏ = khung của chính nhãn đó, dưới ảnh ghi lớp cuối cùng và tư thế chụp -> `results_<run_tag>/label_samples.png`
+  (`Layout.label_samples_png`). Notebook có thêm ô gọi lệnh này sau `prepare`.
+
 ## 1.7.1 — lệnh `label-stats` (thống kê nhãn MD.ai theo ảnh)
 - `dass -c <cấu hình> label-stats [--focus Exclude …]`: với nhãn JSON MD.ai, in theo từng tên nhãn số chú thích, số
   ảnh (nhiều khung / nhiều bác sĩ trên một ảnh chỉ tính một lần), % trên tổng số ảnh, số ảnh theo lớp cuối cùng và số

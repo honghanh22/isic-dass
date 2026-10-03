@@ -113,6 +113,11 @@ code("""
 !dass {CFG} prepare
 show("class_distribution.png")
 """)
+code("""
+# (Chỉ RSNA — nhãn JSON MD.ai) số ảnh theo từng tên nhãn + 4 ảnh mẫu mỗi nhãn (khung đỏ = vùng đám mờ)
+!dass {CFG} label-stats --focus Exclude Flag --samples 4
+show("label_samples.png")
+""")
 
 md("""
 ## 3. StyleGAN2-ADA có điều kiện

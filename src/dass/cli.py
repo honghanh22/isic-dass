@@ -35,9 +35,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("show-config", help="in cấu hình đã hợp nhất (JSON)")
     sub.add_parser("prepare", help="đọc nguồn, nhận diện số kênh, tiền xử lý, chia, dataset card")
-    p = sub.add_parser("label-stats", help="(nguồn DICOM, nhãn MD.ai) thống kê nhãn theo ảnh; chỉ đọc JSON, không ghi")
+    p = sub.add_parser("label-stats", help="(nguồn DICOM, nhãn MD.ai) thống kê nhãn theo ảnh + hình ảnh mẫu mỗi nhãn")
     p.add_argument("--focus", nargs="*", default=["Exclude"], metavar="NHÃN",
                    help="nhãn cần xem các nhãn đi kèm (mặc định: Exclude)")
+    p.add_argument("--samples", type=int, default=4, metavar="N",
+                   help="số ảnh mẫu mỗi nhãn -> results_<run_tag>/label_samples.png (0 = không vẽ)")
 
     p = sub.add_parser("gan-setup", help="clone + vá StyleGAN2-ADA, biên dịch plugin CUDA")
     p.add_argument("--no-reset", action="store_true", help="không đưa repo về nguyên bản trước khi vá")
@@ -105,13 +107,14 @@ def _run_chain(args: argparse.Namespace, cfg) -> None:
             subprocess.run([*base, stage], check=True)
 
 
-def _label_stats(cfg, focus: list[str]) -> None:
+def _label_stats(cfg, focus: list[str], samples: int) -> None:
     import pandas as pd
 
     from .config import Layout
     from .data.sources import DicomCsvSource, build_source
 
-    source = build_source(cfg, Layout(cfg))
+    layout = Layout(cfg)
+    source = build_source(cfg, layout)
     if not isinstance(source, DicomCsvSource):
         raise SystemExit("label-stats chỉ dùng cho nguồn dicom_csv (nhãn JSON MD.ai)")
     name, table, co = source.label_report(focus)
@@ -120,6 +123,12 @@ def _label_stats(cfg, focus: list[str]) -> None:
               f"{cfg.data.source.positive_labels}):\n{table.to_string()}")
         for label, s in co.items():
             print(f"\nCác nhãn khác trên ảnh có '{label}':\n" + (s.to_string() if len(s) else "  (không có ảnh nào)"))
+    if samples > 0:
+        from .analysis.figures import plot_label_samples
+
+        plot_label_samples(source.label_samples(samples), table["ảnh"].drop("TỔNG").to_dict(),
+                           f"{cfg.data.name}: {samples} ảnh ngẫu nhiên mỗi nhãn — khung đỏ = khung của nhãn ở hàng đó; "
+                           "dưới ảnh: lớp cuối cùng · tư thế chụp", layout.label_samples_png)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -148,7 +157,7 @@ def main(argv: list[str] | None = None) -> None:
         from .pipeline.stages import prepare
         prepare.run(cfg)
     elif cmd == "label-stats":
-        _label_stats(cfg, args.focus)
+        _label_stats(cfg, args.focus, args.samples)
     elif cmd == "gan-setup":
         from .pipeline.stages import gan
         gan.setup(cfg, reset=not args.no_reset, verify=not args.skip_verify, clear_cache=args.clear_ext_cache)

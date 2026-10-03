@@ -217,6 +217,32 @@ def test_label_report_counts_images_not_annotations(tmp_path):
     assert not (tmp_path / "meta.csv").exists() and not (tmp_path / "extract").exists()      # chỉ đọc, không ghi
 
 
+def test_label_samples_draw_own_boxes_scaled(tmp_path):
+    root = tmp_path / "data"
+    _mdai_fixture(root)
+    path = root / "pneumonia-challenge-annotations-adjudicated-kaggle_2018.json"
+    obj = json.loads(path.read_text())
+    for a in obj["datasets"][0]["annotations"]:
+        if a["labelId"] == "L_op":
+            a["data"] = {"x": 1, "y": 0, "width": 2, "height": 3}             # ảnh gốc 4 × 4
+    path.write_text(json.dumps(obj))
+    src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", positive_labels=["Lung Opacity"])
+    rows = src.label_samples(n=2, size=8)
+    assert list(rows) == ["Lung Opacity", "Normal", "No Lung Opacity / Not Normal"]     # theo số ảnh giảm dần
+    assert [len(v) for v in rows.values()] == [2, 2, 1]
+    img, boxes, caption = rows["Lung Opacity"][0]
+    assert img.shape == (8, 8) and img.dtype == np.uint8
+    assert boxes == [(2.0, 0.0, 4.0, 6.0)] * 2 and caption == "positive · AP"           # 2 khung, co theo 4 -> 8
+    assert rows["Normal"][0][1] == [] and rows["Normal"][0][2].startswith("negative")
+    assert src.label_samples(n=2, size=8)["Normal"][1][2] == rows["Normal"][1][2]        # tất định theo seed
+
+    from dass.analysis.figures import plot_label_samples
+    out = tmp_path / "fig" / "label_samples.png"
+    plot_label_samples(rows, {"Lung Opacity": 3}, "test", out)
+    assert out.stat().st_size > 0
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)
