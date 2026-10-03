@@ -37,3 +37,8 @@ data:
     type: stratified     # test của cuộc thi không có nhãn -> tự tách 70 / 15 / 15 (mỗi bệnh nhân một ảnh)
     test: 0.15
     val: 0.176
+
+generator:
+  # X-quang ngực không đối xứng trái / phải (tim, quai động mạch chủ, chữ đánh dấu L / R): GAN không học bản lật ngang,
+  # nếu không khoảng một nửa ảnh sinh có tim bên phải. Mọi tham số GAN khác giữ như ISIC / Brain Tumor.
+  mirror: false

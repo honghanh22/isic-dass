@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.1 — RSNA: GAN không học bản lật ngang
+- `configs/datasets/rsna_pneumonia.yaml`: `generator.mirror: false`. X-quang ngực không đối xứng trái / phải; với
+  `mirror: true`, khoảng một nửa ảnh sinh sẽ có tim bên phải và chữ L / R bị ngược. Mọi tham số GAN khác giống ISIC /
+  Brain Tumor (có test). Chốt trước khi train GAN RSNA lần đầu; ISIC / Brain Tumor không đổi. Classifier vẫn lật ngang
+  ngẫu nhiên khi train (profile `upright`), như nhau cho mọi phương pháp.
+
 ## 1.8.0 — RSNA `rsna_v2`: loại ảnh "Exclude", dùng toàn bộ dữ liệu
 - Tuỳ chọn mới `data.source.exclude_labels` (mặc định rỗng; chỉ cho `dicom_csv` + nhãn MD.ai): ảnh có chú thích mang
   tên này bị loại TRƯỚC bước 1 ảnh / bệnh nhân. Không được trùng `positive_labels`.

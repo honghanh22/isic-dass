@@ -1,3 +1,4 @@
+import dataclasses
 from pathlib import Path
 
 import pytest
@@ -58,6 +59,9 @@ def test_rsna_config_and_augment_profiles():
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC / Brain
     assert rsna.selection == isic.selection and rsna.classifier == isic.classifier   # cùng công thức
+    # GAN: chỉ khác mirror (X-quang ngực không đối xứng trái / phải), mọi tham số khác giống ISIC
+    assert isic.generator.mirror is True and rsna.generator.mirror is False
+    assert dataclasses.replace(rsna.generator, mirror=True) == isic.generator
     with pytest.raises(ValueError, match="augment_profile"):
         load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["data.augment_profile=random"])
     with pytest.raises(ValueError, match="dicom_csv"):
