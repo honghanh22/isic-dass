@@ -35,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("show-config", help="in cấu hình đã hợp nhất (JSON)")
     sub.add_parser("prepare", help="đọc nguồn, nhận diện số kênh, tiền xử lý, chia, dataset card")
+    p = sub.add_parser("label-stats", help="(nguồn DICOM, nhãn MD.ai) thống kê nhãn theo ảnh; chỉ đọc JSON, không ghi")
+    p.add_argument("--focus", nargs="*", default=["Exclude"], metavar="NHÃN",
+                   help="nhãn cần xem các nhãn đi kèm (mặc định: Exclude)")
 
     p = sub.add_parser("gan-setup", help="clone + vá StyleGAN2-ADA, biên dịch plugin CUDA")
     p.add_argument("--no-reset", action="store_true", help="không đưa repo về nguyên bản trước khi vá")
@@ -102,6 +105,23 @@ def _run_chain(args: argparse.Namespace, cfg) -> None:
             subprocess.run([*base, stage], check=True)
 
 
+def _label_stats(cfg, focus: list[str]) -> None:
+    import pandas as pd
+
+    from .config import Layout
+    from .data.sources import DicomCsvSource, build_source
+
+    source = build_source(cfg, Layout(cfg))
+    if not isinstance(source, DicomCsvSource):
+        raise SystemExit("label-stats chỉ dùng cho nguồn dicom_csv (nhãn JSON MD.ai)")
+    name, table, co = source.label_report(focus)
+    with pd.option_context("display.width", 200, "display.max_rows", 200):
+        print(f"Nhãn trong {name} (một ảnh có thể mang nhiều nhãn; lớp cuối cùng: dương = "
+              f"{cfg.data.source.positive_labels}):\n{table.to_string()}")
+        for label, s in co.items():
+            print(f"\nCác nhãn khác trên ảnh có '{label}':\n" + (s.to_string() if len(s) else "  (không có ảnh nào)"))
+
+
 def main(argv: list[str] | None = None) -> None:
     args = build_parser().parse_args(argv)
     setup_logging(logging.DEBUG if args.verbose else logging.INFO)
@@ -127,6 +147,8 @@ def main(argv: list[str] | None = None) -> None:
     elif cmd == "prepare":
         from .pipeline.stages import prepare
         prepare.run(cfg)
+    elif cmd == "label-stats":
+        _label_stats(cfg, args.focus)
     elif cmd == "gan-setup":
         from .pipeline.stages import gan
         gan.setup(cfg, reset=not args.no_reset, verify=not args.skip_verify, clear_cache=args.clear_ext_cache)

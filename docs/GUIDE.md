@@ -188,6 +188,9 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
   chứa dữ liệu thì tự đọc từ bản đó.
 - **Shortcut cần kiểm tra:** bệnh nhân nặng thường chụp tư thế AP. Log của `prepare` in tỉ lệ AP / PA theo lớp; nên báo
   cáo trong bài.
+- **Xem nhãn theo ảnh:** `dass -c configs/experiments/rsna_pneumonia_dass.yaml label-stats` in, cho từng tên nhãn trong
+  JSON MD.ai, số chú thích, số ảnh, % trên tổng số ảnh, số ảnh theo lớp cuối cùng, số bệnh nhân; `--focus Exclude Flag`
+  in thêm các nhãn đi kèm. Chỉ đọc JSON, không ghi gì.
 
 ---
 

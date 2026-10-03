@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.7.1 — lệnh `label-stats` (thống kê nhãn MD.ai theo ảnh)
+- `dass -c <cấu hình> label-stats [--focus Exclude …]`: với nhãn JSON MD.ai, in theo từng tên nhãn số chú thích, số
+  ảnh (nhiều khung / nhiều bác sĩ trên một ảnh chỉ tính một lần), % trên tổng số ảnh, số ảnh theo lớp cuối cùng và số
+  bệnh nhân NIH; kèm các nhãn đi cùng của nhãn trong `--focus`. Chỉ đọc JSON, không chuyển ảnh, không ghi gì.
+  Không đổi cách gán nhãn.
+
 ## 1.7.0 — RSNA: đọc bản phát hành MD.ai của trang RSNA, 1 ảnh / bệnh nhân
 - Nguồn DICOM đọc được bản tải từ trang RSNA (xuất từ MD.ai): ảnh `Study/Series/SOP.dcm`, nhãn JSON
   `pneumonia-challenge-annotations-adjudicated-kaggle_2018.json` (dương = có chú thích trong `positive_labels`, ví dụ

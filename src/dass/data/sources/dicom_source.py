@@ -175,8 +175,8 @@ def is_mdai_annotations(obj) -> bool:
     return isinstance(obj, dict) and "labelGroups" in obj
 
 
-def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, int]) -> tuple[pd.Series, dict]:
-    """JSON xuất từ MD.ai -> (Series mã ảnh -> tên lớp, {tên nhãn: số chú thích}).
+def mdai_annotations(obj: dict) -> list[tuple[str, str]]:
+    """JSON xuất từ MD.ai -> [(mã ảnh, tên nhãn)], mỗi chú thích một phần tử.
 
     Mã ảnh = StudyInstanceUID (mỗi ca chụp X-quang ngực của RSNA có đúng một ảnh): chú thích cấp ảnh (khung "Lung
     Opacity") và cấp ca chụp ("Normal", …) được gộp về cùng một khoá. Thiếu Study UID thì dùng Series / SOP UID.
@@ -184,24 +184,69 @@ def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, i
     names = {lab["id"]: str(lab.get("name", "")).strip()
              for g in obj.get("labelGroups", []) for lab in g.get("labels", []) if "id" in lab}
     anns = [a for ds in obj.get("datasets", []) for a in ds.get("annotations", [])] + list(obj.get("annotations", []))
-    positive = {n.strip().lower() for n in positive_labels}
-    by_idx = {i: c for c, i in classes.items()}
-    per_image, usage = {}, {}
+    pairs = []
     for a in anns:
         key = next((a[k] for k in reversed(UID_KEYS) if a.get(k)), None)      # Study -> Series -> SOP
         name = names.get(a.get("labelId"))
-        if key is None or name is None:
-            continue
+        if key is not None and name is not None:
+            pairs.append((key, name))
+    return pairs
+
+
+def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, int]) -> tuple[pd.Series, dict]:
+    """JSON xuất từ MD.ai -> (Series mã ảnh -> tên lớp, {tên nhãn: số chú thích}). Ảnh dương nếu có ít nhất một chú
+    thích mang tên trong `positive_labels`, ngược lại âm."""
+    positive = {n.strip().lower() for n in positive_labels}
+    by_idx = {i: c for c, i in classes.items()}
+    per_image, usage = {}, {}
+    for key, name in mdai_annotations(obj):
         usage[name] = usage.get(name, 0) + 1
         per_image[key] = per_image.get(key, False) or name.lower() in positive
     if not per_image:
         raise ValueError(f"JSON MD.ai không có chú thích dùng được (khoá cấp đầu: {list(obj)[:10]}, "
-                         f"{len(anns)} chú thích, {len(names)} nhãn)")
+                         f"{len(obj.get('labelGroups', []))} nhóm nhãn)")
     labels = pd.Series({k: by_idx[1] if v else by_idx[0] for k, v in per_image.items()}).sort_index()
     if (labels == by_idx[1]).sum() == 0:
         raise ValueError(f"Không có ảnh dương: không nhãn nào trùng positive_labels={positive_labels}. "
                          f"Nhãn có trong file: {usage}")
     return labels, usage
+
+
+def label_image_table(pairs: list[tuple[str, str]], labels: pd.Series, class_names: list[str],
+                      patients: dict[str, str] | None = None) -> pd.DataFrame:
+    """Thống kê theo từng tên nhãn: số chú thích, số ẢNH mang nhãn (nhiều khung / nhiều bác sĩ trên cùng một ảnh chỉ tính
+    một lần), % trên tổng số ảnh có nhãn, số ảnh đó theo lớp cuối cùng, số bệnh nhân NIH. Dòng cuối "TỔNG"."""
+    df = pd.DataFrame(pairs, columns=["image_id", "name"])
+    images = df.drop_duplicates()
+    images = images.assign(cls=images["image_id"].map(labels))
+    table = pd.crosstab(images["name"], images["cls"]).reindex(columns=class_names, fill_value=0)
+    table.insert(0, "chú thích", df["name"].value_counts())
+    table.insert(1, "ảnh", images["name"].value_counts())
+    table.insert(2, "% ảnh", (100 * table["ảnh"] / len(labels)).round(2))
+    total = {"chú thích": len(df), "ảnh": len(labels), "% ảnh": 100.0, **labels.value_counts().to_dict()}
+    if patients:
+        table["bệnh nhân"] = images.assign(p=images["image_id"].map(patients)).groupby("name")["p"].nunique()
+        total["bệnh nhân"] = labels.index.map(patients).dropna().nunique()
+    table = table.sort_values(["ảnh", "chú thích"], ascending=False)
+    table.loc["TỔNG"] = pd.Series(total)
+    counts = [c for c in table.columns if c != "% ảnh"]
+    table[counts] = table[counts].astype(int)
+    table.index.name, table.columns.name = "nhãn", None
+    return table
+
+
+def cooccurring_labels(pairs: list[tuple[str, str]], focus: str) -> pd.Series:
+    """Ảnh mang nhãn `focus`: số ảnh có thêm từng nhãn khác; "(chỉ có nhãn này)" = ảnh không có nhãn nào khác."""
+    df = pd.DataFrame(pairs, columns=["image_id", "name"]).drop_duplicates()
+    is_focus = df["name"].str.lower() == focus.strip().lower()
+    ids = set(df.loc[is_focus, "image_id"])
+    other = df[df["image_id"].isin(ids) & ~is_focus]
+    out = other["name"].value_counts()
+    alone = len(ids) - other["image_id"].nunique()
+    if alone:
+        out["(chỉ có nhãn này)"] = alone
+    out.index.name = None
+    return out.rename(f"số ảnh có '{focus}'")
 
 
 def read_nih_patients(obj) -> dict[str, str]:
@@ -327,8 +372,8 @@ class DicomCsvSource(DatasetSource):
             extract_archives(archives, self.extract_dir)
         return bool(archives)
 
-    def _scan_labels(self, roots: list[Path]) -> tuple[pd.Series | None, str, dict[str, str]]:
-        """(nhãn, mô tả nguồn nhãn, mapping bệnh nhân NIH) tìm được dưới `roots`."""
+    def _read_jsons(self, roots: list[Path]) -> tuple[tuple[dict, Path] | None, dict[str, str]]:
+        """((JSON MD.ai đầu tiên, đường dẫn) hoặc None, mapping bệnh nhân NIH) tìm được dưới `roots`."""
         patients: dict[str, str] = {}
         mdai = None
         for root in roots:
@@ -347,6 +392,11 @@ class DicomCsvSource(DatasetSource):
                         patients.update(found)
                         log.info("Mapping NIH từ %s: %d mã ảnh -> %d bệnh nhân", path.name, len(found),
                                  len(set(found.values())))
+        return mdai, patients
+
+    def _scan_labels(self, roots: list[Path]) -> tuple[pd.Series | None, str, dict[str, str]]:
+        """(nhãn, mô tả nguồn nhãn, mapping bệnh nhân NIH) tìm được dưới `roots`."""
+        mdai, patients = self._read_jsons(roots)
         csv = self.labels_path if self.labels_path is not None else \
             search_label_csv(roots, self.id_column, self.label_column)[0]
         if csv is not None:
@@ -372,6 +422,24 @@ class DicomCsvSource(DatasetSource):
             f"xuất từ MD.ai (đã tìm cả trong file nén).\nCSV tìm thấy:\n{listing}\n"
             f"{inventory([self.images_root, self.extract_dir])}\n"
             "Khai báo đúng data.source.train_labels / id_column / label_column.")
+
+    def label_report(self, focus: list[str] | tuple[str, ...] = ()) -> tuple[str, pd.DataFrame, dict[str, pd.Series]]:
+        """Chẩn đoán nhãn JSON MD.ai theo ẢNH — chỉ đọc JSON, không chuyển ảnh, không ghi gì.
+        -> (tên file nhãn, `label_image_table`, {nhãn trong `focus`: `cooccurring_labels`})."""
+        self._check_root()
+        mdai, patients = self._read_jsons([self.images_root])
+        if mdai is None and self._extract():
+            mdai, patients = self._read_jsons([self.images_root, self.extract_dir])
+        if mdai is None:
+            raise FileNotFoundError(f"Không có JSON nhãn MD.ai dưới {self.images_root}: thống kê theo tên nhãn chỉ có "
+                                    "với bản tải từ trang RSNA (MD.ai); CSV kiểu Kaggle chỉ có cột 0 / 1.")
+        obj, path = mdai
+        labels, _ = read_mdai_labels(obj, self.positive_labels, self.classes)
+        if patients and not set(labels.index) <= set(patients):
+            patients = expand_patients(patients, find_files(self.images_root, (".dcm",)))
+        pairs = mdai_annotations(obj)
+        table = label_image_table(pairs, labels, list(self.classes), patients)
+        return path.name, table, {f: cooccurring_labels(pairs, f) for f in focus}
 
     def _signature(self) -> dict:
         return {"labels": str(self.labels_path or "auto"), "id_column": self.id_column,

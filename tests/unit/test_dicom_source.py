@@ -196,6 +196,27 @@ def test_mdai_wrong_positive_label_lists_available_labels(tmp_path):
         src.ingest("train", tmp_path / "raw")
 
 
+def test_label_report_counts_images_not_annotations(tmp_path):
+    root = tmp_path / "data"
+    studies = _mdai_fixture(root)
+    path = root / "pneumonia-challenge-annotations-adjudicated-kaggle_2018.json"
+    obj = json.loads(path.read_text())
+    obj["labelGroups"][0]["labels"].append({"id": "L_ex", "name": "Exclude"})
+    obj["datasets"][0]["annotations"] += [{"StudyInstanceUID": studies[0], "labelId": "L_ex"}] * 2 + \
+                                         [{"StudyInstanceUID": studies[4], "labelId": "L_ex"}]     # 2 bác sĩ / ảnh 0
+    path.write_text(json.dumps(obj))
+    src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", positive_labels=["Lung Opacity"])
+    name, table, co = src.label_report(["Exclude"])
+    assert name == path.name
+    assert table.loc["Exclude", ["chú thích", "ảnh", "negative", "positive", "bệnh nhân"]].tolist() == [3, 2, 1, 1, 2]
+    assert table.loc["Lung Opacity", ["chú thích", "ảnh"]].tolist() == [6, 3]
+    assert table.loc["TỔNG", ["ảnh", "negative", "positive", "bệnh nhân"]].tolist() == [7, 4, 3, 6]   # ảnh 5, 6 cùng BN
+    assert table.loc["Exclude", "% ảnh"] == round(100 * 2 / 7, 2)
+    assert co["Exclude"].to_dict() == {"Lung Opacity": 1, "Normal": 1}
+    assert not (tmp_path / "meta.csv").exists() and not (tmp_path / "extract").exists()      # chỉ đọc, không ghi
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)
