@@ -64,7 +64,8 @@ def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path,
         names = cfg.data.class_names
         tf.keras.utils.set_random_seed(enc.e_d_seed)
         train_ds = build_dataset(real_only_dir / "train", names, clf.size, clf.batch_size, channels, preprocess,
-                                 shuffle=True, augment=True, seed=enc.e_d_seed)
+                                 shuffle=True, augment=True, seed=enc.e_d_seed,
+                                 augment_profile=cfg.data.augment_profile)
         val_ds = build_dataset(real_only_dir / "val", names, clf.size, clf.batch_size, channels, preprocess,
                                shuffle=False)
         class_weight = compute_class_weight_from_dir(real_only_dir / "train", cfg.data.classes)

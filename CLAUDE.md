@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Hai benchmark là ISIC 2016 (RGB) và Brain Tumor MRI (ảnh xám), chạy chung một package `dass` và **cùng công thức**; chỉ khác nhau ở `configs/datasets/*.yaml`.
+Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB), Brain Tumor MRI (ảnh xám) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`; đề xuất thay Brain Tumor), chạy chung một package `dass` và **cùng công thức**; chỉ khác nhau ở `configs/datasets/*.yaml`.
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
@@ -33,7 +33,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 ## Kiến trúc (chi tiết: docs/ARCHITECTURE.md)
 
 - Các tầng: `data/` (Data Loader), `models/` (generator, encoders, classifiers), `selection/` (DASS), `evaluation/` (metric + bảng), `analysis/` (chẩn đoán), `engine/` (train classifier), `pipeline/` (context + stages), `config/`.
-- **Mọi khác biệt giữa bộ dữ liệu nằm trong `data/`:** `sources/` (csv | folders), `transforms.py`, `splits/` (holdout_val | stratified | file). Không thêm nhánh `if dataset == ...` ở chỗ khác; khác biệt mới phải thành tuỳ chọn config có mặc định.
+- **Mọi khác biệt giữa bộ dữ liệu nằm trong `data/`:** `sources/` (csv | folders | dicom_csv), `transforms.py`, augmentation (`data.augment_profile`), `splits/` (holdout_val | stratified | file). Không thêm nhánh `if dataset == ...` ở chỗ khác; khác biệt mới phải thành tuỳ chọn config có mặc định.
 - `config/schema.py` là dataclass. Giá trị mặc định = `configs/_base_/*.yaml` (có test đối chiếu); khoá lạ thì báo lỗi. `config/paths.py` (`Layout`) là **nơi duy nhất** định nghĩa đường dẫn.
 - Quy tắc import:
   - `selection/`, `evaluation/`, `data/` (trừ `loaders.py`), `config/` là numpy / sklearn / PIL thuần.

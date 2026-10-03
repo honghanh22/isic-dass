@@ -52,10 +52,12 @@ class Layout:
         self.dataset_card = self.data_dir / "dataset_card.json"
         self.selections_json = self.data_dir / "selections.json"
         self.embeddings_npz = self.data_dir / "embeddings.npz"
+        self.dicom_metadata_csv = self.data_dir / "dicom_metadata.csv"   # nguồn DICOM: tư thế chụp, giới tính, tuổi
 
         # ---- cục bộ (/content) ----
         local = Path(p.local_root)
         data_local = local / d.name          # mỗi bộ dữ liệu một thư mục riêng
+        self.source_extract_dir = data_local / "source_extracted"     # nguồn nén (.zip / .tar) giải nén ra đây
         self.train_raw = data_local / "raw" / "train"
         self.test_raw = data_local / "raw" / "test"
         self.train_pp = data_local / f"pp{size}_png" / "train"

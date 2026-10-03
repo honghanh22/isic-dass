@@ -5,6 +5,7 @@ from __future__ import annotations
 from ...config import Config, Layout
 from .base import IMAGE_EXTS, DatasetSource
 from .csv_source import CsvSource, normalize_label
+from .dicom_source import DicomCsvSource
 from .folder_source import FolderSource
 
 
@@ -15,7 +16,12 @@ def build_source(cfg: Config, layout: Layout) -> DatasetSource:
                          layout.drive_test_images, layout.drive_test_labels, s.header, s.image_ext)
     if s.type == "folders":
         return FolderSource(classes, layout.drive_train_images, layout.drive_test_images, s.class_dirs)
+    if s.type == "dicom_csv":
+        return DicomCsvSource(classes, layout.drive_train_images, layout.drive_train_labels, s.id_column,
+                              s.label_column, s.subset_size, cfg.seed, layout.source_extract_dir,
+                              layout.dicom_metadata_csv)
     raise ValueError(f"Nguồn không hỗ trợ: {s.type!r}")
 
 
-__all__ = ["IMAGE_EXTS", "CsvSource", "DatasetSource", "FolderSource", "build_source", "normalize_label"]
+__all__ = ["IMAGE_EXTS", "CsvSource", "DatasetSource", "DicomCsvSource", "FolderSource", "build_source",
+           "normalize_label"]

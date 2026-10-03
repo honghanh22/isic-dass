@@ -1,0 +1,9 @@
+# Thực nghiệm chính — RSNA Pneumonia (X-quang ngực): DASS so với các baseline. Cùng công thức với ISIC 2016.
+#   dass -c configs/experiments/rsna_pneumonia_dass.yaml run
+_base_:
+  - ../_base_/runtime.yaml
+  - ../_base_/generator.yaml
+  - ../_base_/selection.yaml
+  - ../_base_/classifier.yaml
+  - ../_base_/evaluation.yaml
+  - ../datasets/rsna_pneumonia.yaml

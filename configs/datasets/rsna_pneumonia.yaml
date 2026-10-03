@@ -1,0 +1,27 @@
+# RSNA Pneumonia Detection Challenge 2018 (X-quang ngực, có / không có đám mờ phổi) — CHỈ các thiết lập phụ thuộc dữ liệu.
+# Nguồn: RSNA + NIH ChestX-ray8 (Shih et al., Radiology: AI 2019, doi:10.1148/ryai.2019180041). Mỗi bệnh nhân một ảnh.
+paths:
+  drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia
+  gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh): checkpoints_rsna/stylegan2ada
+  run_tag: rsna_v1
+
+data:
+  name: rsna_pneumonia
+  channels: 1            # DICOM xám 1 kênh -> PNG "L"; GAN sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ
+  img_size: 256
+  augment_profile: upright   # X-quang có hướng giải phẫu: chỉ lật ngang, xoay ±10° (không lật dọc / xoay 180°)
+  classes: {negative: 0, positive: 1}
+  source:
+    type: dicom_csv
+    train_images: .      # tìm *.dcm đệ quy trong drive_root (tự giải nén .zip / .tar nếu chưa giải nén)
+    train_labels: ""     # "" = tự tìm CSV có cột patientId + Target (ví dụ stage_2_train_labels.csv)
+    id_column: patientId
+    label_column: Target # 1 = có đám mờ phổi (positive); 0 = Normal + "No Lung Opacity / Not Normal" (negative)
+    subset_size: 6000    # tập con phân tầng giữ nguyên tỉ lệ lớp (seed 2026); 0 = toàn bộ (~26.7 nghìn ảnh)
+  preprocess:
+    crop_dark_border: false
+    resize: stretch      # ảnh gốc đã vuông (1024 × 1024)
+  split:
+    type: stratified     # test của cuộc thi không có nhãn -> tự tách 70 / 15 / 15 (mỗi bệnh nhân một ảnh)
+    test: 0.15
+    val: 0.176

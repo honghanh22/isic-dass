@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.6.0 — bộ dữ liệu RSNA Pneumonia (DICOM)
+- Nguồn mới `data.source.type: dicom_csv` (`data/sources/dicom_source.py`): tự tìm file `.dcm` (đệ quy; tự giải nén
+  .zip / .tar ra ổ cục bộ nếu chưa giải nén) và CSV nhãn (cột `id_column` + `label_column`; nhiều dòng cùng mã -> nhãn
+  lớn nhất). Ảnh không có nhãn (test của cuộc thi) bị bỏ qua. Chuyển sang PNG xám 1 kênh (đảo MONOCHROME1, co giãn ảnh
+  > 8 bit). Tập con phân tầng `subset_size` (seed toàn cục). Ghi `checkpoints_<run>/data/dicom_metadata.csv` (tư thế
+  chụp AP / PA, giới tính, tuổi) và in tỉ lệ AP / PA theo lớp để kiểm tra shortcut. Lần sau đọc đánh dấu
+  `.ingest.json`, không quét lại Drive; đổi thiết lập nguồn mà giữ thư mục cũ -> báo lỗi.
+- `configs/datasets/rsna_pneumonia.yaml` + `configs/experiments/rsna_pneumonia_dass.yaml`: 1 kênh, GAN mới
+  (`gan_tag: rsna`), `run_tag: rsna_v1`, positive = `Target = 1` (đám mờ phổi), negative = còn lại, tập con 6.000 ảnh,
+  chia stratified 70 / 15 / 15.
+- `data.augment_profile`: `rotation_invariant` (mặc định, như cũ: lật ngang + dọc, xoay ±180°) hoặc `upright` (lật
+  ngang, xoay ±10° — ảnh có hướng giải phẫu như X-quang ngực). Áp dụng cho classifier và E_d; RSNA dùng `upright`.
+- Phụ thuộc mới: `pydicom`.
+
 ## 1.5.1 — sửa lỗi logic (review toàn bộ code)
 - **Augmentation:** 5 lớp ngẫu nhiên (lật, xoay, zoom, độ sáng, tương phản) dùng CHUNG một seed. Keras 3 rút số bằng RNG
   không trạng thái theo bộ đếm, nên cả 5 phép biến đổi của một ảnh bị khoá vào cùng một số ngẫu nhiên (ảnh bị lật thì

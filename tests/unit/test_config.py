@@ -7,7 +7,7 @@ from dass.config import Config, Layout, load_config, parse_override
 from dass.config.loader import apply_file
 
 BASES = sorted((CONFIGS / "_base_").glob("*.yaml"))
-EXPERIMENTS = ["isic2016_dass.yaml", "brain_tumor_dass.yaml"]
+EXPERIMENTS = ["isic2016_dass.yaml", "brain_tumor_dass.yaml", "rsna_pneumonia_dass.yaml"]
 
 
 def test_base_yaml_matches_schema_defaults():
@@ -48,6 +48,20 @@ def test_display_names_and_groups():
     assert ev.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample"]
     grouped = [m for members in ev.method_groups.values() for m in members]
     assert sorted(grouped) == sorted(ev.method_labels)           # mỗi phương pháp thuộc đúng một nhóm
+
+
+def test_rsna_config_and_augment_profiles():
+    rsna = load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"])
+    assert rsna.data.source.type == "dicom_csv" and rsna.data.channels == 1 and rsna.data.augment_profile == "upright"
+    assert (rsna.data.source.id_column, rsna.data.source.label_column) == ("patientId", "Target")
+    assert rsna.paths.gan_tag == "rsna" and rsna.data.split.type == "stratified"
+    isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
+    assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC / Brain
+    assert rsna.selection == isic.selection and rsna.classifier == isic.classifier   # cùng công thức
+    with pytest.raises(ValueError, match="augment_profile"):
+        load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["data.augment_profile=random"])
+    with pytest.raises(ValueError, match="dicom_csv"):
+        load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["data.source.id_column=''"])
 
 
 @pytest.mark.parametrize("k", ["0.5", "0.15", "-1"])

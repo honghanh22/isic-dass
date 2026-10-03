@@ -6,8 +6,9 @@ feature space and a supervised disease-aware space) and diverse; downstream clas
 images and compared with seven controls (including a random-oversampling baseline) under a fixed, leakage-free
 protocol.
 
-Benchmarks: **ISIC 2016** (dermoscopy, RGB, benign / malignant) and **Brain Tumor MRI** (grayscale,
-negative / positive). Both run on the same code and the same formulas; only `configs/datasets/*.yaml` differs.
+Benchmarks: **ISIC 2016** (dermoscopy, RGB, benign / malignant), **Brain Tumor MRI** (grayscale, negative / positive)
+and **RSNA Pneumonia** (chest X-ray, DICOM, lung opacity vs. none). All run on the same code and the same formulas; only
+`configs/datasets/*.yaml` differs.
 
 **Contents:** [Method](#method) · [Project structure](#project-structure) · [Installation](#installation) ·
 [Data](#data) · [Reproducing the experiments](#reproducing-the-experiments) · [Outputs](#outputs) ·
@@ -81,7 +82,8 @@ configs/
 ├── datasets/                  dataset-specific settings ONLY (paths, source, channels, preprocessing, split)
 │   ├── _template.yaml         starting point for a new dataset
 │   ├── isic2016.yaml          CSV source, dark-border crop, holdout_val split, run_tag v10
-│   └── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v5
+│   ├── brain_tumor.yaml       folder source, force_grayscale, pad_square, stratified 70/15/15, run_tag bt_v5
+│   └── rsna_pneumonia.yaml    DICOM source, 1 channel, upright augmentation, 6,000-image subset, run_tag rsna_v1
 └── experiments/               experiment = _base_ + dataset (+ overrides)
     ├── isic2016_dass.yaml
     ├── brain_tumor_dass.yaml
@@ -112,7 +114,9 @@ src/dass/
 │   ├── sources/               where images and labels come from
 │   │   ├── base.py            `DatasetSource` interface
 │   │   ├── csv_source.py      flat image folder + CSV labels (ISIC)
-│   │   └── folder_source.py   one sub-folder per class (Brain Tumor)
+│   │   ├── folder_source.py   one sub-folder per class (Brain Tumor)
+│   │   └── dicom_source.py    DICOM files + label CSV (RSNA): auto-discovery, archive extraction, PNG conversion,
+│   │                          stratified subset, view-position metadata
 │   ├── splits/                how images are split into train / val / test
 │   │   ├── base.py            split I/O, canonical hash, reference-split check, class budget (n_select, pool size)
 │   │   ├── stratified.py      holdout_val and stratified (optionally patient-grouped); reproduces the original notebooks

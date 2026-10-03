@@ -1,0 +1,124 @@
+import json
+import zipfile
+
+import numpy as np
+import pandas as pd
+import pytest
+from PIL import Image
+
+pydicom = pytest.importorskip("pydicom")
+
+from dass.data.sources.dicom_source import (  # noqa: E402
+    DicomCsvSource,
+    dicom_to_uint8,
+    find_label_csv,
+    stratified_subset,
+)
+
+CLASSES = {"negative": 0, "positive": 1}
+
+
+def write_dicom(path, pixels: np.ndarray, view: str = "PA", photometric: str = "MONOCHROME2") -> None:
+    from pydicom.dataset import Dataset, FileMetaDataset
+    from pydicom.uid import ExplicitVRLittleEndian, SecondaryCaptureImageStorage, generate_uid
+
+    meta = FileMetaDataset()
+    meta.TransferSyntaxUID = ExplicitVRLittleEndian
+    meta.MediaStorageSOPClassUID = SecondaryCaptureImageStorage
+    meta.MediaStorageSOPInstanceUID = generate_uid()
+    ds = Dataset()
+    ds.file_meta = meta
+    ds.SOPClassUID, ds.SOPInstanceUID = meta.MediaStorageSOPClassUID, meta.MediaStorageSOPInstanceUID
+    ds.Rows, ds.Columns = pixels.shape
+    ds.SamplesPerPixel, ds.PhotometricInterpretation = 1, photometric
+    ds.BitsAllocated, ds.BitsStored, ds.HighBit, ds.PixelRepresentation = 8, 8, 7, 0
+    ds.ViewPosition, ds.PatientSex, ds.PatientAge = view, "F", "045Y"
+    ds.PixelData = pixels.astype(np.uint8).tobytes()
+    ds.save_as(path, enforce_file_format=True)
+
+
+@pytest.fixture
+def rsna_like(tmp_path):
+    """Thư mục giống RSNA: ảnh .dcm + stage_2_train_labels.csv (nhiều dòng / ảnh dương) + 1 ảnh không nhãn."""
+    root = tmp_path / "RSNA Pneumonia"
+    img_dir = root / "stage_2_train_images"
+    img_dir.mkdir(parents=True)
+    rows = []
+    for i in range(12):
+        pid = f"p{i:02d}"
+        target = 1 if i < 3 else 0
+        write_dicom(img_dir / f"{pid}.dcm", np.full((8, 8), 10 * i, np.uint8), view="AP" if target else "PA")
+        rows += [{"patientId": pid, "x": None, "Target": target}] * (2 if target else 1)   # ảnh dương: 2 khung
+    write_dicom(img_dir / "unlabeled.dcm", np.zeros((8, 8), np.uint8))                    # test cuộc thi: không nhãn
+    pd.DataFrame(rows).to_csv(root / "stage_2_train_labels.csv", index=False)
+    pd.DataFrame({"a": [1]}).to_csv(root / "other.csv", index=False)
+    return root
+
+
+def _source(root, tmp_path, subset=0, labels=None):
+    return DicomCsvSource(CLASSES, root, labels, "patientId", "Target", subset, 2026, tmp_path / "extract",
+                          tmp_path / "meta" / "dicom_metadata.csv")
+
+
+def test_ingest_converts_labelled_dicoms_to_gray_png(rsna_like, tmp_path):
+    dst = tmp_path / "raw"
+    counts = _source(rsna_like, tmp_path).ingest("train", dst)
+    assert counts == {"negative": 9, "positive": 3}                        # 2 khung / ảnh dương -> vẫn 1 ảnh
+    assert not (dst / "negative" / "unlabeled.png").exists()               # ảnh không có nhãn bị bỏ qua
+    with Image.open(dst / "negative" / "p05.png") as im:
+        assert im.mode == "L" and np.asarray(im)[0, 0] == 50               # PNG xám 1 kênh, giữ nguyên giá trị
+    meta = pd.read_csv(tmp_path / "meta" / "dicom_metadata.csv")
+    assert set(meta.loc[meta["label"] == "positive", "ViewPosition"]) == {"AP"}
+
+
+def test_ingest_is_cached_and_rejects_changed_settings(rsna_like, tmp_path):
+    dst = tmp_path / "raw"
+    counts = _source(rsna_like, tmp_path).ingest("train", dst)
+    for p in (rsna_like / "stage_2_train_images").iterdir():
+        p.unlink()                                                         # lần sau không cần đọc lại Drive
+    assert _source(rsna_like, tmp_path).ingest("train", dst) == counts
+    with pytest.raises(ValueError, match="thiết lập khác"):
+        _source(rsna_like, tmp_path, subset=4).ingest("train", dst)
+
+
+def test_ingest_extracts_zip_when_no_dicom(rsna_like, tmp_path):
+    img_dir = rsna_like / "stage_2_train_images"
+    with zipfile.ZipFile(rsna_like / "images.zip", "w") as z:
+        for p in img_dir.iterdir():
+            z.write(p, arcname=f"stage_2_train_images/{p.name}")
+    for p in img_dir.iterdir():
+        p.unlink()
+    counts = _source(rsna_like, tmp_path).ingest("train", tmp_path / "raw")
+    assert sum(counts.values()) == 12 and (tmp_path / "extract" / "images.zip.done").exists()
+
+
+def test_subset_is_stratified_and_deterministic():
+    labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
+    a = stratified_subset(labels, 50, seed=1)
+    assert a.value_counts().to_dict() == {"negative": 40, "positive": 10}
+    assert a.index.equals(stratified_subset(labels, 50, seed=1).index)
+    assert not a.index.equals(stratified_subset(labels, 50, seed=2).index)
+    assert stratified_subset(labels, 0, seed=1).equals(labels)
+
+
+def test_monochrome1_is_inverted_and_wide_range_rescaled():
+    class Fake:
+        def __init__(self, arr, photometric):
+            self.pixel_array, self.PhotometricInterpretation = arr, photometric
+    inv = dicom_to_uint8(Fake(np.array([[0, 255]], np.uint8), "MONOCHROME1"))
+    assert inv.tolist() == [[255, 0]]
+    wide = dicom_to_uint8(Fake(np.array([[0, 4095]], np.uint16), "MONOCHROME2"))
+    assert wide.tolist() == [[0, 255]] and wide.dtype == np.uint8
+
+
+def test_missing_label_csv_lists_candidates(tmp_path):
+    (tmp_path / "x.csv").write_text("a,b\n1,2\n")
+    with pytest.raises(FileNotFoundError, match="x.csv"):
+        find_label_csv(tmp_path, "patientId", "Target")
+
+
+def test_marker_records_signature(rsna_like, tmp_path):
+    dst = tmp_path / "raw"
+    _source(rsna_like, tmp_path, subset=8).ingest("train", dst)
+    saved = json.loads((dst / ".ingest.json").read_text())
+    assert saved["signature"]["subset_size"] == 8 and sum(saved["counts"].values()) == 8

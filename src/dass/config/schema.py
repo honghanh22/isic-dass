@@ -25,7 +25,8 @@ METHOD_GROUPS = {
     "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
                                                 "M4_visual_disease", "M6_dass"),
 }
-SOURCE_TYPES = ("csv", "folders")
+SOURCE_TYPES = ("csv", "folders", "dicom_csv")
+AUGMENT_PROFILES = ("rotation_invariant", "upright")
 SPLIT_TYPES = ("holdout_val", "stratified", "file")
 RESIZE_MODES = ("stretch", "pad_square")
 CHANNEL_MODES = ("auto", 1, 3)
@@ -47,6 +48,8 @@ class SourceConfig:
 
     - `csv`: `*_images` là thư mục ảnh phẳng, `*_labels` là CSV (cột 1 image_id, cột 2 nhãn).
     - `folders`: `*_images` chứa các thư mục lớp `<*_images>/<thư mục lớp>/`; không dùng `*_labels`.
+    - `dicom_csv`: `train_images` là thư mục chứa file `.dcm` (tìm đệ quy; tự giải nén .zip / .tar nếu cần),
+      `train_labels` là CSV nhãn (để trống -> tự tìm CSV có cột `id_column` và `label_column`).
     `test_images: ""` -> không có tập test riêng (khi đó split phải là `stratified` hoặc `file` có phần test).
     """
 
@@ -58,6 +61,9 @@ class SourceConfig:
     class_dirs: dict[str, str] = field(default_factory=dict)   # folders: tên lớp -> tên thư mục (nếu khác)
     header: bool = False             # csv: file nhãn có dòng tiêu đề
     image_ext: str = ".jpg"          # csv: đuôi ảnh khi image_id không kèm đuôi
+    id_column: str = ""              # dicom_csv: cột mã ảnh (= tên file .dcm không đuôi), ví dụ patientId
+    label_column: str = ""           # dicom_csv: cột nhãn (0 / 1 hoặc tên lớp); nhiều dòng cùng mã -> lấy lớn nhất
+    subset_size: int = 0             # dicom_csv: > 0 -> tập con phân tầng theo nhãn (seed toàn cục), 0 = tất cả
 
     @property
     def has_test_set(self) -> bool:
@@ -87,6 +93,9 @@ class DataConfig:
     force_grayscale: bool = False    # chuyển về xám (luminance) rồi lưu `channels` kênh BẰNG NHAU — cho ảnh y tế xám
                                      # lưu dạng RGB có nhiễu màu JPEG (tránh manh mối màu giả gắn với nhãn)
     img_size: int = 256
+    # augmentation khi train (classifier, E_d): rotation_invariant = lật ngang + dọc, xoay ±180° (dermoscopy: tổn thương
+    # không có hướng); upright = lật ngang, xoay ±10° (ảnh có hướng giải phẫu cố định, ví dụ X-quang ngực)
+    augment_profile: str = "rotation_invariant"
     classes: dict[str, int] = field(default_factory=dict)   # tên lớp -> chỉ số (nhị phân: 0, 1)
     source: SourceConfig = field(default_factory=SourceConfig)
     preprocess: PreprocessConfig = field(default_factory=PreprocessConfig)
@@ -254,6 +263,11 @@ def validate(cfg: Config) -> None:
         errors.append("data.source.type = csv cần train_labels (và test_labels khi có test_images)")
     if s.type == "folders" and (s.train_labels or s.test_labels):
         errors.append("data.source.type = folders lấy nhãn từ thư mục lớp, không dùng *_labels")
+    if s.type == "dicom_csv" and (not s.id_column or not s.label_column or s.has_test_set or s.subset_size < 0):
+        errors.append("data.source.type = dicom_csv cần id_column, label_column, subset_size >= 0 và không có "
+                      "test_images (test tách bằng split)")
+    if d.augment_profile not in AUGMENT_PROFILES:
+        errors.append(f"data.augment_profile phải là một trong {AUGMENT_PROFILES}, nhận {d.augment_profile!r}")
     if d.preprocess.resize not in RESIZE_MODES:
         errors.append(f"data.preprocess.resize phải là một trong {RESIZE_MODES}, nhận {d.preprocess.resize!r}")
     if sp.type not in SPLIT_TYPES:

@@ -164,6 +164,26 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 - **Mốc tham chiếu khi đọc Jaccard:** hai tập con ngẫu nhiên độc lập, mỗi tập chiếm 1/k pool, có Jaccard kỳ vọng
   1/(2k − 1) = **0,5** khi k = 1,5.
 
+### 2.5 Bộ dữ liệu thứ ba: RSNA Pneumonia (X-quang ngực)
+
+Đề xuất thay cho Brain Tumor, vì có nguồn gốc rõ ràng, hai lớp cùng nguồn chụp và đủ ảnh lớp thiểu số để train GAN.
+
+| | RSNA Pneumonia Detection Challenge 2018 |
+|---|---|
+| Nguồn | RSNA + NIH ChestX-ray8; nhãn do bác sĩ X-quang gán (Shih et al., *Radiology: AI* 2019) |
+| Ảnh | DICOM xám 1024 × 1024, **mỗi bệnh nhân một ảnh** |
+| Nhãn | positive = `Target = 1` (có đám mờ phổi); negative = *Normal* + *No Lung Opacity / Not Normal* |
+| Quy mô | tập con phân tầng **6.000 ảnh** (`subset_size`, seed 2026), giữ tỉ lệ khoảng 22 % positive |
+| Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
+| Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
+| Augmentation | `upright`: lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
+| GAN | train mới (`gan_tag: rsna`), cùng cấu hình và cùng cách dừng sớm theo KID |
+
+- Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
+  sang PNG và ghi `checkpoints_rsna_v1/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi).
+- **Shortcut cần kiểm tra:** bệnh nhân nặng thường chụp tư thế AP. Log của `prepare` in tỉ lệ AP / PA theo lớp; nên báo
+  cáo trong bài.
+
 ---
 
 ## 3. Phương pháp

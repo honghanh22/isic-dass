@@ -39,6 +39,16 @@ def test_brain_tumor_artifact_paths():
     assert lay.drive_test_images is None and lay.drive_train_labels is None
 
 
+def test_rsna_artifact_paths():
+    root = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia")
+    lay = _layout("rsna_pneumonia_dass.yaml")
+    assert lay.gan_best_pkl == root / "checkpoints_rsna/stylegan2ada/best.pkl"      # GAN mới, riêng cho RSNA
+    assert lay.results_dir == root / "results_rsna_v1"
+    assert lay.drive_train_images == root and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
+    assert lay.dicom_metadata_csv == root / "checkpoints_rsna_v1/data/dicom_metadata.csv"
+    assert "rsna_pneumonia" in lay.train_raw.parts and lay.expected_split is None
+
+
 def test_brain_tumor_uses_three_channels_like_reused_gan():
     """GAN checkpoints_bt được train trên ảnh 3 kênh -> dữ liệu Brain Tumor cũng 3 kênh (pool không có hậu tố _c1)."""
     cfg = load_config([CONFIGS / "experiments" / "brain_tumor_dass.yaml"])

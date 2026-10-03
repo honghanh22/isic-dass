@@ -82,7 +82,7 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     names = cfg.data.class_names
     train_dir, val_dir = variant.dir / "train", variant.dir / "val"
     train_ds = build_dataset(train_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=True,
-                             augment=clf.augment, seed=seed)
+                             augment=clf.augment, seed=seed, augment_profile=cfg.data.augment_profile)
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"

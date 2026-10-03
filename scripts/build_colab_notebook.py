@@ -76,7 +76,8 @@ print("PROJECT_DIR =", PROJECT_DIR)
 md("""
 ## 1. Chọn thực nghiệm
 
-`EXPERIMENT`: `configs/experiments/isic2016_dass.yaml` hoặc `configs/experiments/brain_tumor_dass.yaml`.
+`EXPERIMENT`: `configs/experiments/isic2016_dass.yaml`, `configs/experiments/brain_tumor_dass.yaml` hoặc
+`configs/experiments/rsna_pneumonia_dass.yaml` (RSNA: `prepare` tự đọc DICOM; `gan` train GAN mới, chạy lâu).
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
 """)
