@@ -64,6 +64,8 @@ class SourceConfig:
     id_column: str = ""              # dicom_csv: cột mã ảnh (= tên file .dcm không đuôi), ví dụ patientId
     label_column: str = ""           # dicom_csv: cột nhãn (0 / 1 hoặc tên lớp); nhiều dòng cùng mã -> lấy lớn nhất
     subset_size: int = 0             # dicom_csv: > 0 -> tập con phân tầng theo nhãn (seed toàn cục), 0 = tất cả
+    positive_labels: list[str] = field(default_factory=list)   # dicom_csv + nhãn MD.ai: tên nhãn = lớp dương
+    one_per_patient: bool = False    # dicom_csv: giữ 1 ảnh / bệnh nhân (cần mapping NIH) -> không rò rỉ bệnh nhân
 
     @property
     def has_test_set(self) -> bool:

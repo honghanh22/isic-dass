@@ -150,6 +150,52 @@ def test_outputs_are_ignored_when_searching_source_files(tmp_path):
     assert [p.name for p in find_files(tmp_path, (".csv", ".zip"))] == ["labels.csv"]
 
 
+def _mdai_fixture(root):
+    """Bản tải từ trang RSNA: ảnh MD.ai (Study/Series/SOP.dcm) + nhãn JSON MD.ai + mapping NIH."""
+    imgs = root / "mdai_rsna_project_x_images_2018"
+    studies = [f"1.2.{i}" for i in range(8)]
+    for i, st in enumerate(studies):
+        d = imgs / st / f"{st}.9"
+        d.mkdir(parents=True)
+        write_dicom(d / f"{st}.9.1.dcm", np.full((4, 4), i, np.uint8), view="AP" if i < 3 else "PA")
+    labels = {"labelGroups": [{"id": "G1", "labels": [{"id": "L_op", "name": "Lung Opacity"},
+                                                      {"id": "L_nn", "name": "No Lung Opacity / Not Normal"},
+                                                      {"id": "L_n", "name": "Normal"}]}],
+              "datasets": [{"id": "D1", "annotations": []}]}
+    anns = labels["datasets"][0]["annotations"]
+    for st in studies[:3]:            # dương: 2 khung cấp ảnh (có SOP)
+        anns += [{"StudyInstanceUID": st, "SeriesInstanceUID": f"{st}.9", "SOPInstanceUID": f"{st}.9.1",
+                  "labelId": "L_op", "data": {"x": 1}}] * 2
+    for st in studies[3:7]:           # âm: chú thích cấp ca chụp (chỉ có Study UID)
+        anns.append({"StudyInstanceUID": st, "labelId": "L_n" if st != studies[6] else "L_nn", "data": None})
+    (root / "pneumonia-challenge-annotations-adjudicated-kaggle_2018.json").write_text(json.dumps(labels))
+    mapping = [{"SOPInstanceUID": f"{st}.9.1", "img": f"0000000{min(i, 5)}_00{i}.png"} for i, st in enumerate(studies)]
+    (root / "pneumonia-challenge-dataset-mappings_2018.json").write_text(json.dumps(mapping))
+    return studies
+
+
+def test_mdai_export_labels_and_one_image_per_patient(tmp_path):
+    root = tmp_path / "RSNA Pneumonia (1)"
+    studies = _mdai_fixture(root)
+    src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", positive_labels=["Lung Opacity"], one_per_patient=True)
+    counts = src.ingest("train", tmp_path / "raw")
+    # 3 dương (0–2) + 4 âm (3–6); ảnh 7 không có nhãn -> bỏ; ảnh 5 và 6 cùng bệnh nhân NIH 00000005 -> giữ 1
+    assert counts == {"negative": 3, "positive": 3}
+    assert {p.stem for p in (tmp_path / "raw" / "positive").iterdir()} == set(studies[:3])
+    meta = pd.read_csv(tmp_path / "meta.csv")
+    assert meta["nih_patient"].astype(str).str.zfill(8).nunique() == len(meta)       # mỗi bệnh nhân đúng 1 ảnh
+
+
+def test_mdai_wrong_positive_label_lists_available_labels(tmp_path):
+    root = tmp_path / "data"
+    _mdai_fixture(root)
+    src = DicomCsvSource(CLASSES, root, None, "patientId", "Target", 0, 2026, tmp_path / "extract",
+                         tmp_path / "meta.csv", positive_labels=["Pneumonia"])
+    with pytest.raises(ValueError, match="Lung Opacity"):
+        src.ingest("train", tmp_path / "raw")
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)

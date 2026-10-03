@@ -1,21 +1,27 @@
-"""Nguồn ảnh DICOM + bảng nhãn CSV (ví dụ RSNA Pneumonia Detection Challenge 2018).
+"""Nguồn ảnh DICOM + nhãn (ví dụ RSNA Pneumonia Detection Challenge 2018).
 
-Tự dò cấu trúc thư mục đã tải về:
-- ảnh: mọi file `*.dcm` dưới `images_root` (đệ quy); nếu chưa có mà chỉ có file nén (.zip / .tar / .tar.gz / .tgz)
-  thì giải nén ra ổ cục bộ (`extract_dir`) rồi tìm lại;
-- nhãn: `labels_path`, hoặc (nếu để trống) file CSV đầu tiên dưới `images_root` có đủ cột `id_column` và
-  `label_column`. Một ảnh có nhiều dòng (nhiều khung bệnh) -> nhãn = giá trị lớn nhất (có ít nhất một khung -> dương).
+Tự dò cấu trúc thư mục đã tải về (bỏ qua thư mục kết quả `checkpoints_*`, `results_*` ở mọi cấp):
+- ảnh: mọi file `*.dcm` dưới `images_root` (đệ quy, kể cả cây Study/Series/SOP.dcm của MD.ai); nếu thiếu thì giải nén
+  các file .zip / .tar / .tar.gz / .tgz ra ổ cục bộ (`extract_dir`) rồi tìm lại. Bản giải nén cục bộ được ưu tiên (đọc
+  nhanh hơn Drive).
+- nhãn, theo thứ tự:
+  1. CSV kiểu Kaggle (`labels_path`, hoặc CSV có cột `id_column` + `label_column`): nhiều dòng cùng mã -> nhãn lớn nhất;
+  2. JSON xuất từ MD.ai (bản tải từ trang RSNA, có khoá `labelGroups`): ảnh dương nếu có ít nhất một chú thích mang tên
+     trong `positive_labels` (ví dụ "Lung Opacity"), ngược lại âm. Mã ảnh = SOPInstanceUID (hoặc Series / Study UID).
+- mapping sang NIH ChestX-ray8 (JSON có tên ảnh dạng `00000013_005.png`): lấy mã bệnh nhân NIH (8 chữ số đầu). Với
+  `one_per_patient`, giữ đúng MỘT ảnh cho mỗi bệnh nhân (chọn ngẫu nhiên theo seed) -> không rò rỉ bệnh nhân giữa
+  train / val / test.
 
-Ảnh không có trong bảng nhãn (ví dụ tập test chưa công bố nhãn của cuộc thi) bị bỏ qua. Có thể lấy một tập con phân
-tầng theo nhãn (`subset_size`, seed cố định). Mỗi ảnh được chuyển sang PNG xám 1 kênh (đảo nếu MONOCHROME1), lưu
-`<dst>/<lớp>/<id>.png`. Thông tin DICOM (tư thế chụp, giới tính, tuổi) ghi ra `metadata_csv` để báo cáo / kiểm tra
-shortcut (ví dụ tư thế AP gắn với bệnh nặng). Lần gọi sau đọc lại đánh dấu `.ingest.json`, không quét lại Drive.
+Ảnh không có nhãn bị bỏ qua. Có thể lấy tập con phân tầng theo nhãn (`subset_size`, seed). Mỗi ảnh được chuyển sang PNG
+xám 1 kênh (đảo nếu MONOCHROME1), lưu `<dst>/<lớp>/<mã ảnh>.png`. Thông tin DICOM (tư thế chụp, giới tính, tuổi) và mã
+bệnh nhân NIH ghi ra `metadata_csv`. Lần gọi sau đọc lại đánh dấu `.ingest.json`, không quét lại Drive.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import re
 import tarfile
 import zipfile
 from pathlib import Path
@@ -31,30 +37,21 @@ from .csv_source import normalize_label
 log = logging.getLogger(__name__)
 
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
-SOURCE_SUFFIXES = (".dcm", ".csv") + ARCHIVE_SUFFIXES
-# drive_root vừa chứa dữ liệu gốc vừa chứa kết quả của pipeline (Layout): bỏ qua các thư mục kết quả khi tìm dữ liệu
-# nguồn, để không nhặt nhầm CSV số liệu hay file pool .zip.
+SOURCE_SUFFIXES = (".dcm", ".csv", ".json") + ARCHIVE_SUFFIXES
+# drive_root vừa có thể chứa dữ liệu gốc vừa chứa kết quả của pipeline (Layout): bỏ qua các thư mục kết quả khi tìm dữ
+# liệu nguồn, để không nhặt nhầm CSV số liệu hay file pool .zip.
 OUTPUT_DIR_PREFIXES = ("checkpoints_", "results_")
 META_TAGS = ("ViewPosition", "PatientSex", "PatientAge", "PhotometricInterpretation", "Rows", "Columns")
+UID_KEYS = ("SOPInstanceUID", "SeriesInstanceUID", "StudyInstanceUID")
+NIH_IMAGE = re.compile(r"(\d{8})_\d{3}\.png")          # tên ảnh NIH ChestX-ray8: <mã bệnh nhân>_<số thứ tự>.png
+MAX_JSON_MB = 500
 _MARKER = ".ingest.json"
 
 
+# ----------------------------------------------------------------------------------------------- tìm file / thư mục
 def glob_escape(name: str) -> str:
     """Escape ký tự đặc biệt của glob ([, ], *, ?) trong tên thư mục."""
     return "".join(f"[{c}]" if c in "[]*?" else c for c in name)
-
-
-def _has_files(root: Path) -> bool:
-    """Có dữ liệu nguồn (.dcm / .csv / file nén) ngoài các thư mục kết quả của pipeline."""
-    return root.is_dir() and bool(find_files(root, SOURCE_SUFFIXES))
-
-
-def _listing(root: Path, limit: int = 15) -> str:
-    items = sorted(root.iterdir())
-    lines = [f"  {p.name}{'/' if p.is_dir() else f'  ({p.stat().st_size / 1e6:.1f} MB)'}" for p in items[:limit]]
-    if len(items) > limit:
-        lines.append(f"  … và {len(items) - limit} mục khác")
-    return "\n".join(lines) or "  (rỗng)"
 
 
 def _in_outputs(p: Path, root: Path) -> bool:
@@ -66,8 +63,46 @@ def _in_outputs(p: Path, root: Path) -> bool:
 def find_files(root: Path, suffixes: tuple[str, ...]) -> list[Path]:
     """File có đuôi `suffixes` dưới `root` (đệ quy), bỏ qua thư mục kết quả của pipeline."""
     root = Path(root)
+    if not root.is_dir():
+        return []
     return sorted(p for p in root.rglob("*")
                   if p.is_file() and p.name.lower().endswith(suffixes) and not _in_outputs(p, root))
+
+
+def _has_files(root: Path) -> bool:
+    """Có dữ liệu nguồn (.dcm / .csv / .json / file nén) ngoài các thư mục kết quả của pipeline."""
+    return bool(find_files(root, SOURCE_SUFFIXES))
+
+
+def _listing(root: Path, limit: int = 15) -> str:
+    items = sorted(root.iterdir())
+    lines = [f"  {p.name}{'/' if p.is_dir() else f'  ({p.stat().st_size / 1e6:.1f} MB)'}" for p in items[:limit]]
+    if len(items) > limit:
+        lines.append(f"  … và {len(items) - limit} mục khác")
+    return "\n".join(lines) or "  (rỗng)"
+
+
+def _ext(p: Path) -> str:
+    name = p.name.lower()
+    return next((s for s in (".tar.gz",) if name.endswith(s)), p.suffix.lower() or "(không đuôi)")
+
+
+def inventory(roots: list[Path], limit: int = 40) -> str:
+    """Tóm tắt nội dung thư mục để chẩn đoán: số file theo đuôi + tên các file không phải .dcm (kèm dung lượng)."""
+    by_ext, others = {}, []
+    for root in roots:
+        if not root.is_dir():
+            continue
+        for p in sorted(root.rglob("*")):
+            if not p.is_file() or _in_outputs(p, root):
+                continue
+            ext = _ext(p)
+            by_ext[ext] = by_ext.get(ext, 0) + 1
+            if ext != ".dcm":
+                others.append(f"  {p.relative_to(root)}  ({p.stat().st_size / 1e6:.1f} MB)")
+    head = "Số file theo đuôi: " + (", ".join(f"{e}: {n}" for e, n in sorted(by_ext.items())) or "(thư mục rỗng)")
+    tail = others[:limit] + ([f"  … và {len(others) - limit} file khác"] if len(others) > limit else [])
+    return head + "\nCác file không phải .dcm:\n" + ("\n".join(tail) or "  (không có)")
 
 
 def extract_archives(archives: list[Path], out_dir: Path) -> None:
@@ -90,30 +125,11 @@ def extract_archives(archives: list[Path], out_dir: Path) -> None:
         done.write_text("ok")
 
 
-def inventory(roots: list[Path], limit: int = 40) -> str:
-    """Tóm tắt nội dung thư mục để chẩn đoán: số file theo đuôi + tên các file không phải .dcm (kèm dung lượng)."""
-    by_ext, others = {}, []
-    for root in roots:
-        if not root.is_dir():
-            continue
-        for p in sorted(root.rglob("*")):
-            if not p.is_file() or _in_outputs(p, root):
-                continue
-            ext = "".join(p.suffixes[-2:]).lower() or "(không đuôi)"
-            by_ext[ext] = by_ext.get(ext, 0) + 1
-            if ext != ".dcm":
-                others.append(f"  {p.relative_to(root)}  ({p.stat().st_size / 1e6:.1f} MB)")
-    head = "Số file theo đuôi: " + (", ".join(f"{e}: {n}" for e, n in sorted(by_ext.items())) or "(thư mục rỗng)")
-    tail = others[:limit] + ([f"  … và {len(others) - limit} file khác"] if len(others) > limit else [])
-    return head + "\nCác file không phải .dcm:\n" + ("\n".join(tail) or "  (không có)")
-
-
+# ------------------------------------------------------------------------------------------------------------ nhãn
 def search_label_csv(roots: list[Path], id_column: str, label_column: str) -> tuple[Path | None, list]:
     """CSV đầu tiên có đủ hai cột; kèm danh sách (CSV, cột) đã xem để báo lỗi."""
     seen = []
     for root in roots:
-        if not root.is_dir():
-            continue
         for csv in find_files(root, (".csv",)):
             try:
                 cols = list(pd.read_csv(csv, nrows=0).columns)
@@ -143,6 +159,78 @@ def read_dicom_labels(csv: Path, id_column: str, label_column: str, classes: dic
     return per_id.map(lambda v: normalize_label(v, classes)).sort_index()
 
 
+def _walk_dicts(obj):
+    """Mọi dict lồng trong một cấu trúc JSON (duyệt không đệ quy)."""
+    stack = [obj]
+    while stack:
+        o = stack.pop()
+        if isinstance(o, dict):
+            yield o
+            stack.extend(v for v in o.values() if isinstance(v, (dict, list)))
+        elif isinstance(o, list):
+            stack.extend(v for v in o if isinstance(v, (dict, list)))
+
+
+def is_mdai_annotations(obj) -> bool:
+    return isinstance(obj, dict) and "labelGroups" in obj
+
+
+def read_mdai_labels(obj: dict, positive_labels: list[str], classes: dict[str, int]) -> tuple[pd.Series, dict]:
+    """JSON xuất từ MD.ai -> (Series mã ảnh -> tên lớp, {tên nhãn: số chú thích}).
+
+    Mã ảnh = StudyInstanceUID (mỗi ca chụp X-quang ngực của RSNA có đúng một ảnh): chú thích cấp ảnh (khung "Lung
+    Opacity") và cấp ca chụp ("Normal", …) được gộp về cùng một khoá. Thiếu Study UID thì dùng Series / SOP UID.
+    """
+    names = {lab["id"]: str(lab.get("name", "")).strip()
+             for g in obj.get("labelGroups", []) for lab in g.get("labels", []) if "id" in lab}
+    anns = [a for ds in obj.get("datasets", []) for a in ds.get("annotations", [])] + list(obj.get("annotations", []))
+    positive = {n.strip().lower() for n in positive_labels}
+    by_idx = {i: c for c, i in classes.items()}
+    per_image, usage = {}, {}
+    for a in anns:
+        key = next((a[k] for k in reversed(UID_KEYS) if a.get(k)), None)      # Study -> Series -> SOP
+        name = names.get(a.get("labelId"))
+        if key is None or name is None:
+            continue
+        usage[name] = usage.get(name, 0) + 1
+        per_image[key] = per_image.get(key, False) or name.lower() in positive
+    if not per_image:
+        raise ValueError(f"JSON MD.ai không có chú thích dùng được (khoá cấp đầu: {list(obj)[:10]}, "
+                         f"{len(anns)} chú thích, {len(names)} nhãn)")
+    labels = pd.Series({k: by_idx[1] if v else by_idx[0] for k, v in per_image.items()}).sort_index()
+    if (labels == by_idx[1]).sum() == 0:
+        raise ValueError(f"Không có ảnh dương: không nhãn nào trùng positive_labels={positive_labels}. "
+                         f"Nhãn có trong file: {usage}")
+    return labels, usage
+
+
+def read_nih_patients(obj) -> dict[str, str]:
+    """Mapping RSNA -> NIH ChestX-ray8: {UID (SOP / Series / Study): mã bệnh nhân NIH 8 chữ số}."""
+    out = {}
+    for d in _walk_dicts(obj):
+        nih = None
+        for v in d.values():
+            m = NIH_IMAGE.search(v) if isinstance(v, str) else None
+            if m:
+                nih = m.group(1)
+                break
+        if nih:
+            for k in UID_KEYS:
+                if isinstance(d.get(k), str):
+                    out[d[k]] = nih
+    return out
+
+
+def one_image_per_patient(labels: pd.Series, patients: dict[str, str], seed: int) -> pd.Series:
+    """Giữ đúng MỘT ảnh cho mỗi bệnh nhân (ngẫu nhiên theo seed, tất định); ảnh không có mã bệnh nhân giữ nguyên."""
+    rng = np.random.default_rng(seed)
+    groups: dict[str, list[str]] = {}
+    for image_id in sorted(labels.index):
+        groups.setdefault(patients.get(image_id, f"__{image_id}"), []).append(image_id)
+    keep = [ids[int(rng.integers(len(ids)))] if len(ids) > 1 else ids[0] for _, ids in sorted(groups.items())]
+    return labels.loc[sorted(keep)]
+
+
 def stratified_subset(labels: pd.Series, size: int, seed: int) -> pd.Series:
     """Tập con `size` ảnh giữ nguyên tỉ lệ lớp (tất định theo seed). size <= 0 hoặc >= tổng -> giữ tất cả."""
     if size <= 0 or size >= len(labels):
@@ -170,14 +258,38 @@ def dicom_to_uint8(ds) -> np.ndarray:
     return np.clip(np.rint(arr), 0, 255).astype(np.uint8)
 
 
+def expand_patients(patients: dict[str, str], files: list[Path]) -> dict[str, str]:
+    """Mapping có thể chỉ ghi một loại UID: dùng cây thư mục Study/Series/SOP.dcm để mọi UID của cùng một ảnh đều trỏ
+    tới cùng mã bệnh nhân."""
+    out = dict(patients)
+    for p in files:
+        keys = (p.parent.parent.name, p.parent.name, p.stem)
+        nih = next((patients[k] for k in keys if k in patients), None)
+        if nih is not None:
+            out.update(dict.fromkeys(keys, nih))
+    return out
+
+
+def dicom_index(files: list[Path]) -> dict[str, Path]:
+    """Mã -> file: tên file (patientId của Kaggle / SOPInstanceUID của MD.ai) và hai thư mục cha (Series, Study UID)."""
+    index = {}
+    for p in files:
+        for key in (p.parent.parent.name, p.parent.name, p.stem):       # cấp chi tiết nhất ghi sau cùng (ưu tiên)
+            index[key] = p
+    return index
+
+
+# --------------------------------------------------------------------------------------------------------- nguồn
 class DicomCsvSource(DatasetSource):
     def __init__(self, classes: dict[str, int], images_root: Path, labels_path: Path | None, id_column: str,
-                 label_column: str, subset_size: int, seed: int, extract_dir: Path, metadata_csv: Path):
+                 label_column: str, subset_size: int, seed: int, extract_dir: Path, metadata_csv: Path,
+                 positive_labels: list[str] | tuple[str, ...] = (), one_per_patient: bool = False):
         super().__init__(classes)
         self.images_root, self.labels_path = Path(images_root), labels_path
         self.id_column, self.label_column = id_column, label_column
         self.subset_size, self.seed = subset_size, seed
         self.extract_dir, self.metadata_csv = Path(extract_dir), Path(metadata_csv)
+        self.positive_labels, self.one_per_patient = list(positive_labels), one_per_patient
 
     @property
     def has_test_set(self) -> bool:
@@ -215,24 +327,56 @@ class DicomCsvSource(DatasetSource):
             extract_archives(archives, self.extract_dir)
         return bool(archives)
 
-    def _labels_csv(self) -> Path:
-        """CSV nhãn: khai báo sẵn, hoặc tự tìm trong thư mục; chưa thấy thì giải nén các file nén rồi tìm lại."""
-        if self.labels_path is not None:
-            return self.labels_path
-        csv, seen = search_label_csv([self.images_root], self.id_column, self.label_column)
-        if csv is None and self._extract():
-            csv, seen = search_label_csv([self.images_root, self.extract_dir], self.id_column, self.label_column)
+    def _scan_labels(self, roots: list[Path]) -> tuple[pd.Series | None, str, dict[str, str]]:
+        """(nhãn, mô tả nguồn nhãn, mapping bệnh nhân NIH) tìm được dưới `roots`."""
+        patients: dict[str, str] = {}
+        mdai = None
+        for root in roots:
+            for path in find_files(root, (".json",)):
+                if path.stat().st_size > MAX_JSON_MB * 1e6:
+                    continue
+                try:
+                    obj = json.loads(path.read_text(encoding="utf-8"))
+                except Exception:
+                    continue
+                if is_mdai_annotations(obj):
+                    mdai = mdai or (obj, path)
+                else:
+                    found = read_nih_patients(obj)
+                    if found:
+                        patients.update(found)
+                        log.info("Mapping NIH từ %s: %d mã ảnh -> %d bệnh nhân", path.name, len(found),
+                                 len(set(found.values())))
+        csv = self.labels_path if self.labels_path is not None else \
+            search_label_csv(roots, self.id_column, self.label_column)[0]
         if csv is not None:
-            return csv
+            return read_dicom_labels(csv, self.id_column, self.label_column, self.classes), csv.name, patients
+        if mdai is not None:
+            labels, usage = read_mdai_labels(mdai[0], self.positive_labels, self.classes)
+            log.info("Nhãn MD.ai %s — số chú thích theo nhãn: %s (dương = %s)", mdai[1].name, usage,
+                     self.positive_labels)
+            return labels, mdai[1].name, patients
+        return None, "", patients
+
+    def _labels(self) -> tuple[pd.Series, str, dict[str, str]]:
+        """Nhãn: CSV kiểu Kaggle hoặc JSON MD.ai; chưa thấy thì giải nén các file nén rồi tìm lại."""
+        labels, source, patients = self._scan_labels([self.images_root])
+        if labels is None and self._extract():
+            labels, source, patients = self._scan_labels([self.images_root, self.extract_dir])
+        if labels is not None:
+            return labels, source, patients
+        seen = search_label_csv([self.images_root, self.extract_dir], self.id_column, self.label_column)[1]
         listing = "\n".join(f"  {c.name}: {cols}" for c, cols in seen) or "  (không có file CSV nào)"
         raise FileNotFoundError(
-            f"Không tìm thấy CSV nhãn có cột '{self.id_column}' và '{self.label_column}' (đã tìm cả trong file nén).\n"
-            f"CSV tìm thấy:\n{listing}\n{inventory([self.images_root, self.extract_dir])}\n"
+            f"Không tìm thấy nhãn: không có CSV có cột '{self.id_column}' + '{self.label_column}', cũng không có JSON "
+            f"xuất từ MD.ai (đã tìm cả trong file nén).\nCSV tìm thấy:\n{listing}\n"
+            f"{inventory([self.images_root, self.extract_dir])}\n"
             "Khai báo đúng data.source.train_labels / id_column / label_column.")
 
     def _signature(self) -> dict:
         return {"labels": str(self.labels_path or "auto"), "id_column": self.id_column,
-                "label_column": self.label_column, "subset_size": self.subset_size, "seed": self.seed}
+                "label_column": self.label_column, "positive_labels": self.positive_labels,
+                "one_per_patient": self.one_per_patient, "subset_size": self.subset_size, "seed": self.seed}
 
     def ingest(self, subset: str, dst_root: str | Path) -> dict[str, int]:
         if subset != "train":
@@ -247,21 +391,33 @@ class DicomCsvSource(DatasetSource):
                              "Dùng run_tag / data.name mới khi đổi nhãn hoặc subset_size.")
 
         self._check_root()
-        csv = self._labels_csv()
-        labels = read_dicom_labels(csv, self.id_column, self.label_column, self.classes)
-        log.info("Nhãn từ %s: %d ảnh %s", csv.name, len(labels), labels.value_counts().to_dict())
+        labels, source, patients = self._labels()
+        log.info("Nhãn từ %s: %d ảnh %s", source, len(labels), labels.value_counts().to_dict())
+
+        files = find_files(self.images_root, (".dcm",))
+        if not set(labels.index) <= set(dicom_index(files)) and self._extract():
+            files += find_files(self.extract_dir, (".dcm",))
+        elif self.extract_dir.is_dir():
+            files += find_files(self.extract_dir, (".dcm",))       # bản giải nén cục bộ (ghi sau -> được ưu tiên)
+        if not files:
+            raise FileNotFoundError(f"Không có file .dcm dưới {self.images_root} (kể cả sau khi giải nén).\n"
+                                    f"{inventory([self.images_root, self.extract_dir])}")
+        index = dicom_index(files)
+        log.info("Tìm thấy %d file DICOM", len(files))
+        patients = expand_patients(patients, files)
+
+        if self.one_per_patient:
+            if patients:
+                n_before = len(labels)
+                labels = one_image_per_patient(labels, patients, self.seed)
+                log.info("Một ảnh / bệnh nhân NIH (seed %d): %d -> %d ảnh %s", self.seed, n_before, len(labels),
+                         labels.value_counts().to_dict())
+            else:
+                log.warning("one_per_patient = true nhưng không tìm thấy mapping bệnh nhân NIH -> không lọc được; "
+                            "nhiều ảnh của cùng một bệnh nhân có thể rơi vào cả train và test")
         labels = stratified_subset(labels, self.subset_size, self.seed)
         if self.subset_size:
             log.info("Tập con phân tầng (seed %d): %d ảnh %s", self.seed, len(labels), labels.value_counts().to_dict())
-
-        dicoms = find_files(self.images_root, (".dcm",))
-        if not dicoms and self._extract():
-            dicoms = find_files(self.extract_dir, (".dcm",))
-        if not dicoms:
-            raise FileNotFoundError(f"Không có file .dcm dưới {self.images_root} (kể cả sau khi giải nén).\n"
-                                    f"{inventory([self.images_root, self.extract_dir])}")
-        index = {p.stem: p for p in dicoms}
-        log.info("Tìm thấy %d file DICOM", len(index))
 
         import pydicom
 
@@ -278,7 +434,7 @@ class DicomCsvSource(DatasetSource):
             if not dst.exists():
                 write_png(dicom_to_uint8(ds), dst)
             counts[label] += 1
-            meta.append({"image_id": image_id, "label": label,
+            meta.append({"image_id": image_id, "label": label, "nih_patient": patients.get(image_id),
                          **{t: getattr(ds, t, None) for t in META_TAGS}})
         if missing:
             raise FileNotFoundError(f"{len(missing)} ảnh có nhãn nhưng không có file DICOM (ví dụ {missing[:3]}) "

@@ -17,9 +17,15 @@ data:
     # .zip / .tar nếu cần, bỏ qua thư mục kết quả. Thư mục này không có dữ liệu mà có đúng một bản "RSNA Pneumonia (1)"
     # (Google Drive tạo khi trùng tên) chứa dữ liệu -> tự đọc từ bản đó.
     train_images: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia
-    train_labels: ""     # "" = tự tìm CSV có cột patientId + Target (ví dụ stage_2_train_labels.csv)
+    # Nhãn tự tìm, hỗ trợ cả hai bản phát hành:
+    #  - Kaggle: CSV stage_2_train_labels.csv, cột patientId + Target (1 = có đám mờ phổi)
+    #  - trang RSNA (MD.ai): pneumonia-challenge-annotations-adjudicated-kaggle_2018.json, ảnh dương = có chú thích
+    #    "Lung Opacity"; âm = "Normal" + "No Lung Opacity / Not Normal"
+    train_labels: ""
     id_column: patientId
-    label_column: Target # 1 = có đám mờ phổi (positive); 0 = Normal + "No Lung Opacity / Not Normal" (negative)
+    label_column: Target
+    positive_labels: [Lung Opacity]
+    one_per_patient: true   # dùng mapping NIH (pneumonia-challenge-dataset-mappings_2018.json): 1 ảnh / bệnh nhân
     subset_size: 6000    # tập con phân tầng giữ nguyên tỉ lệ lớp (seed 2026); 0 = toàn bộ (~26.7 nghìn ảnh)
   preprocess:
     crop_dark_border: false

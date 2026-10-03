@@ -19,7 +19,7 @@ def build_source(cfg: Config, layout: Layout) -> DatasetSource:
     if s.type == "dicom_csv":
         return DicomCsvSource(classes, layout.drive_train_images, layout.drive_train_labels, s.id_column,
                               s.label_column, s.subset_size, cfg.seed, layout.source_extract_dir,
-                              layout.dicom_metadata_csv)
+                              layout.dicom_metadata_csv, s.positive_labels, s.one_per_patient)
     raise ValueError(f"Nguồn không hỗ trợ: {s.type!r}")
 
 

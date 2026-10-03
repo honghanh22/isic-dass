@@ -172,7 +172,8 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 |---|---|
 | Nguồn | RSNA + NIH ChestX-ray8; nhãn do bác sĩ X-quang gán (Shih et al., *Radiology: AI* 2019) |
 | Ảnh | DICOM xám 1024 × 1024, **mỗi bệnh nhân một ảnh** |
-| Nhãn | positive = `Target = 1` (có đám mờ phổi); negative = *Normal* + *No Lung Opacity / Not Normal* |
+| Nhãn | positive = có đám mờ phổi (Kaggle: `Target = 1`; bản MD.ai của trang RSNA: chú thích "Lung Opacity", file `…annotations-adjudicated-kaggle_2018.json`); negative = *Normal* + *No Lung Opacity / Not Normal* |
+| Bệnh nhân | mapping NIH (`…dataset-mappings_2018.json`) -> giữ **1 ảnh / bệnh nhân** (`one_per_patient`), tránh rò rỉ giữa train / val / test |
 | Quy mô | tập con phân tầng **6.000 ảnh** (`subset_size`, seed 2026), giữ tỉ lệ khoảng 22 % positive |
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |

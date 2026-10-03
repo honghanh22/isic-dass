@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.7.0 — RSNA: đọc bản phát hành MD.ai của trang RSNA, 1 ảnh / bệnh nhân
+- Nguồn DICOM đọc được bản tải từ trang RSNA (xuất từ MD.ai): ảnh `Study/Series/SOP.dcm`, nhãn JSON
+  `pneumonia-challenge-annotations-adjudicated-kaggle_2018.json` (dương = có chú thích trong `positive_labels`, ví dụ
+  "Lung Opacity"; âm = các nhãn còn lại). Mã ảnh = StudyInstanceUID (gộp chú thích cấp ảnh và cấp ca chụp). Vẫn đọc
+  được CSV kiểu Kaggle như trước.
+- Mapping NIH (`pneumonia-challenge-dataset-mappings_2018.json`, tên ảnh `<mã bệnh nhân>_<số>.png`): lấy mã bệnh nhân
+  NIH; `source.one_per_patient: true` giữ đúng 1 ảnh / bệnh nhân (seed) -> không rò rỉ bệnh nhân giữa train / val /
+  test. Mã bệnh nhân ghi vào `dicom_metadata.csv`.
+- Sửa thống kê đuôi file trong thông báo lỗi (tên file SOP UID có nhiều dấu chấm).
+
 ## 1.6.3 — RSNA: tách dữ liệu gốc và kết quả
 - `configs/datasets/rsna_pneumonia.yaml`: kết quả ghi vào `RSNA Pneumonia/Result_Pneumonia` (`drive_root`), dữ liệu gốc
   đọc từ `RSNA Pneumonia` (`train_images`, đường dẫn tuyệt đối) — như Brain Tumor.
