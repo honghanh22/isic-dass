@@ -31,12 +31,38 @@ from .csv_source import normalize_label
 log = logging.getLogger(__name__)
 
 ARCHIVE_SUFFIXES = (".zip", ".tar", ".tar.gz", ".tgz")
+SOURCE_SUFFIXES = (".dcm", ".csv") + ARCHIVE_SUFFIXES
+# drive_root vừa chứa dữ liệu gốc vừa chứa kết quả của pipeline (Layout): bỏ qua các thư mục kết quả khi tìm dữ liệu
+# nguồn, để không nhặt nhầm CSV số liệu hay file pool .zip.
+OUTPUT_DIR_PREFIXES = ("checkpoints_", "results_")
 META_TAGS = ("ViewPosition", "PatientSex", "PatientAge", "PhotometricInterpretation", "Rows", "Columns")
 _MARKER = ".ingest.json"
 
 
+def glob_escape(name: str) -> str:
+    """Escape ký tự đặc biệt của glob ([, ], *, ?) trong tên thư mục."""
+    return "".join(f"[{c}]" if c in "[]*?" else c for c in name)
+
+
+def _has_files(root: Path) -> bool:
+    """Có dữ liệu nguồn (.dcm / .csv / file nén) ngoài các thư mục kết quả của pipeline."""
+    return root.is_dir() and bool(find_files(root, SOURCE_SUFFIXES))
+
+
+def _listing(root: Path, limit: int = 15) -> str:
+    items = sorted(root.iterdir())
+    lines = [f"  {p.name}{'/' if p.is_dir() else f'  ({p.stat().st_size / 1e6:.1f} MB)'}" for p in items[:limit]]
+    if len(items) > limit:
+        lines.append(f"  … và {len(items) - limit} mục khác")
+    return "\n".join(lines) or "  (rỗng)"
+
+
 def find_files(root: Path, suffixes: tuple[str, ...]) -> list[Path]:
-    return sorted(p for p in Path(root).rglob("*") if p.is_file() and p.name.lower().endswith(suffixes))
+    """File có đuôi `suffixes` dưới `root` (đệ quy), bỏ qua thư mục kết quả của pipeline ở cấp đầu."""
+    root = Path(root)
+    return sorted(p for p in root.rglob("*")
+                  if p.is_file() and p.name.lower().endswith(suffixes)
+                  and not p.relative_to(root).parts[0].startswith(OUTPUT_DIR_PREFIXES))
 
 
 def extract_archives(archives: list[Path], out_dir: Path) -> None:
@@ -66,7 +92,7 @@ def inventory(roots: list[Path], limit: int = 40) -> str:
         if not root.is_dir():
             continue
         for p in sorted(root.rglob("*")):
-            if not p.is_file():
+            if not p.is_file() or p.relative_to(root).parts[0].startswith(OUTPUT_DIR_PREFIXES):
                 continue
             ext = "".join(p.suffixes[-2:]).lower() or "(không đuôi)"
             by_ext[ext] = by_ext.get(ext, 0) + 1
@@ -153,17 +179,29 @@ class DicomCsvSource(DatasetSource):
         return False                      # test tách từ cùng nguồn (split stratified)
 
     def _check_root(self) -> None:
-        """Thư mục dữ liệu phải tồn tại và có file — nếu không, liệt kê thư mục cha để thấy tên đúng."""
+        """Thư mục dữ liệu phải có file. Rỗng / không tồn tại mà có đúng MỘT bản trùng tên do Google Drive tạo
+        (`<tên> (1)`, `<tên> (2)`, …) chứa dữ liệu -> đọc dữ liệu từ bản đó (kết quả vẫn ghi vào thư mục cấu hình).
+        Còn lại -> báo lỗi, liệt kê thư mục cha và nội dung các bản trùng tên."""
         root = self.images_root
-        if root.is_dir() and any(p.is_file() for p in root.rglob("*")):
+        if _has_files(root):
             return
         parent = root.parent
+        duplicates = sorted(p for p in parent.glob(f"{glob_escape(root.name)} (*)") if p.is_dir()) \
+            if parent.is_dir() else []
+        with_data = [p for p in duplicates if _has_files(p)]
+        if len(with_data) == 1:
+            log.warning("%s không có dữ liệu -> đọc dữ liệu từ %s (bản trùng tên do Google Drive tạo). Kết quả vẫn "
+                        "ghi vào %s.", root.name, with_data[0].name, root.name)
+            self.images_root = with_data[0]
+            return
         siblings = sorted(p.name + ("/" if p.is_dir() else "") for p in parent.iterdir()) if parent.is_dir() else []
         state = "rỗng (chưa có file nào — dữ liệu chưa tải lên xong / chưa đồng bộ?)" if root.is_dir() \
             else "KHÔNG tồn tại (tên thư mục khác?)"
+        dup_info = "".join(f"\nNội dung {p.name}/ (tối đa 15 mục):\n" + _listing(p) for p in duplicates)
         raise FileNotFoundError(f"Thư mục dữ liệu {root} {state}.\nNội dung {parent}:\n"
                                 + ("\n".join(f"  {s}" for s in siblings) or "  (không đọc được / rỗng)")
-                                + "\nSửa paths.drive_root trong configs/datasets/*.yaml cho đúng tên thư mục.")
+                                + dup_info
+                                + "\nĐưa dữ liệu vào đúng thư mục (ví dụ tải bằng Kaggle API) hoặc sửa paths.drive_root.")
 
     def _extract(self) -> bool:
         """Giải nén mọi file nén dưới `images_root` ra `extract_dir` (một lần mỗi server). True nếu có file nén."""

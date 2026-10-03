@@ -125,6 +125,26 @@ def test_missing_or_empty_root_lists_parent(tmp_path):
         _source(parent / "RSNA_Pneumonia", tmp_path).ingest("train", tmp_path / "raw")
 
 
+def test_drive_duplicate_folder_is_used_when_configured_one_has_no_data(rsna_like, tmp_path):
+    """Google Drive tạo "RSNA Pneumonia (1)"; thư mục cấu hình chỉ có thư mục kết quả của pipeline (kể cả file)."""
+    dup = rsna_like.parent / "RSNA Pneumonia (1)"
+    rsna_like.rename(dup)
+    outputs = rsna_like / "checkpoints_rsna_v1" / "data"
+    outputs.mkdir(parents=True)
+    (outputs / "dicom_metadata.csv").write_text("image_id,label\n")          # kết quả không được coi là dữ liệu
+    (outputs / "pool_positive_n10_c1.zip").write_bytes(b"")
+    counts = _source(rsna_like, tmp_path).ingest("train", tmp_path / "raw")
+    assert counts == {"negative": 9, "positive": 3}
+
+
+def test_outputs_are_ignored_when_searching_source_files(tmp_path):
+    from dass.data.sources.dicom_source import find_files
+    (tmp_path / "results_x").mkdir()
+    (tmp_path / "results_x" / "m.csv").write_text("a\n")
+    (tmp_path / "labels.csv").write_text("a\n")
+    assert [p.name for p in find_files(tmp_path, (".csv",))] == ["labels.csv"]
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)

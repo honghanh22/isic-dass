@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.2 — RSNA: thư mục trùng tên do Google Drive tạo
+- Nguồn DICOM: thư mục cấu hình không có dữ liệu nguồn mà có đúng một bản `<tên> (N)` chứa dữ liệu -> đọc dữ liệu từ bản
+  đó (cảnh báo trong log); kết quả vẫn ghi vào thư mục cấu hình. Nếu không, lỗi in nội dung các bản trùng tên.
+- Khi tìm dữ liệu nguồn (.dcm / .csv / file nén) bỏ qua thư mục kết quả của pipeline (`checkpoints_*`, `results_*`):
+  không nhặt nhầm CSV số liệu hay file pool .zip.
+
 ## 1.6.1 — RSNA: tìm nhãn cả trong file nén
 - Nguồn DICOM: chưa thấy CSV nhãn thì giải nén các file .zip / .tar rồi tìm lại (trước đây chỉ giải nén khi thiếu ảnh).
 - Không tìm thấy nhãn / ảnh -> lỗi in số file theo đuôi và tên các file không phải .dcm (chẩn đoán cấu trúc dữ liệu đã
