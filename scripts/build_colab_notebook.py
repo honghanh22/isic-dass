@@ -89,22 +89,27 @@ CFG = f"-c {EXPERIMENT}" + (f" -c {PROFILE}" if PROFILE else "") + (f" {EXTRA}" 
 !dass {CFG} show-config | head -n 40
 """)
 code("""
-# Tiện ích xem hình / bảng mà các stage đã lưu lên Drive
-import glob, json
+# Tiện ích xem hình / bảng mà các stage đã lưu lên Drive. Thư mục kết quả đọc lại từ cấu hình MỖI LẦN gọi
+# -> đổi run_tag (git pull, sửa EXPERIMENT) không cần chạy lại ô này.
+import glob, json, shlex, subprocess
 import pandas as pd
 from IPython.display import Image, display
 
-_out = !dass {CFG} show-config
-_cfg = json.loads("\\n".join(_out))
-RESULTS = f"{_cfg['paths']['drive_root']}/results_{_cfg['paths']['run_tag']}"
+def results_dir():
+    out = subprocess.run(["dass", *shlex.split(CFG), "show-config"], capture_output=True, text=True, check=True)
+    paths = json.loads(out.stdout)["paths"]
+    return f"{paths['drive_root']}/results_{paths['run_tag']}"
 
 def show(pattern):
-    for p in sorted(glob.glob(f"{RESULTS}/{pattern}")):
+    found = sorted(glob.glob(f"{results_dir()}/{pattern}"))
+    for p in found:
         print(p)
         display(Image(p))
+    if not found:
+        print("chưa có", pattern)
 
 def table(name, folder="tables"):
-    p = f"{RESULTS}/{folder}/{name}.csv"
+    p = f"{results_dir()}/{folder}/{name}.csv"
     display(pd.read_csv(p)) if os.path.exists(p) else print("chưa có", p)
 """)
 

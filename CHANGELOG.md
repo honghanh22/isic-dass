@@ -5,6 +5,8 @@
   `mirror: true`, khoảng một nửa ảnh sinh sẽ có tim bên phải và chữ L / R bị ngược. Mọi tham số GAN khác giống ISIC /
   Brain Tumor (có test). Chốt trước khi train GAN RSNA lần đầu; ISIC / Brain Tumor không đổi. Classifier vẫn lật ngang
   ngẫu nhiên khi train (profile `upright`), như nhau cho mọi phương pháp.
+- Notebook (`scripts/build_colab_notebook.py`): `show()` / `table()` đọc lại thư mục kết quả từ cấu hình mỗi lần gọi;
+  trước đây `RESULTS` chỉ tính một lần nên sau khi đổi run_tag vẫn hiện hình của run cũ.
 
 ## 1.8.0 — RSNA `rsna_v2`: loại ảnh "Exclude", dùng toàn bộ dữ liệu
 - Tuỳ chọn mới `data.source.exclude_labels` (mặc định rỗng; chỉ cho `dicom_csv` + nhãn MD.ai): ảnh có chú thích mang
