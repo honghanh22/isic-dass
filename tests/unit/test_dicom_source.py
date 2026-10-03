@@ -115,6 +115,16 @@ def test_no_labels_reports_inventory(tmp_path):
     assert ".dcm: 1" in msg and ".json: 1" in msg and "annotations.json" in msg
 
 
+def test_missing_or_empty_root_lists_parent(tmp_path):
+    parent = tmp_path / "ColabData"
+    (parent / "RSNA_Pneumonia").mkdir(parents=True)                      # tên thật khác tên trong cấu hình
+    with pytest.raises(FileNotFoundError, match="KHÔNG tồn tại") as err:
+        _source(parent / "RSNA Pneumonia", tmp_path).ingest("train", tmp_path / "raw")
+    assert "RSNA_Pneumonia/" in str(err.value)
+    with pytest.raises(FileNotFoundError, match="rỗng"):
+        _source(parent / "RSNA_Pneumonia", tmp_path).ingest("train", tmp_path / "raw")
+
+
 def test_subset_is_stratified_and_deterministic():
     labels = pd.Series(["positive"] * 20 + ["negative"] * 80, index=[f"id{i:03d}" for i in range(100)])
     a = stratified_subset(labels, 50, seed=1)

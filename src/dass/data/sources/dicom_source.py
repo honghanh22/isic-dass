@@ -152,6 +152,19 @@ class DicomCsvSource(DatasetSource):
     def has_test_set(self) -> bool:
         return False                      # test tách từ cùng nguồn (split stratified)
 
+    def _check_root(self) -> None:
+        """Thư mục dữ liệu phải tồn tại và có file — nếu không, liệt kê thư mục cha để thấy tên đúng."""
+        root = self.images_root
+        if root.is_dir() and any(p.is_file() for p in root.rglob("*")):
+            return
+        parent = root.parent
+        siblings = sorted(p.name + ("/" if p.is_dir() else "") for p in parent.iterdir()) if parent.is_dir() else []
+        state = "rỗng (chưa có file nào — dữ liệu chưa tải lên xong / chưa đồng bộ?)" if root.is_dir() \
+            else "KHÔNG tồn tại (tên thư mục khác?)"
+        raise FileNotFoundError(f"Thư mục dữ liệu {root} {state}.\nNội dung {parent}:\n"
+                                + ("\n".join(f"  {s}" for s in siblings) or "  (không đọc được / rỗng)")
+                                + "\nSửa paths.drive_root trong configs/datasets/*.yaml cho đúng tên thư mục.")
+
     def _extract(self) -> bool:
         """Giải nén mọi file nén dưới `images_root` ra `extract_dir` (một lần mỗi server). True nếu có file nén."""
         archives = find_files(self.images_root, ARCHIVE_SUFFIXES)
@@ -190,6 +203,7 @@ class DicomCsvSource(DatasetSource):
             raise ValueError(f"Ảnh đã chuyển ở {dst_root} theo thiết lập khác ({saved.get('signature')}). "
                              "Dùng run_tag / data.name mới khi đổi nhãn hoặc subset_size.")
 
+        self._check_root()
         csv = self._labels_csv()
         labels = read_dicom_labels(csv, self.id_column, self.label_column, self.classes)
         log.info("Nhãn từ %s: %d ảnh %s", csv.name, len(labels), labels.value_counts().to_dict())
