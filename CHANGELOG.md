@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.1 — sửa lỗi logic (review toàn bộ code)
+- **Augmentation:** 5 lớp ngẫu nhiên (lật, xoay, zoom, độ sáng, tương phản) dùng CHUNG một seed. Keras 3 rút số bằng RNG
+  không trạng thái theo bộ đếm, nên cả 5 phép biến đổi của một ảnh bị khoá vào cùng một số ngẫu nhiên (ảnh bị lật thì
+  luôn tối hơn, giảm tương phản, xoay về một phía). Nay mỗi lớp một seed (`seed`, `seed + 1`, …). Lỗi này có từ notebook
+  gốc: **mọi lần chạy cũ có augmentation (ISIC `v7`, Brain `bt_v3`) và mọi E_d** đã dùng augmentation tương quan. Phép
+  map augmentation chạy tuần tự (trạng thái seed dùng chung, chạy song song không xác định).
+- **Dự đoán `.npz` ghi nguyên tử** (file tạm + đổi tên): Colab ngắt giữa chừng không còn để lại file hỏng bị coi là
+  "đã có".
+- **Không dùng lại kết quả của giao thức khác:** nếu `.npz` đã có nhưng `augment` / `class_weight` lưu trong file khác
+  cấu hình hiện tại -> báo lỗi (trước đây lặng lẽ bỏ qua). `evaluate` báo lỗi nếu một thư mục dự đoán trộn lần chạy có
+  và không có augmentation.
+- **Tên M0 khớp với cách đã train:** tên gốc là "Imbalanced Baseline"; `report` tự thêm " (class-weighted)" khi mọi lần
+  chạy của phương pháp đó có class weight (đọc từ `.npz`). Bảng của `v9` / `bt_v4` không còn bị ghi sai.
+- Class weight của baseline xác định bằng hằng `BASELINE`, không phụ thuộc `evaluation.baseline_method` (cài đặt báo cáo).
+- `selection.pool_mult` (k) < 1 bị từ chối ngay khi nạp cấu hình.
+- `pipeline/pool.py`: đóng file ảnh sau khi đọc kích thước (chỉ khi bật `match_resize_chain`).
+- Sửa CLAUDE.md (mục bất biến bị dính chữ ở lần sửa 1.5.0) và checklist trong GUIDE (còn giá trị của 1.4.0).
+
 ## 1.5.0 — huấn luyện như ISIC v7, k = 1,5
 - **Quay lại thiết lập huấn luyện của ISIC v7** (theo yêu cầu người dùng): `classifier.augment: true` (cùng
   augmentation cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 có class weight). Tên hiển thị của M0:

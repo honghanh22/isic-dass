@@ -42,12 +42,18 @@ def test_classifier_training_like_isic_v7(name):
 def test_display_names_and_groups():
     ev = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).evaluation
     assert list(ev.method_labels.values()) == [
-        "Imbalanced Baseline (class-weighted)", "Random Oversampling (ROS)", "Unfiltered GAN (Random Selection)",
+        "Imbalanced Baseline", "Random Oversampling (ROS)", "Unfiltered GAN (Random Selection)",
         "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
         "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)"]
     assert ev.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample"]
     grouped = [m for members in ev.method_groups.values() for m in members]
     assert sorted(grouped) == sorted(ev.method_labels)           # mỗi phương pháp thuộc đúng một nhóm
+
+
+@pytest.mark.parametrize("k", ["0.5", "0.15", "-1"])
+def test_pool_mult_below_one_rejected(k):
+    with pytest.raises(ValueError, match="pool_mult"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], [f"selection.pool_mult={k}"])
 
 
 def test_bad_comparison_rejected():

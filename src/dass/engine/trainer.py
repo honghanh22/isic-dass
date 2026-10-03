@@ -3,7 +3,8 @@
 - Augmentation theo `classifier.augment` (mặc định bật, như nhau cho mọi biến thể; tắt -> train trên đúng ảnh đã lưu).
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
-- Mỗi (model, biến thể, seed) lưu một .npz trên Drive; file đã có -> bỏ qua (chạy lại được).
+- Mỗi (model, biến thể, seed) lưu một .npz trên Drive (ghi nguyên tử); file đã có -> bỏ qua (chạy lại được), nhưng
+  nếu thiết lập train lưu trong file (augment, class_weight) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại.
 """
 
 from __future__ import annotations
@@ -21,7 +22,9 @@ from ..config import Config, Layout
 from ..config.schema import ClassifierConfig
 from ..data.loaders import build_dataset
 from ..data.variants import Variant
+from ..evaluation.aggregate import protocol_mismatch
 from ..models.classifiers import build_model, resolve_model_name
+from ..utils import save_npz_atomic
 from .metrics import training_metrics
 
 log = logging.getLogger(__name__)
@@ -101,16 +104,21 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
         for seed in seeds:
             out = prediction_path(layout, model_name, tag, seed)
             if out.exists():
+                mismatch = protocol_mismatch(out, {"augment": cfg.classifier.augment,
+                                                   "class_weight": variant.class_weight})
+                if mismatch:
+                    raise RuntimeError(f"{out.name} được train với thiết lập khác ({mismatch}). Không dùng lại kết quả "
+                                       "của giao thức khác: đổi --tag / run_tag cho cấu hình mới.")
                 log.info("[bỏ qua, đã có] %s", out.name)
                 continue
             log.info("=== %s | %s | seed %d ===", model_name, tag, seed)
             model, preprocess, best_epoch = train_classifier(cfg, layout, model_name, variant, seed, channels)
             y_val, p_val = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
             y_test, p_test = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
-            np.savez(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test,
-                     model=model_name, method=variant.method, k=cfg.selection.pool_mult, seed=seed,
-                     best_epoch=best_epoch, lam=variant.lam, feature_space=variant.feature_space,
-                     augment=cfg.classifier.augment, class_weight=variant.class_weight)
+            save_npz_atomic(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test,
+                            model=model_name, method=variant.method, k=cfg.selection.pool_mult, seed=seed,
+                            best_epoch=best_epoch, lam=variant.lam, feature_space=variant.feature_space,
+                            augment=cfg.classifier.augment, class_weight=variant.class_weight)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model
             gc.collect()

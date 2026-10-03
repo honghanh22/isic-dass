@@ -75,6 +75,16 @@ def write_json_atomic(path: str | Path, obj: Any) -> None:
     os.replace(tmp, path)
 
 
+def save_npz_atomic(path: str | Path, **arrays: Any) -> None:
+    """np.savez ra file tạm rồi đổi tên -> Colab ngắt giữa chừng không để lại .npz hỏng (sẽ bị coi là "đã có")."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "wb") as f:                      # truyền file object -> np.savez không tự thêm đuôi .npz
+        np.savez(f, **arrays)
+    os.replace(tmp, path)
+
+
 def _json_default(o: Any) -> Any:
     if isinstance(o, np.generic):
         return o.item()

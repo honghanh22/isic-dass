@@ -16,6 +16,29 @@ from .statistics import paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
+PROTOCOL_FIELDS = ("augment", "class_weight")   # thiết lập train ghi trong .npz (từ 1.4.0; .npz cũ không có)
+
+
+def read_protocol(d) -> dict[str, bool | None]:
+    """{augment, class_weight} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
+    return {f: (bool(d[f]) if f in d.files else None) for f in PROTOCOL_FIELDS}
+
+
+def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool]) -> str | None:
+    """Mô tả chỗ lệch giữa thiết lập train lưu trong `npz_path` và `expected`; None nếu khớp (hoặc .npz cũ không ghi)."""
+    with np.load(npz_path, allow_pickle=True) as d:
+        stored = read_protocol(d)
+    diff = [f"{f}: đã lưu {stored[f]}, cấu hình hiện tại {v}" for f, v in expected.items()
+            if stored.get(f) is not None and stored[f] != v]
+    return "; ".join(diff) or None
+
+
+def check_single_protocol(runs: pd.DataFrame) -> None:
+    """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation) — trộn thì mean ± std và bootstrap sai."""
+    if "augment" in runs:
+        values = set(runs["augment"].dropna())
+        if len(values) > 1:
+            raise ValueError("Thư mục dự đoán trộn lần chạy có và không có augmentation -> tách bằng --tag / run_tag mới")
 
 
 def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
@@ -27,7 +50,7 @@ def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.Data
         y_val, p_val, y_test, p_test = d["y_val"], d["p_val"], d["y_test"], d["p_test"]
         row = {"model": model, "method": method, "lam": lam, "k": k, "seed": seed,
                "best_epoch": int(d["best_epoch"]), "n_test": len(y_test),
-               "val_roc_auc": float(roc_auc_score(y_val, p_val))}
+               "val_roc_auc": float(roc_auc_score(y_val, p_val)), **read_protocol(d)}
         row.update(binary_metrics(y_test, p_test, threshold))
         rows.append(row)
         probs[(model, method, lam, k, seed)] = (y_test, p_test)

@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 METHOD_LABELS = {
-    "M0_real_only": "Imbalanced Baseline (class-weighted)",
+    "M0_real_only": "Imbalanced Baseline",          # report tự thêm " (class-weighted)" nếu đã train có class weight
     "M0b_real_oversample": "Random Oversampling (ROS)",
     "M1_random": "Unfiltered GAN (Random Selection)",
     "M2_visual": "Visual-only Filter ($M_v$)",
@@ -226,6 +226,9 @@ def validate(cfg: Config) -> None:
             errors.append(str(e).strip("'\""))
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
+    if not cfg.selection.pool_mult >= 1:
+        errors.append(f"selection.pool_mult (k) phải >= 1 (pool không được nhỏ hơn số ảnh cần chọn), nhận "
+                      f"{cfg.selection.pool_mult}")
     for pair in cfg.evaluation.comparisons:
         if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and all(isinstance(m, str) for m in pair)):
             errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")

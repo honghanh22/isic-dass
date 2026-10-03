@@ -8,7 +8,7 @@ evaluation:
   # Tên hiển thị trong bảng bài báo; mã nội bộ (trong .npz, selections.json) giữ nguyên -> đổi tên KHÔNG cần train lại,
   # chỉ cần chạy lại `report`. Thứ tự ở đây = thứ tự hàng trong bảng. `$...$`: công thức trong .tex.
   method_labels:
-    M0_real_only: Imbalanced Baseline (class-weighted)   # dữ liệu mất cân bằng, cân bằng trong loss
+    M0_real_only: Imbalanced Baseline   # `report` tự thêm " (class-weighted)" nếu .npz ghi đã train có class weight
     M0b_real_oversample: Random Oversampling (ROS)
     M1_random: Unfiltered GAN (Random Selection)
     M2_visual: Visual-only Filter ($M_v$)

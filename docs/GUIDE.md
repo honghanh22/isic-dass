@@ -14,6 +14,8 @@ Brain Tumor `bt_v5`). Khi đổi code hoặc cấu hình, cập nhật file này
 | `v9` / `bt_v4` | 2 | **không** | **không** | ISIC: EfficientNetV2B0, ResNet50 |
 | **`v10` / `bt_v5`** | **1,5** | **có** | **có** | **cấu hình hiện tại** |
 
+**Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`, `bt_v3`) và mọi E_d cũ dùng augmentation tương quan này; `v10` / `bt_v5` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
+
 Cấu hình được đổi nhiều lần sau khi đã xem kết quả test. Khi viết bài báo phải nêu rõ điều này, và nên báo cáo kết
 quả của mọi cấu hình đã chạy (ví dụ trong phụ lục) thay vì chỉ chọn cấu hình có kết quả đẹp nhất.
 
@@ -574,7 +576,7 @@ EXTRA = ""                                                  # ghi đè, ví dụ
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
 1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra có `"run_tag": "bt_v5"` (hoặc `"v10"` với
-   ISIC), `"pool_mult": 2.0`, `"augment": false`, `"baseline_class_weight": false`.
+   ISIC), `"pool_mult": 1.5`, `"augment": true`, `"baseline_class_weight": true`.
 2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
    đọc thư mục của smoke.
 3. Chạy tiếp từ `prepare` trở xuống.

@@ -17,7 +17,13 @@ import numpy as np
 import pandas as pd
 
 from ...config import Config, Layout
-from ...evaluation.aggregate import compare_pairs, compare_to_baseline, load_all_runs, summary_stats
+from ...evaluation.aggregate import (
+    check_single_protocol,
+    compare_pairs,
+    compare_to_baseline,
+    load_all_runs,
+    summary_stats,
+)
 from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std
 from ..context import Context, record_stage
 from ..pool import load_selections, resolve_candidate_pool
@@ -32,6 +38,7 @@ def evaluate_classification(cfg: Config, layout: Layout) -> None:
     if runs.empty:
         log.warning("Chưa có dự đoán nào trong %s -> bỏ qua phần phân loại", layout.pred_dir)
         return
+    check_single_protocol(runs)          # không gộp lần chạy có / không augmentation vào cùng một bảng
     save_metrics(layout, "classification_runs", runs)
     summary = summary_stats(runs)
     save_metrics(layout, "classification_summary", summary)

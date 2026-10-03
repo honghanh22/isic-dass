@@ -58,7 +58,11 @@ def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_
         from ..utils import list_images
 
         originals = list_images(layout.train_raw / cls, "*")[:200]
-        sides = sorted(min(Image.open(p).size) for p in originals)
+        sides = []
+        for p in originals:
+            with Image.open(p) as im:          # chỉ đọc kích thước; đóng file ngay
+                sides.append(min(im.size))
+        sides.sort()
         ref_side = sides[len(sides) // 2]
         pool.resized = match_resize_chain(pool.raw, layout.candidates / f"{pool_name}_resizechain",
                                           layout.data_dir / f"{pool_name}_resizechain{ref_side}_{tag}.zip",

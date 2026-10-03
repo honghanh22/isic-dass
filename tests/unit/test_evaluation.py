@@ -6,10 +6,18 @@ import pytest
 from PIL import Image
 
 from dass.evaluation import reporting
-from dass.evaluation.aggregate import compare_pairs, compare_to_baseline, load_all_runs, summary_stats
+from dass.evaluation.aggregate import (
+    check_single_protocol,
+    compare_pairs,
+    compare_to_baseline,
+    load_all_runs,
+    protocol_mismatch,
+    summary_stats,
+)
 from dass.evaluation.classification import binary_metrics
 from dass.evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_from_features, kid_with_std
 from dass.evaluation.statistics import paired_bootstrap_auc
+from dass.utils import save_npz_atomic
 
 
 def test_binary_metrics_known_values():
@@ -85,6 +93,31 @@ def test_aggregate_roundtrip(runs_dir):
     assert set(summary["n_seeds"]) == {2} and {"roc_auc_mean", "roc_auc_std", "f1_mean"} <= set(summary.columns)
     cmp = compare_to_baseline(probs, "M0_real_only", n_boot=100, seed=0)
     assert list(cmp["method"]) == ["M6_dass"] and cmp["delta_auc"].iloc[0] > 0
+
+
+def test_save_npz_atomic_and_protocol_check(tmp_path):
+    out = tmp_path / "R__M0__s1.npz"
+    save_npz_atomic(out, y=np.arange(3), augment=True, class_weight=False)
+    assert out.exists() and not list(tmp_path.glob("*.tmp"))          # không còn file tạm, đúng tên (không ".npz.npz")
+    assert list(np.load(out)["y"]) == [0, 1, 2]
+    assert protocol_mismatch(out, {"augment": True, "class_weight": False}) is None
+    assert "augment" in protocol_mismatch(out, {"augment": False, "class_weight": False})
+    old = tmp_path / "old.npz"
+    np.savez(old, y=np.arange(3))                                      # .npz cũ không ghi thiết lập -> không chặn
+    assert protocol_mismatch(old, {"augment": False, "class_weight": True}) is None
+
+
+def test_mixed_protocols_rejected_and_labels_follow_class_weight():
+    runs = pd.DataFrame({"method": ["M0_real_only"] * 2 + ["M6_dass"] * 2, "augment": [True, True, True, None],
+                         "class_weight": [True, True, False, None]})
+    check_single_protocol(runs)                                        # None (npz cũ) không tính là giao thức khác
+    with pytest.raises(ValueError, match="augmentation"):
+        check_single_protocol(runs.assign(augment=[True, False, True, True]))
+    labels = reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline", "M6_dass": "DASS (Ours)"}, runs)
+    assert labels == {"M0_real_only": "Imbalanced Baseline (class-weighted)", "M6_dass": "DASS (Ours)"}
+    unweighted = runs.assign(class_weight=False)                       # cấu hình v9 / bt_v4
+    assert reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline"}, unweighted)["M0_real_only"] == \
+        "Imbalanced Baseline"
 
 
 def test_compare_pairs_extra_references(runs_dir, rng):

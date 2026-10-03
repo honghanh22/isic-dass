@@ -55,6 +55,23 @@ def method_label(method: str, labels: dict[str, str] | None) -> str:
     return (labels or {}).get(method, method)
 
 
+CLASS_WEIGHT_SUFFIX = " (class-weighted)"
+
+
+def labels_for_runs(labels: dict[str, str] | None, runs: pd.DataFrame | None) -> dict[str, str]:
+    """Tên hiển thị khớp với cách đã train: thêm " (class-weighted)" cho phương pháp mà MỌI lần chạy đều có class weight
+    (đọc từ trường `class_weight` trong .npz). Nhờ đó bảng của cấu hình không class weight (v9 / bt_v4) không bị ghi sai.
+    """
+    out = dict(labels or {})
+    if runs is None or "class_weight" not in runs:
+        return out
+    for method, flags in runs.groupby("method")["class_weight"]:
+        flags = flags.dropna()
+        if len(flags) and bool(flags.all()) and not out.get(method, method).endswith(CLASS_WEIGHT_SUFFIX):
+            out[method] = out.get(method, method) + CLASS_WEIGHT_SUFFIX
+    return out
+
+
 def method_rank(method: str, labels: dict[str, str] | None) -> tuple[int, str]:
     """Thứ tự hàng: theo thứ tự trong `labels`, phương pháp không có tên hiển thị xếp sau (theo mã)."""
     order = list(labels or {})

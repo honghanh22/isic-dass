@@ -25,13 +25,18 @@ def to_backbone_input(x: tf.Tensor) -> tf.Tensor:
 
 
 def make_augmenter(seed: int) -> tf.keras.Sequential:
-    """Augmentation hình học + độ sáng / tương phản — áp dụng như nhau cho mọi kênh, không tạo màu."""
+    """Augmentation hình học + độ sáng / tương phản — áp dụng như nhau cho mọi kênh, không tạo màu.
+
+    Mỗi lớp một seed RIÊNG: các lớp ngẫu nhiên của Keras 3 rút số bằng RNG không trạng thái theo bộ đếm, nên cùng
+    seed -> cùng dãy số -> lật / xoay / zoom / độ sáng / tương phản của một ảnh bị khoá vào CÙNG một số ngẫu nhiên
+    (ví dụ ảnh bị lật thì luôn tối hơn và xoay về một phía).
+    """
     return tf.keras.Sequential([
         layers.RandomFlip("horizontal_and_vertical", seed=seed),
-        layers.RandomRotation(0.5, fill_mode="reflect", seed=seed),
-        layers.RandomZoom((-0.1, 0.1), fill_mode="reflect", seed=seed),
-        layers.RandomBrightness(0.1, value_range=(0, 255), seed=seed),
-        layers.RandomContrast(0.1, seed=seed),
+        layers.RandomRotation(0.5, fill_mode="reflect", seed=seed + 1),
+        layers.RandomZoom((-0.1, 0.1), fill_mode="reflect", seed=seed + 2),
+        layers.RandomBrightness(0.1, value_range=(0, 255), seed=seed + 3),
+        layers.RandomContrast(0.1, seed=seed + 4),
     ], name="augment")
 
 
@@ -43,8 +48,9 @@ def build_dataset(data_dir: str | Path, class_names: list[str], image_size: int,
         batch_size=batch_size, shuffle=shuffle, seed=seed, verbose=False)
     if augment:
         aug = make_augmenter(seed)
-        ds = ds.map(lambda x, y: (tf.clip_by_value(aug(x, training=True), 0.0, 255.0), y),
-                    num_parallel_calls=tf.data.AUTOTUNE)
+        # Tuần tự (không num_parallel_calls): trạng thái seed của các lớp ngẫu nhiên là biến dùng chung; gọi song song
+        # làm thứ tự rút seed không xác định và hai batch có thể dùng cùng seed. Tiền xử lý phía sau vẫn song song.
+        ds = ds.map(lambda x, y: (tf.clip_by_value(aug(x, training=True), 0.0, 255.0), y))
     ds = ds.map(lambda x, y: (preprocess_fn(to_backbone_input(x)), y), num_parallel_calls=tf.data.AUTOTUNE)
     return ds.prefetch(tf.data.AUTOTUNE)
 

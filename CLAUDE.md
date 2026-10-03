@@ -58,7 +58,9 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   M6 vs M1).
 - **Huấn luyện classifier như ISIC v7** (người dùng quyết định, 1.5.0): `classifier.augment: true` (cùng augmentation
   cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 = "Imbalanced Baseline (class-weighted)"). Cấu
-  hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9` / Brain `bt_v4`, giữ nguyên để báo cáo riêng. E_d luôn train- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.om_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+  hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9` / Brain `bt_v4`, giữ nguyên để báo cáo riêng. E_d luôn train có
+  augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA của GAN giữ nguyên.
+- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 
 ## Tương thích artefact trên Drive

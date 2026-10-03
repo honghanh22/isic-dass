@@ -27,7 +27,9 @@ def run(cfg: Config) -> list:
         written += reporting.write_table(out, "dataset", t, t, f"{name}: số ảnh mỗi tập ({card['color']}, "
                                          f"{card['channels']} kênh, split {card['split']['type']})", latex)
 
-    labels, groups = cfg.evaluation.method_labels, cfg.evaluation.method_groups
+    # tên hiển thị + " (class-weighted)" theo đúng thiết lập đã train (trường class_weight trong .npz)
+    labels = reporting.labels_for_runs(cfg.evaluation.method_labels, load_metrics(layout, "classification_runs"))
+    groups = cfg.evaluation.method_groups
     summary = load_metrics(layout, "classification_summary")
     if summary is not None:
         table, bold = reporting.classification_table(summary, labels=labels, groups=groups)
