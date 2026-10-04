@@ -181,8 +181,8 @@ class ClassifierConfig:
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_macro_recall"
-    augment: bool = True             # augmentation khi train classifier (mọi biến thể, chỉ tập train)
-    baseline_class_weight: bool = True   # M0 có class weight (false: baseline mất cân bằng thật, như ISIC v9 / RSNA)
+    augment: bool = False            # augmentation khi train classifier (mọi biến thể, chỉ tập train); 1.11.0: tắt
+    baseline_class_weight: bool = False  # M0 có class weight; 1.11.0: tắt (baseline mất cân bằng thật, ROS cân bằng)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"

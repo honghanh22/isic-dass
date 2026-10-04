@@ -2,7 +2,8 @@
 
 Tài liệu dành cho người mới tiếp cận dự án, đồng thời là nguồn tham chiếu khi viết phần *Phương pháp* và *Thực
 nghiệm* của bài báo. Mọi công thức, con số và tham số dưới đây khớp với code (`src/dass/`) và cấu hình (`configs/`)
-của phiên bản **1.10.0**. Hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**; k = 1,5 cho cả hai. Brain Tumor
+của phiên bản **1.11.0**. Hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**; k = 1,5 và **cùng giao thức classifier
+(không augmentation, M0 không class weight)** cho cả hai. Brain Tumor
 đã bị loại khỏi dự án và bài báo (1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp; kết quả cũ vẫn
 trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
 
@@ -12,14 +13,16 @@ trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
 |---|---|---|---|---|
 | ISIC `v7` | 4 | có | có | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
 | ISIC `v9` | 2 | **không** | **không** | EfficientNetV2B0, ResNet50 |
-| **ISIC `v10`** | **1,5** | **có** | **có** | cấu hình hiện tại của ISIC |
+| ISIC `v10` | 1,5 | có | có | cấu hình chính của ISIC trước 1.11.0 |
+| **ISIC `v11`** | **1,5** | **không** | **không** | cấu hình chính của ISIC (từ 1.11.0) |
 | **RSNA `rsna_v2`** | **1,5** | **không** | **không** | cấu hình chính của RSNA (mục 2.5) |
 
-RSNA dùng cùng công thức DASS với ISIC `v10` (k = 1,5) **nhưng classifier không can thiệp dữ liệu**: không
-augmentation (1.8.2) và M0 không class weight (1.9.1), như ISIC `v9` (người dùng quyết định; M0 của ResNet50 lỡ train
-có class weight được chuyển sang `predictions_superseded/` và train lại). `rsna_v2`: toàn bộ ảnh, đã loại "Exclude";
-`rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`. Hai bộ dữ liệu hiện chạy **khác giao thức classifier**: muốn so
-sánh trực tiếp thì cần thêm một lần chạy ISIC không can thiệp với k = 1,5.
+**Giao thức chung (1.11.0, người dùng quyết định):** classifier **không can thiệp dữ liệu** ở bất kỳ phương pháp nào,
+cho cả hai bộ dữ liệu — không augmentation và M0 không class weight. RSNA chạy như vậy từ đầu (augmentation tắt ở
+1.8.2, class weight của M0 tắt ở 1.9.1; M0 của ResNet50 lỡ train có class weight được chuyển sang
+`predictions_superseded/` và train lại). ISIC chuyển sang giao thức này ở `v11` (cùng GAN `v5`, cùng split, k = 1,5);
+`v10` (có augmentation + class weight) giữ nguyên trên Drive để báo cáo riêng. `rsna_v2`: toàn bộ ảnh, đã loại
+"Exclude"; `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
 
 **Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`) và mọi E_d cũ dùng augmentation tương quan này; `v10` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
 
@@ -31,7 +34,7 @@ hiển thị** (`evaluation.method_labels`):
 
 | Nhóm | Mã | Tên trong bài báo |
 |---|---|---|
-| Real Data Baselines | M0 (`M0_real_only`) | **Imbalanced Baseline (class-weighted)** |
+| Real Data Baselines | M0 (`M0_real_only`) | **Imbalanced Baseline** (bảng tự thêm "(class-weighted)" nếu lần chạy có class weight, như ISIC `v10`) |
 | | M0b (`M0b_real_oversample`) | **Random Oversampling (ROS)** |
 | Generative Augmentation (StyleGAN2-ADA) | M1 (`M1_random`) | **Unfiltered GAN (Random Selection)** |
 | | M2 (`M2_visual`) | **Visual-only Filter (M_v)** |
@@ -98,7 +101,7 @@ Tám biến thể M0, M0b, M1–M6 ([mục 3.7](#37-các-biến-thể-so-sánh))
 | RQ3 | Ảnh sinh có mang thêm thông tin so với **nhân bản ảnh thật** không? (cùng số ảnh, cùng số bước train, cùng cách cân bằng) | M6 vs M0b | **H2: AUC(M6) > AUC(M0b)** |
 | RQ4 | Chọn lọc có tốt hơn chọn ngẫu nhiên không? | M6 vs M1 | **H3: AUC(M6) > AUC(M1)** |
 | RQ5 | Mỗi thành phần đóng góp gì? | M2 / M3 vs M4 (một hay hai không gian); M4 vs M6 (thêm đa dạng); M5 vs M6 (thêm điểm lề) | H4: M6 ≥ M2, M3, M4, M5 |
-| RQ6 | Kết quả có nhất quán giữa các backbone (CNN, Transformer) và giữa các bộ dữ liệu không? | 6 backbone × 2 bộ dữ liệu (ISIC, RSNA; RSNA không augmentation, M0 không class weight — khác giao thức ISIC `v10`, cần một lần chạy ISIC cùng giao thức để so sánh trực tiếp) | H5: chiều của H1–H3 giữ ở đa số cấu hình |
+| RQ6 | Kết quả có nhất quán giữa các backbone (CNN, Transformer) và giữa các bộ dữ liệu không? | 6 backbone × 2 bộ dữ liệu (ISIC `v11`, RSNA `rsna_v2`; cùng giao thức classifier) | H5: chiều của H1–H3 giữ ở đa số cấu hình |
 | RQ7 | Ảnh được chọn khác pool như thế nào (chất lượng, khả năng tạo shortcut)? | KID, AUC thật-vs-sinh, Jaccard | (mô tả) |
 
 **H1, H2, H3** được kiểm định thống kê trực tiếp bằng paired bootstrap ΔAUC: mọi biến thể so với M0, cộng hai cặp
@@ -185,7 +188,7 @@ GAN, và còn chỗ để cải thiện (không chạm trần).
 | Quy mô | **toàn bộ** sau khi lọc (`subset_size: 0`): khoảng 12,2 nghìn ảnh, khoảng 12 % positive. Tỉ lệ dương thấp hơn 23,7 % của 30.000 ảnh vì người có đám mờ được chụp lại nhiều lần (2,7 ảnh / bệnh nhân dương so với 1,35 ở ảnh Normal) |
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
-| Augmentation | classifier: **không** (`classifier.augment: false`, người dùng quyết định); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
+| Augmentation | classifier: **không** (`classifier.augment: false`, chung cho mọi bộ dữ liệu); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
 | GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
@@ -320,7 +323,7 @@ M1–M6 chọn **đúng n ảnh sinh từ cùng một pool**. M0 và M0b không 
 
 | ID | Tên trong bài báo | Tiêu chí chọn | Đa dạng | Biến thể này cô lập yếu tố gì |
 |---|---|---|---|---|
-| M0 | Imbalanced Baseline (class-weighted) | không dùng ảnh sinh; dữ liệu thật mất cân bằng (5 : 1 / 4,2 : 1), **cân bằng trong loss bằng class weight** | – | **baseline** |
+| M0 | Imbalanced Baseline | không dùng ảnh sinh; dữ liệu thật mất cân bằng (ISIC 4,2 : 1, RSNA 7,1 : 1), **không cân bằng** (không class weight, không lấy mẫu lại) | – | **baseline** |
 | M0b | Random Oversampling (ROS) | không dùng ảnh sinh: **nhân bản ảnh thật** lớp thiểu số lên 1 : 1 | – | **baseline oversampling**: cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6 |
 | M1 | Unfiltered GAN (Random Selection) | ngẫu nhiên (seed 2026) | – | tác dụng của ảnh sinh khi không chọn lọc |
 | M2 | Visual-only Filter (M_v) | M_v | – | chỉ không gian thị giác |
@@ -354,28 +357,27 @@ thực nghiệm chính.
 
 **Cân bằng lớp:**
 
-| | Số ảnh train: ISIC (`v10`) | RSNA (`rsna_v2`) | Bước mỗi epoch (ISIC / RSNA) | Cân bằng bằng |
+| | Số ảnh train: ISIC (`v11`) | RSNA (`rsna_v2`) | Bước mỗi epoch (ISIC / RSNA) | Cân bằng bằng |
 |---|---|---|---|---|
-| M0 Imbalanced Baseline | 618 : 148 | 7.522 : 1.059 | 48 / 537 | ISIC: **class weight** w_c = N_train / (2 · n_c); RSNA: **không cân bằng** |
+| M0 Imbalanced Baseline | 618 : 148 | 7.522 : 1.059 | 48 / 537 | **không cân bằng** |
 | M0b (ROS) | 618 : (148 + 470 bản sao) | 7.522 : (1.059 + 6.463 bản sao) | 78 / 941 | dữ liệu (ảnh thật nhắc lại) |
 | M1–M6 | 618 : (148 + 470 ảnh sinh) | 7.522 : (1.059 + 6.463 ảnh sinh) | 78 / 941 | dữ liệu (ảnh sinh) |
 
-- ISIC `v10` (như ISIC `v7`): mọi biến thể dùng **cùng augmentation** (`classifier.augment: true`), M0 cân bằng bằng
-  **class weight** (`classifier.baseline_class_weight: true`). Mọi biến thể vì thế có tỉ lệ lớp hiệu dụng 1 : 1, và
-  ngưỡng 0,5 so sánh được giữa các biến thể.
+- **Không can thiệp dữ liệu ở classifier, cho cả hai bộ dữ liệu** (người dùng quyết định, 1.11.0): không augmentation
+  (`classifier.augment: false`) và M0 **không class weight** (`classifier.baseline_class_weight: false`), đặt trong
+  `configs/_base_/classifier.yaml`, không bộ dữ liệu nào ghi đè. Khác biệt giữa các phương pháp vì thế chỉ nằm ở
+  **nội dung tập train**.
+- M0 là baseline mất cân bằng thật (ISIC 4,2 : 1, RSNA 7,1 : 1); ROS là baseline cân bằng bằng ảnh thật. Ở ngưỡng 0,5,
+  M0 sẽ ít khi đoán dương nên sensitivity thấp; so sánh chính dựa vào AUC (không phụ thuộc ngưỡng).
 - M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách cân bằng; chỉ khác **nội dung** ảnh thêm vào. Vì vậy
   **M6 vs M0b** là phép so sánh chặt chẽ nhất.
-- Cấu hình không can thiệp dữ liệu (ISIC `v9`) chạy lại được bằng `--set classifier.augment=false
-  --set classifier.baseline_class_weight=false` kèm `--tag` riêng.
-- **RSNA (`rsna_v2`): không can thiệp dữ liệu ở classifier** — không augmentation (`classifier.augment: false`) và M0
-  **không class weight** (`classifier.baseline_class_weight: false`), như ISIC `v9`. M0 vì thế là baseline mất cân
-  bằng thật (1 : 7,1); ROS là baseline cân bằng bằng ảnh thật. Tên trong bảng tự thành "Imbalanced Baseline" (không có
-  hậu tố "(class-weighted)"). Ở ngưỡng 0,5, M0 sẽ ít khi đoán dương nên sensitivity thấp; so sánh chính dựa vào AUC.
-  Khác ISIC `v10` ở điểm này, phải nêu trong bài báo.
+- Cấu hình cũ có augmentation + M0 class weight (ISIC `v10`, như `v7`) chạy lại được bằng `--set classifier.augment=true
+  --set classifier.baseline_class_weight=true` kèm `--tag` riêng; khi đó bảng tự đổi tên M0 thành "Imbalanced
+  Baseline (class-weighted)".
 - Mỗi `.npz` ghi giao thức train (augment, class_weight). Gặp `.npz` của giao thức khác, `train` dừng báo lỗi;
   `train --archive-mismatched` chuyển nó (và trọng số) sang `predictions_superseded/<giao thức>/` (không xoá) rồi train
   lại, nên thư mục `predictions/` luôn chỉ có một giao thức. Ở `rsna_v2`, phần EfficientNetV2B0 lỡ train có
-  augmentation (trước bản 1.8.2) nằm trong thư mục này.
+  augmentation (trước bản 1.8.2) và M0 của ResNet50 lỡ train có class weight (trước bản 1.9.1) nằm trong thư mục này.
 
 **Backbone (pretrain ImageNet):**
 
@@ -384,10 +386,10 @@ thực nghiệm chính.
 | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny | CNN | `keras.applications` | pooling trung bình → Dropout 0,3 → Dense(1, sigmoid) |
 | ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
-**Augmentation** của classifier (ISIC; RSNA không dùng) — chỉ tập train, **giống hệt nhau cho mọi biến thể, kể cả M0
-và M0b**: lật ngang và dọc, xoay ngẫu nhiên tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %.
-Augmentation được áp dụng trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng số ảnh và không đổi tỉ lệ lớp;
-tác dụng của ảnh sinh được đo **trên nền** augmentation. Ngoài ra:
+**Augmentation** của classifier: **tắt** ở cấu hình hiện tại (cả hai bộ dữ liệu). Khi bật (`classifier.augment: true`,
+như ISIC `v10`): chỉ tập train, giống hệt nhau cho mọi biến thể, kể cả M0 và M0b; profile `rotation_invariant` = lật
+ngang và dọc, xoay tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %, áp dụng trực tuyến (không
+làm tăng số ảnh, không đổi tỉ lệ lớp). Augmentation vẫn có ở hai chỗ, độc lập với tuỳ chọn này:
 - **ADA của StyleGAN2-ADA** là augmentation cho discriminator khi train GAN;
 - **E_d** (encoder bệnh của DASS) luôn train với augmentation và class weight (RSNA dùng profile `upright`: lật ngang,
   xoay ±10°).
@@ -417,7 +419,7 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
 | **Yếu tố khối (để kiểm tra tính tổng quát)** | backbone (6), bộ dữ liệu (2) |
 | **Lặp lại** | seed classifier: 2026, 2027, 2028 (khởi tạo đầu ra, thứ tự trộn dữ liệu) |
 | **Biến phụ thuộc** | metric phân loại trên test ([mục 5.1](#51-metric-phân-loại)); KID và các chỉ số chẩn đoán của tập ảnh được chọn |
-| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng n, cùng siêu tham số train, **cùng augmentation cho mọi biến thể**, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
+| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng n, cùng siêu tham số train, **không augmentation và không class weight cho mọi biến thể**, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
 
 ### 4.2 Ma trận thực nghiệm
 
@@ -430,8 +432,9 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
 ### 4.3 Siêu tham số được cố định trước
 
 - Tham số DASS (K = 5, λ = 1, α = β = 1, γ = 0,5) lấy theo công thức của notebook ISIC v5. Lịch train E_d và mọi siêu
-  tham số classifier được **dùng chung cho mọi bộ dữ liệu và mọi backbone** (riêng RSNA tắt augmentation).
-- k = 1,5 (xem [mục 2.4](#24-ngân-sách-sinh-và-ý-nghĩa-của-k)); augmentation và class weight cho M0 như ISIC `v7`.
+  tham số classifier được **dùng chung cho mọi bộ dữ liệu và mọi backbone**.
+- k = 1,5 (xem [mục 2.4](#24-ngân-sách-sinh-và-ý-nghĩa-của-k)); classifier không augmentation, M0 không class weight
+  (1.11.0).
 - **Lưu ý:** k, augmentation và class weight đã được đổi qua nhiều phiên bản **sau khi xem kết quả test** (bảng ở đầu
   tài liệu). Đây không còn là thiết lập được chốt trước; phải báo cáo minh bạch mọi cấu hình đã chạy.
 - **Không có tham số nào được dò trên test.** Val chỉ dùng để chọn epoch.
@@ -563,7 +566,7 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | GAN dùng lại hợp lệ | split phải trùng split mà GAN đã train (RSNA: `split.expected`, kiểm tra tự động ở mọi stage; ISIC: test regression) |
 | Không có shortcut định dạng | mọi ảnh lưu PNG, đúng số kênh gốc cho cả ảnh thật và ảnh sinh (ISIC 3 kênh, RSNA 1 kênh) |
 | Không rò rỉ bệnh nhân | RSNA: 1 ảnh mỗi bệnh nhân (mapping NIH), nên chia theo ảnh cũng là chia theo bệnh nhân |
-| So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train, cùng augmentation; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
+| So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train, không augmentation / class weight cho mọi biến thể; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
 
 ### 6.2 Các mối đe doạ đến tính hợp lệ
 
@@ -571,9 +574,9 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 |---|---|---|
 | Nội tại | Ảnh sinh **chỉ** nằm ở lớp thiểu số, nên đặc điểm "trông như ảnh GAN" tương quan với nhãn trong tập train | Test toàn ảnh thật nên điều này không thổi phồng kết quả test, nhưng có thể làm giảm lợi ích. Đo bằng AUC thật-vs-sinh và fingerprint (RSNA `rsna_v2`: khoảng 0,999, ảnh sinh chiếm khoảng 86 % lớp dương). **M7** (tuỳ chọn, chưa bật) là đối chứng trực tiếp: thêm ảnh sinh vào cả lớp đa số. Chạy như một lần chạy riêng, không đụng `rsna_v2`: `dass … --set selection.both_classes_variant=true --set encoder.e_d_from_run=base --tag m7 run --from sample --models EfficientNetV2B0` (dùng lại E_d của `rsna_v2`; cần GPU để sinh pool lớp đa số; run này train lại mọi biến thể cho backbone đã chọn, nên giới hạn bằng `--models`) |
 | Nội tại | **Shortcut tư thế chụp (RSNA):** AP gắn với bệnh nặng (dương ≈ 58 % AP, âm ≈ 23 % AP) | Đo, không sửa dữ liệu: AUC trong từng nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh (mục 5.5) |
-| Nội tại | **RSNA train classifier không can thiệp dữ liệu** (không augmentation, M0 không class weight; người dùng quyết định): công bằng về quy trình nhưng không trung lập về tác động — ROS lặp y hệt mỗi ảnh dương khoảng 7 lần nên dễ học thuộc hơn, trong khi biến thể GAN có ảnh mới | Nêu trong bài. Phân tích độ nhạy (tuỳ chọn): một backbone có augmentation trong lần chạy riêng, `dass … --set classifier.augment=true --set encoder.e_d_from_run=base --tag aug run --from sample --models EfficientNetV2B0` (`split.expected` bảo đảm cùng split; pool sinh lại từ cùng GAN, cùng seed) |
-| Nội tại | M0 có ít bước train hơn (ISIC 48 so với 78, RSNA 537 so với 941 bước mỗi epoch) và cân bằng bằng loss (ISIC) hoặc không cân bằng (RSNA), nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
-| Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (ISIC `v7`, `v9`, `v10`; RSNA `rsna_v2`) và nêu lý do loại Brain Tumor; kết quả `v9` (không augmentation) cho thấy lợi thế của ảnh sinh phụ thuộc vào augmentation |
+| Nội tại | **Classifier không can thiệp dữ liệu** (không augmentation, M0 không class weight; người dùng quyết định, cả hai bộ dữ liệu): công bằng về quy trình nhưng không trung lập về tác động — ROS lặp y hệt mỗi ảnh dương (ISIC 4–5 lần, RSNA 7–8 lần) nên dễ học thuộc hơn, trong khi biến thể GAN có ảnh mới | Nêu trong bài. Kết quả ISIC `v10` (cùng k, có augmentation + class weight) là phân tích độ nhạy sẵn có. RSNA (tuỳ chọn): một backbone có augmentation trong lần chạy riêng, `dass … --set classifier.augment=true --set encoder.e_d_from_run=base --tag aug run --from sample --models EfficientNetV2B0` (`split.expected` bảo đảm cùng split; pool sinh lại từ cùng GAN, cùng seed) |
+| Nội tại | M0 có ít bước train hơn (ISIC 48 so với 78, RSNA 537 so với 941 bước mỗi epoch) và không cân bằng, nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
+| Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (ISIC `v7`, `v9`, `v10`, `v11`; RSNA `rsna_v2`) và nêu lý do loại Brain Tumor; so `v10` với `v11` (cùng k, chỉ khác augmentation + class weight của M0) cho thấy lợi thế của ảnh sinh phụ thuộc giao thức classifier đến mức nào |
 | Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026); M0b cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 / M0b |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
 | Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy | Kiểm tra ảnh sinh cạnh ảnh thật gần nhất (học thuộc) |
@@ -593,8 +596,8 @@ Các điểm sau nên nêu trong bài báo:
 - **Dấu vân tay tần số của GAN:** detector của Frank et al. phân biệt ảnh thật / ảnh sinh với AUC ≈ 1. Test toàn ảnh
   thật nên điều này không làm kết quả lạc quan giả tạo, nhưng có thể làm giảm lợi ích của ảnh sinh.
 - **Shortcut tư thế chụp ở RSNA** (AP gắn với bệnh nặng): không sửa dữ liệu, chỉ đo bằng phân tích nhóm con (mục 5.5).
-- **Hai bộ dữ liệu khác giao thức classifier** (ISIC `v10` có augmentation và class weight, RSNA không): so sánh giữa
-  hai bộ dữ liệu phải nêu điều này.
+- **Classifier không augmentation** (cả hai bộ dữ liệu): AUC tuyệt đối có thể thấp hơn các công trình dùng
+  augmentation; kết luận của bài là về **chênh lệch giữa các phương pháp** trong cùng giao thức.
 - **Chỉ hỗ trợ bài toán nhị phân.** Bài toán đa lớp cần mở rộng DASS theo kiểu one-vs-rest.
 - **Siêu tham số chung**, không dò riêng cho từng backbone; Transformer có thể chưa đạt mức tối ưu.
 - **Kiểm định chính thức** có cho mọi biến thể so với M0 và cho M6 vs M0b, M6 vs M1, kèm p hiệu chỉnh Holm trong từng
@@ -653,8 +656,7 @@ EXTRA = ""                                                     # ghi đè, ví d
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
 1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v2"`,
-   `"augment": false`, `"baseline_class_weight": false`; ISIC `"run_tag": "v10"`, `"augment": true`,
-   `"baseline_class_weight": true`; cả hai `"pool_mult": 1.5`.
+   ISIC `"run_tag": "v11"`; cả hai `"augment": false`, `"baseline_class_weight": false`, `"pool_mult": 1.5`.
 2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
    đọc thư mục của smoke.
 3. Chạy tiếp từ `prepare` trở xuống.
@@ -726,7 +728,7 @@ Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi �
 | `sample` | `Khôi phục 9695 ảnh từ …pool_positive_from800kimg_n9695_c1.zip` | `DONE 705 …` hoặc khôi phục từ zip | |
 | `select` | `M6_dass: chọn 6463 / 9695 ảnh sinh` | `M6_dass: chọn 470 / 705 ảnh sinh` | |
 | `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 0,5 | như bên trái | ghi lại, nêu trong bài |
-| `train` | dòng đầu `Giao thức train … \| augment = False … \| class weight: không`; mỗi lần chạy in `test ROC-AUC = …` | dòng đầu `augment = True … class weight: ['M0_real_only']` | sai phiên bản code / cấu hình |
+| `train` | dòng đầu `Giao thức train … \| augment = False … \| class weight: không`; mỗi lần chạy in `test ROC-AUC = …` | như bên trái | sai phiên bản code / cấu hình |
 | `train` (ghép dữ liệu) | `M0_real_only_p1.5: {'train': {'negative': 7522, 'positive': 1059}, ...}` và `M0b_real_oversample_p1.5: {'train': {'negative': 7522, 'positive': 7522}, ...}` | `M0b_real_oversample_p1.5: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
 | `evaluate` | `Phân loại: 144 lần chạy, 48 nhóm` khi đủ 6 backbone; thêm các bảng nhóm con (tư thế AP / PA) | `Phân loại: 144 lần chạy, 48 nhóm` | thiếu: còn backbone chưa xong |
 
@@ -741,10 +743,10 @@ Kết quả nằm trong thư mục của từng bộ dữ liệu. Không bao gi�
 | | RSNA (`…/RSNA Pneumonia/Result_Pneumonia/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
 | GAN | `checkpoints_rsna/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v2/` | `checkpoints_v10/` |
-| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v2/` | `results_v10/` |
+| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v2/` | `checkpoints_v11/` |
+| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v2/` | `results_v11/` |
 | Kết quả giao thức cũ (chuyển ra, không dùng trong bảng) | `results_rsna_v2/predictions_superseded/`, `checkpoints_rsna_v2/classifiers_superseded/` | — |
-| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v1/` (chỉ `prepare`) | `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
+| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v1/` (chỉ `prepare`) | `results_v10/` (k = 1,5, có augmentation, M0 có class weight); `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
 
 Kết quả Brain Tumor cũ (`…/BrainTumor_GAN/`) vẫn nằm trên Drive, không xoá, nhưng không còn thuộc dự án.
@@ -762,7 +764,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 
 | Bảng / chỉ số | Đọc thế nào |
 |---|---|
-| `classification` | Hàng đã dùng tên hiển thị và chia nhóm (cột `Group`: Real Data Baselines / Generative Augmentation). So DASS (Ours) với Imbalanced Baseline (class-weighted) (H1), ROS (H2), Unfiltered GAN (H3) và các Filter (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
+| `classification` | Hàng đã dùng tên hiển thị và chia nhóm (cột `Group`: Real Data Baselines / Generative Augmentation). So DASS (Ours) với Imbalanced Baseline (H1), ROS (H2), Unfiltered GAN (H3) và các Filter (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
 | `significance` | Cột `vs` cho biết đối chứng (Imbalanced Baseline, ROS hoặc Unfiltered GAN). ΔAUC > 0 và khoảng tin cậy 95 % không chứa 0 thì phương pháp hơn đối chứng có ý nghĩa thống kê (lưu ý đa so sánh, mục 5.2). Hàng **DASS vs ROS** là bằng chứng mạnh nhất cho giá trị của ảnh sinh |
 | Tính nhất quán | đếm số backbone (trên 6) mà M6 > M0, ở mỗi bộ dữ liệu; một kết quả tốt ở một backbone chưa đủ để kết luận |
 | KID | thấp hơn là gần ảnh thật hơn; đọc tương đối so với hàng `real val vs real train` và `all candidates` |
@@ -785,7 +787,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 **Không nên:**
 - Chọn seed, backbone hay bộ dữ liệu "đẹp" sau khi đã xem kết quả.
 - Dò ngưỡng, k, γ hay bất kỳ tham số nào trên test, hoặc chạy lại test.
-- Trộn kết quả cũ (`results_v7`, `results_bt`) với kết quả mới: cấu hình khác nhau.
+- Trộn kết quả cũ (`results_v7`, `results_v9`, `results_v10`) với kết quả mới: cấu hình khác nhau.
 
 ---
 
@@ -804,7 +806,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |
 | Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_macro_recall` | |
-| Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | bật / bật (RSNA: tắt / tắt) | |
+| Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | tắt / tắt (mọi bộ dữ liệu) | |
 | Đánh giá | ngưỡng / bootstrap / KID (tập con, kích thước tối đa) / cặp SSIM | 0.5 / 2000 / 50, 1000 / 200 | `configs/_base_/evaluation.yaml` |
 | Đánh giá | đối chứng chính / cặp bổ sung (`comparisons`) | M0 / M6 vs M0b, M6 vs M1 | |
 | Đánh giá | tên hiển thị / nhóm (`method_labels`, `method_groups`) | xem đầu tài liệu | |

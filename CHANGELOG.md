@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.11.0 — classifier không can thiệp dữ liệu cho mọi bộ dữ liệu; ISIC `v11`
+- Người dùng quyết định: cả hai bộ dữ liệu train classifier **không augmentation** và **M0 không class weight** (M0 =
+  baseline mất cân bằng thật; ROS là baseline cân bằng bằng ảnh thật). Trước đây chỉ RSNA như vậy (1.8.2, 1.9.1),
+  ISIC `v10` có cả hai.
+- `configs/_base_/classifier.yaml` + `ClassifierConfig`: `augment: false`, `baseline_class_weight: false` là mặc định.
+  Bỏ phần ghi đè `classifier:` trong `configs/datasets/rsna_pneumonia.yaml` (nay trùng mặc định); cấu hình của RSNA
+  không đổi, `rsna_v2` chạy tiếp.
+- ISIC: `run_tag` `v10` -> **`v11`** (cùng GAN `v5`, cùng split, k = 1,5). `v10` giữ nguyên trên Drive, báo cáo riêng
+  (phân tích độ nhạy theo giao thức classifier).
+- Test: classifier của ISIC và RSNA giống hệt; hai experiment chỉ khác ở `paths`, `data`, `generator`, `evaluation`.
+- Tài liệu (README, GUIDE, CLAUDE.md, WORKFLOW, notebook) cập nhật theo giao thức chung.
+
 ## 1.10.2 — README viết lại, thêm requirements
 - `README.md` viết lại theo cấu trúc chuẩn của repo nghiên cứu (tiếng Anh, cho reviewer): tổng quan + sơ đồ pipeline
   (mermaid), phương pháp, các phương pháp so sánh, bộ dữ liệu (ISIC 2016, RSNA Pneumonia), giao thức đánh giá, cài đặt,

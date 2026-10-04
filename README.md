@@ -75,7 +75,7 @@ Selection is greedy: at each step the candidate with the highest `S_DASS` is add
 
 | Group | Method (paper name) | ID | Minority class in the training set |
 |---|---|---|---|
-| Real Data Baselines | **Imbalanced Baseline** | M0 | real images only (ISIC: class-weighted loss; RSNA: no reweighting) |
+| Real Data Baselines | **Imbalanced Baseline** | M0 | real images only, imbalanced (no reweighting, no resampling) |
 | | **Random Oversampling (ROS)** | M0b | real images duplicated up to 1 : 1 |
 | Generative Augmentation (StyleGAN2-ADA) | **Unfiltered GAN (Random Selection)** | M1 | real + `n` random candidates |
 | | **Visual-only Filter (M_v)** | M2 | real + top-`n` by `M̃_v` |
@@ -104,7 +104,7 @@ The full method, experimental design, statistics and threats to validity are doc
 | Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 |
 | Imbalance (train) | 4.2 : 1 | 7.1 : 1 |
 | Generator | reused checkpoint (3 channels, x-flips on) | trained from scratch (1 channel, **no x-flips**: chest anatomy is not left–right symmetric) |
-| Classifier augmentation | flips, ±180° rotation, zoom, brightness, contrast | none (no data- or loss-level intervention) |
+| Classifier augmentation | none | none |
 
 **RSNA specifics.** Patient identities come from the NIH ChestX-ray mapping released with the dataset; keeping one
 image per patient prevents patient overlap between train, validation and test. View position is a known confounder
@@ -118,8 +118,9 @@ image per patient prevents patient overlap between train, validation and test. V
   automatically at every stage; ISIC: the split algorithm is locked by a regression test).
 - **Model selection.** Validation is used only to pick the epoch (`val_macro_recall`). The test set is predicted once,
   after reloading the best checkpoint, with a **fixed threshold of 0.5**.
-- **Same recipe for every method** within a dataset: data, split, generator, pool, `n`, hyper-parameters, augmentation
-  and seeds (paired design).
+- **Same recipe for every method and both datasets**: data, split, generator, pool, `n`, hyper-parameters and seeds
+  (paired design). The classifier receives **no other data- or loss-level intervention**: no augmentation and no class
+  weights for any method, so the only difference between methods is the content of the training set.
 - **Metrics.** ROC-AUC (primary), PR-AUC, sensitivity, specificity, balanced accuracy, G-mean, MCC, F1 — mean ± std over
   three seeds.
 - **Statistics.** Paired, class-stratified bootstrap of ΔAUC (2,000 resamples) on seed-averaged predictions, with 95 % CI;
@@ -291,7 +292,7 @@ src/dass/
 │   ├── sources/                csv, folders, dicom (MD.ai / Kaggle labels, patient mapping, metadata)
 │   ├── splits/                 holdout_val, stratified (optionally patient-grouped), from a CSV file
 │   ├── variants.py             per-method training folders (real + selected synthetic, or real copies)
-│   └── loaders.py              tf.data pipelines, online augmentation, 1 → 3 channel replication in memory
+│   └── loaders.py              tf.data pipelines, optional online augmentation, 1 → 3 channel replication in memory
 ├── models/
 │   ├── generator/              StyleGAN2-ADA: runtime patches, dataset export, KID early stopping, sampling
 │   ├── encoders/               E_v and E_d
@@ -320,7 +321,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Dataset | `gan_tag` | Main `run_tag` | Other runs kept for reporting |
 |---|---|---|---|
-| ISIC 2016 | `v5` | `v10` (k = 1.5, augmentation, class-weighted baseline) | `v9` (k = 2, no augmentation, unweighted), `v7` (k = 4) |
+| ISIC 2016 | `v5` | `v11` (k = 1.5, no augmentation, unweighted baseline) | `v10` (k = 1.5, augmentation, class-weighted baseline), `v9` (k = 2, no augmentation, unweighted), `v7` (k = 4) |
 | RSNA Pneumonia | `rsna` | `rsna_v2` (k = 1.5, no augmentation, unweighted baseline) | `rsna_v1` (6,000-image subset, data preparation only) |
 
 <!-- TODO: main results table once all backbones are finished -->

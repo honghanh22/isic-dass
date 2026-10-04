@@ -1,6 +1,7 @@
 """Train classifier 2 giai đoạn (head -> fine-tune) và lưu dự đoán val / test.
 
-- Augmentation theo `classifier.augment` (mặc định bật, như nhau cho mọi biến thể; tắt -> train trên đúng ảnh đã lưu).
+- Augmentation theo `classifier.augment` (mặc định tắt từ 1.11.0 -> train trên đúng ảnh đã lưu; bật thì như nhau cho
+  mọi biến thể).
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
 - Mỗi (model, biến thể, seed) lưu một .npz trên Drive (ghi nguyên tử); file đã có -> bỏ qua (chạy lại được), nhưng

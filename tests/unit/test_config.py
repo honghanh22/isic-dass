@@ -34,12 +34,11 @@ def test_oversampling_baseline_and_extra_comparisons_enabled(name):
 
 
 @pytest.mark.parametrize("name", EXPERIMENTS)
-def test_classifier_training_like_isic_v7(name):
-    """ISIC như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight. RSNA (người dùng quyết định):
-    không can thiệp dữ liệu — tắt cả augmentation lẫn class weight của M0 (như ISIC v9)."""
+def test_classifier_no_data_intervention(name):
+    """Người dùng quyết định (1.11.0): không can thiệp dữ liệu ở classifier, cho MỌI bộ dữ liệu — không augmentation,
+    M0 không class weight (baseline mất cân bằng thật; ROS là baseline cân bằng)."""
     clf = load_config([CONFIGS / "experiments" / name]).classifier
-    expected = name != "rsna_pneumonia_dass.yaml"
-    assert clf.augment is expected and clf.baseline_class_weight is expected
+    assert clf.augment is False and clf.baseline_class_weight is False
 
 
 def test_display_names_and_groups():
@@ -61,10 +60,7 @@ def test_rsna_config_and_augment_profiles():
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC
     assert rsna.selection == isic.selection and rsna.encoder == isic.encoder        # cùng công thức DASS / E_d
-    # classifier: chỉ khác augmentation và class weight của M0 (người dùng tắt cả hai cho RSNA); mọi siêu tham số khác
-    # giống ISIC
-    assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is False
-    assert dataclasses.replace(rsna.classifier, augment=True, baseline_class_weight=True) == isic.classifier
+    assert rsna.classifier == isic.classifier                            # cùng giao thức classifier (1.11.0)
     # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC không có metadata
     assert rsna.evaluation.subgroup_columns == ["ViewPosition"] and isic.evaluation.subgroup_columns == []
     assert dataclasses.replace(rsna.evaluation, subgroup_columns=[]) == isic.evaluation
@@ -105,10 +101,10 @@ def test_unknown_backbone_rejected_at_load_time():
 
 def test_experiments_differ_only_in_allowed_sections():
     """ISIC vs RSNA: khác ở dữ liệu / đường dẫn, cộng đúng các ngoại lệ đã ghim trong test_rsna_config_and_augment_profiles
-    (generator.mirror, classifier.augment / baseline_class_weight, evaluation.subgroup_columns); DASS / E_d giống hệt."""
+    (generator.mirror, evaluation.subgroup_columns); DASS / E_d / classifier giống hệt."""
     a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).to_dict()
     b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]).to_dict()
-    assert {k for k in a if a[k] != b[k]} == {"paths", "data", "generator", "classifier", "evaluation"}
+    assert {k for k in a if a[k] != b[k]} == {"paths", "data", "generator", "evaluation"}
 
 
 def test_k_is_identical_across_datasets():
@@ -147,7 +143,7 @@ def test_overrides_and_tag():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                       ["generator.batch=32", "classifier.ft_lr=1e-5", "classifier.seeds=[1, 2]"], tag="abl")
     assert cfg.generator.batch == 32 and isinstance(cfg.classifier.ft_lr, float)
-    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v10_abl"
+    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v11_abl"
 
 
 def test_unknown_key_and_bad_override():

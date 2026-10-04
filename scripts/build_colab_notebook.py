@@ -183,10 +183,10 @@ md("""
 ## 7. Train classifier — 6 backbone × 8 phương pháp × 3 seed
 
 Mỗi cell một backbone, train cả 8 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
-trên Drive sẽ bỏ qua). Trong một bộ dữ liệu, mọi phương pháp dùng cùng augmentation (RSNA: không augmentation);
-baseline cân bằng bằng class weight.
+trên Drive sẽ bỏ qua). Mọi phương pháp, ở cả hai bộ dữ liệu: **không augmentation, không class weight** — chỉ khác
+nội dung tập train.
 
-- **Real Data Baselines:** Imbalanced Baseline (class-weighted) (`M0_real_only`), Random Oversampling (ROS)
+- **Real Data Baselines:** Imbalanced Baseline (`M0_real_only`, mất cân bằng thật), Random Oversampling (ROS)
   (`M0b_real_oversample`)
 - **Generative Augmentation (StyleGAN2-ADA):** 6 phương pháp ở mục 6, từ Unfiltered GAN đến **DASS (Ours)**
 

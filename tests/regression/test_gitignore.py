@@ -17,7 +17,7 @@ def test_no_source_file_is_gitignored():
     for top in ["src", "configs", "tests", "scripts", "docs"]:
         for path in (ROOT / top).rglob("*"):
             rel = path.relative_to(ROOT).as_posix()
-            if "__pycache__" in rel or rel.endswith(".pyc"):
+            if "__pycache__" in rel or rel.endswith(".pyc") or ".egg-info" in rel:   # sản phẩm build (pip install -e .)
                 continue
             if ignore.is_ignored(rel + ("/" if path.is_dir() else "")):
                 ignored.append(rel)

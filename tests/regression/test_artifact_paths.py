@@ -1,5 +1,5 @@
 """Đường dẫn artefact trên Drive: ISIC dùng lại GAN cũ (checkpoints_v5), RSNA dùng GAN mới (checkpoints_rsna, gắn với
-split rsna_v2); kết quả của cấu hình hiện tại ghi vào thư mục MỚI (ISIC v10, RSNA rsna_v2) — không đụng kết quả cũ."""
+split rsna_v2); kết quả của cấu hình hiện tại ghi vào thư mục MỚI (ISIC v11, RSNA rsna_v2) — không đụng kết quả cũ."""
 
 from pathlib import Path
 
@@ -18,11 +18,11 @@ def test_isic_artifact_paths():
     lay = _layout("isic2016_dass.yaml")
     assert lay.gan_best_pkl == ISIC_ROOT / "checkpoints_v5/stylegan2ada/best.pkl"
     assert lay.gan_state_json == ISIC_ROOT / "checkpoints_v5/stylegan2ada/gan_state.json"
-    assert lay.split_json == ISIC_ROOT / "checkpoints_v10/data/real_val_split.json"
-    assert lay.selections_json == ISIC_ROOT / "checkpoints_v10/data/selections.json"
-    assert lay.pred_dir == ISIC_ROOT / "results_v10/predictions"
-    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v10/classifiers"
-    assert not {"v7", "v8", "v9"} & set(lay.results_dir.name.split("_"))   # không ghi vào kết quả / cấu hình cũ
+    assert lay.split_json == ISIC_ROOT / "checkpoints_v11/data/real_val_split.json"
+    assert lay.selections_json == ISIC_ROOT / "checkpoints_v11/data/selections.json"
+    assert lay.pred_dir == ISIC_ROOT / "results_v11/predictions"
+    assert lay.clf_dir == ISIC_ROOT / "checkpoints_v11/classifiers"
+    assert not {"v7", "v8", "v9", "v10"} & set(lay.results_dir.name.split("_"))   # không ghi vào kết quả / cấu hình cũ
     assert lay.drive_train_images == ISIC_ROOT / "ISBI2016_ISIC_Part3_Training_Data"
     assert lay.drive_test_labels == ISIC_ROOT / "ISBI2016_ISIC_Part3_Test_GroundTruth.csv"
     assert lay.expected_split is None

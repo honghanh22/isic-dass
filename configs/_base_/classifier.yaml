@@ -13,11 +13,11 @@ classifier:
   dropout: 0.3
   early_stop_patience: 8
   monitor: val_macro_recall     # (sensitivity + specificity) / 2 ở ngưỡng 0.5
-  # Giống ISIC v7 (notebook v5): augmentation chuẩn cho MỌI biến thể, baseline (M0) có class weight.
-  # (1.4.0 / ISIC v9 tắt cả hai — kết quả đó được giữ nguyên để đối chiếu; RSNA cũng tắt cả hai, xem
-  # configs/datasets/rsna_pneumonia.yaml.)
-  augment: true                 # lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
-  baseline_class_weight: true   # M0 train với class weight (cân bằng trong loss)
+  # Người dùng quyết định (1.11.0): KHÔNG can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào, cho MỌI bộ dữ
+  # liệu (ISIC v11, RSNA rsna_v2): không augmentation, M0 không class weight (baseline mất cân bằng thật; ROS là
+  # baseline cân bằng bằng ảnh thật). Kết quả có augmentation + M0 class weight (ISIC v7 / v10) giữ nguyên trên Drive.
+  augment: false                # true: lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
+  baseline_class_weight: false  # true: M0 train với class weight (cân bằng trong loss)
   mixed_precision: false
   save_weights_to_drive: true
   vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px

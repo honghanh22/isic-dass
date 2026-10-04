@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dass"
-version = "1.10.2"
+version = "1.11.0"
 description = "Conditional StyleGAN2-ADA + DASS synthetic-sample selection for imbalanced medical image classification"
 readme = "README.md"
 requires-python = ">=3.10"

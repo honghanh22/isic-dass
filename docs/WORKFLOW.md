@@ -84,8 +84,8 @@ Mọi stage chạy lại được: GAN, pool, lựa chọn, dự đoán `.npz` �
 **Nên kiểm tra:**
 - `data.classes`: lớp bệnh (thiểu số) = **1**. Sensitivity, precision, PR-AUC, F1 tính cho lớp 1; nếu lớp thiểu số là 0,
   `prepare` in cảnh báo.
-- Giao thức classifier (`classifier.augment`, `classifier.baseline_class_weight`) giống bộ dữ liệu sẽ so sánh cùng, nếu
-  muốn so sánh giữa các bộ dữ liệu.
+- Giao thức classifier (`classifier.augment`, `classifier.baseline_class_weight`, mặc định đều tắt) không ghi đè trong
+  `configs/datasets/`, để mọi bộ dữ liệu cùng giao thức (có test cho ISIC / RSNA).
 - Thêm tên file experiment vào `EXPERIMENTS` trong `tests/unit/test_config.py`, rồi `pytest`.
 - `k` và mọi tham số DASS / E_d **không** được ghi đè trong `configs/datasets/` (có test).
 

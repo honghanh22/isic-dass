@@ -56,16 +56,15 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   (ROS), Unfiltered GAN (Random Selection), Visual-only / Disease-only / Diversity-only Filter, Dual-Margin Filter,
   DASS (Ours)), chỉ áp dụng khi xuất bảng. Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b,
   M6 vs M1).
-- **Huấn luyện classifier như ISIC v7** (người dùng quyết định, 1.5.0): `classifier.augment: true` (cùng augmentation
-  cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 = "Imbalanced Baseline (class-weighted)"). Cấu
-  hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9`, giữ nguyên để báo cáo riêng. E_d luôn train có
-  augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA của GAN giữ nguyên.
-  **Ngoại lệ RSNA** (người dùng quyết định: không can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào):
-  `classifier.augment: false` (1.8.2) và `classifier.baseline_class_weight: false` (1.9.1; M0 = baseline mất cân bằng
-  thật, như ISIC v9) trong `configs/datasets/rsna_pneumonia.yaml`. RSNA còn `generator.mirror: false` (X-quang
-  không đối xứng trái / phải). Các khác biệt này có test; mọi tham số khác của classifier / GAN giống ISIC. Khi người
+- **Classifier không can thiệp dữ liệu, cho MỌI bộ dữ liệu** (người dùng quyết định, 1.11.0):
+  `classifier.augment: false` và `classifier.baseline_class_weight: false` trong `configs/_base_/classifier.yaml`
+  (M0 = baseline mất cân bằng thật; ROS là baseline cân bằng bằng ảnh thật). Không ghi đè trong `configs/datasets/`
+  (có test: classifier của ISIC và RSNA giống hệt). Lần chạy hiện tại: ISIC `v11`, RSNA `rsna_v2`. Cấu hình cũ giữ
+  nguyên trên Drive, báo cáo riêng: ISIC `v10` / `v7` (có augmentation, M0 có class weight), ISIC `v9` (cả hai tắt,
+  k = 2). E_d luôn train có augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA
+  của GAN giữ nguyên. RSNA còn `generator.mirror: false` (X-quang không đối xứng trái / phải; có test). Khi người
   dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.
-- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (ISIC `v10`, RSNA `rsna_v2`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (ISIC `v10` / `v11`, RSNA `rsna_v2`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 - **Tách bộ dữ liệu** (có test `tests/regression/test_dataset_isolation.py`): ổ tạm `<local_root>/<data.name>` thuộc
   đúng một nguồn (`.owner.json`; trùng tên khác nguồn -> dừng); GAN train từ 1.10.1 ghi `data_name` + `split_sha1` vào

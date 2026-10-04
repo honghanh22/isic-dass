@@ -8,7 +8,7 @@ vì giá trị của nó thay đổi khi tập đã chọn lớn dần.
 
 | ID | Điểm nền                 | Đa dạng          |
 |----|--------------------------|------------------|
-| M0 | — (chỉ ảnh thật + class weight) | —         |
+| M0 | — (chỉ ảnh thật; class weight nếu bật `classifier.baseline_class_weight`, mặc định tắt) | — |
 | M0b | — (ảnh thật lớp thiểu số nhân bản lên 1 : 1, không class weight; ghép ở bước train) | — |
 | M1 | ngẫu nhiên               | —                |
 | M2 | M̃_v                      | —                |
