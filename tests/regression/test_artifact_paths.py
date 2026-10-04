@@ -12,8 +12,8 @@ ISIC_ROOT = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC
 BT_ROOT = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/BrainTumor_GAN")
 
 
-def _layout(name: str) -> Layout:
-    return Layout(load_config([CONFIGS / "experiments" / name]))
+def _layout(name: str, tag: str | None = None) -> Layout:
+    return Layout(load_config([CONFIGS / "experiments" / name], tag=tag))
 
 
 def test_isic_artifact_paths():
@@ -48,7 +48,13 @@ def test_rsna_artifact_paths():
     assert lay.results_dir == out / "results_rsna_v2"
     assert lay.drive_train_images == data and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
     assert lay.dicom_metadata_csv == out / "checkpoints_rsna_v2/data/dicom_metadata.csv"
-    assert "rsna_pneumonia" in lay.train_raw.parts and lay.expected_split is None
+    assert "rsna_pneumonia" in lay.train_raw.parts
+    # GAN rsna train trên split của rsna_v2 -> lần chạy nào dùng GAN này cũng phải trùng đúng split đó
+    assert lay.expected_split == out / "checkpoints_rsna_v2/data/real_val_split.json"
+    assert lay.expected_split.parent == lay.split_json.parent           # chính split của run hiện tại (rsna_v2)
+    assert _layout("rsna_pneumonia_dass.yaml", tag="aug").expected_split == lay.expected_split   # --tag: vẫn kiểm
+    v3 = Layout(load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["paths.run_tag=rsna_v3"]))
+    assert v3.split_json != lay.split_json and v3.expected_split == lay.expected_split   # run mới: so với split v2
 
 
 def test_brain_tumor_uses_three_channels_like_reused_gan():

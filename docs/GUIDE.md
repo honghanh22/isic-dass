@@ -183,7 +183,7 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
 | Augmentation | classifier: **không** (`classifier.augment: false`, người dùng quyết định); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
-| GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược) |
+| GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó, như Brain Tumor |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
   sang PNG và ghi `checkpoints_rsna_v2/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi). Đổi thiết lập nguồn

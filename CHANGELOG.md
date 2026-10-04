@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.8.4 — RSNA: GAN gắn với split đã train
+- `configs/datasets/rsna_pneumonia.yaml`: `data.split.expected: checkpoints_rsna_v2/data/real_val_split.json` (như
+  Brain Tumor). GAN `rsna` train trên phần train của split `rsna_v2`; mọi lần chạy dùng GAN này (run_tag mới như
+  `rsna_v3`, hoặc `--tag`) phải có đúng split đó, nếu không `Context` dừng với lỗi "GAN dùng lại có thể đã thấy ảnh
+  val/test" -> chặn rò rỉ val / test qua GAN. Với chính `rsna_v2`: split so với chính nó, không đổi gì.
+
 ## 1.8.3 — `train --archive-mismatched`
 - Dự đoán `.npz` đã có nhưng train theo giao thức khác cấu hình hiện tại (augmentation / class weight) vẫn bị chặn như
   trước; thêm cờ `--archive-mismatched` để **chuyển** (không xoá) `.npz` sang

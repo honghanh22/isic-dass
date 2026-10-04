@@ -37,6 +37,10 @@ data:
     type: stratified     # test của cuộc thi không có nhãn -> tự tách 70 / 15 / 15 (mỗi bệnh nhân một ảnh)
     test: 0.15
     val: 0.176
+    # GAN `rsna` đã train trên phần train của split rsna_v2 -> mọi lần chạy dùng GAN này (run_tag / --tag mới) phải có
+    # ĐÚNG split đó, không thì dừng (GAN có thể đã thấy ảnh val / test). Muốn split khác: train GAN mới (đổi gan_tag)
+    # và sửa / bỏ dòng này.
+    expected: checkpoints_rsna_v2/data/real_val_split.json
 
 generator:
   # X-quang ngực không đối xứng trái / phải (tim, quai động mạch chủ, chữ đánh dấu L / R): GAN không học bản lật ngang,
