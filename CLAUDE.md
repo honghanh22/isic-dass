@@ -60,9 +60,11 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 = "Imbalanced Baseline (class-weighted)"). Cấu
   hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9` / Brain `bt_v4`, giữ nguyên để báo cáo riêng. E_d luôn train có
   augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA của GAN giữ nguyên.
-  **Ngoại lệ RSNA** (người dùng quyết định, 1.8.2, trước khi train classifier RSNA): `classifier.augment: false` trong
-  `configs/datasets/rsna_pneumonia.yaml` (class weight M0 vẫn bật). RSNA còn `generator.mirror: false` (X-quang không
-  đối xứng trái / phải). Hai khác biệt này có test; mọi tham số khác của classifier / GAN giống ISIC.
+  **Ngoại lệ RSNA** (người dùng quyết định: không can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào):
+  `classifier.augment: false` (1.8.2) và `classifier.baseline_class_weight: false` (1.9.1; M0 = baseline mất cân bằng
+  thật, như v9 / bt_v4) trong `configs/datasets/rsna_pneumonia.yaml`. RSNA còn `generator.mirror: false` (X-quang
+  không đối xứng trái / phải). Các khác biệt này có test; mọi tham số khác của classifier / GAN giống ISIC. Khi người
+  dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.
 - **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 - Kiểm định: paired bootstrap ΔAUC trên ensemble seed + ΔAUC theo từng seed + `p_holm` (Holm trong mỗi model). RSNA có

@@ -35,10 +35,11 @@ def test_oversampling_baseline_and_extra_comparisons_enabled(name):
 
 @pytest.mark.parametrize("name", EXPERIMENTS)
 def test_classifier_training_like_isic_v7(name):
-    """Như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight (v9 / bt_v4 tắt cả hai).
-    Ngoại lệ: RSNA tắt augmentation classifier (người dùng quyết định, 1.8.2)."""
+    """ISIC / Brain như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight. Ngoại lệ RSNA (người dùng
+    quyết định): không can thiệp dữ liệu — tắt cả augmentation lẫn class weight của M0 (như v9 / bt_v4)."""
     clf = load_config([CONFIGS / "experiments" / name]).classifier
-    assert clf.augment is (name != "rsna_pneumonia_dass.yaml") and clf.baseline_class_weight is True
+    expected = name != "rsna_pneumonia_dass.yaml"
+    assert clf.augment is expected and clf.baseline_class_weight is expected
 
 
 def test_display_names_and_groups():
@@ -60,9 +61,10 @@ def test_rsna_config_and_augment_profiles():
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC / Brain
     assert rsna.selection == isic.selection and rsna.encoder == isic.encoder        # cùng công thức DASS / E_d
-    # classifier: chỉ khác augmentation (người dùng tắt cho RSNA); class weight M0 và mọi siêu tham số khác giống ISIC
-    assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is True
-    assert dataclasses.replace(rsna.classifier, augment=True) == isic.classifier
+    # classifier: chỉ khác augmentation và class weight của M0 (người dùng tắt cả hai cho RSNA); mọi siêu tham số khác
+    # giống ISIC
+    assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is False
+    assert dataclasses.replace(rsna.classifier, augment=True, baseline_class_weight=True) == isic.classifier
     # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC / Brain không có metadata
     assert rsna.evaluation.subgroup_columns == ["ViewPosition"] and isic.evaluation.subgroup_columns == []
     assert dataclasses.replace(rsna.evaluation, subgroup_columns=[]) == isic.evaluation

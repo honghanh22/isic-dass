@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.1 — RSNA: M0 không class weight
+- `configs/datasets/rsna_pneumonia.yaml`: `classifier.baseline_class_weight: false` (người dùng quyết định: RSNA không
+  can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào — không augmentation, không class weight cho M0, như
+  `v9` / `bt_v4`). Ở 1.8.2 chỉ tắt augmentation, class weight của M0 bị giữ do hiểu sai yêu cầu.
+- Chỉ ảnh hưởng M0 của RSNA. ResNet50 M0 (3 seed) đã train có class weight: chạy `train --model ResNet50
+  --archive-mismatched` -> 3 file đó chuyển sang `predictions_superseded/augment-False__class_weight-True/`, train lại
+  M0 (khoảng 30 phút trên L4); các biến thể khác khớp giao thức nên giữ nguyên. Tên trong bảng tự thành "Imbalanced
+  Baseline" (không hậu tố "(class-weighted)"). ISIC / Brain Tumor không đổi.
+
 ## 1.9.0 — đóng các điểm còn mở sau khi rà soát toàn bộ code
 Không đổi cách train, cách chọn ảnh hay bất kỳ kết quả nào đã có; chỉ thêm phép đo, truy vết và sửa lỗi nhỏ.
 
