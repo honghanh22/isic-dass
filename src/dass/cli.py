@@ -58,6 +58,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("train", help="train một backbone trên mọi biến thể")
     p.add_argument("--model", required=True, help=f"một trong {', '.join(MODEL_NAMES)} (không phân biệt hoa thường)")
     p.add_argument("--seeds", type=int, nargs="+", help="mặc định: classifier.seeds")
+    p.add_argument("--archive-mismatched", action="store_true",
+                   help="dự đoán đã có nhưng train theo giao thức khác (augmentation / class weight) -> chuyển sang "
+                        "predictions_superseded/ (không xoá) rồi train lại")
 
     p = sub.add_parser("evaluate", help="metric phân loại + KID/FID (Inception-v3) + bootstrap -> metrics/")
     p.add_argument("--skip-generative", action="store_true", help="bỏ phần KID / FID (không cần GPU)")
@@ -175,7 +178,7 @@ def main(argv: list[str] | None = None) -> None:
         select.run(cfg, force=args.force)
     elif cmd == "train":
         from .pipeline.stages import train
-        train.run(cfg, args.model, args.seeds)
+        train.run(cfg, args.model, args.seeds, args.archive_mismatched)
     elif cmd == "evaluate":
         from .pipeline.stages import evaluate
         evaluate.run(cfg, skip_generative=args.skip_generative)

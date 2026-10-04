@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 
 import numpy as np
@@ -31,6 +32,30 @@ def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool]) -> str | 
     diff = [f"{f}: đã lưu {stored[f]}, cấu hình hiện tại {v}" for f, v in expected.items()
             if stored.get(f) is not None and stored[f] != v]
     return "; ".join(diff) or None
+
+
+def archive_superseded_run(npz_path: str | Path, weights_path: str | Path, pred_root: str | Path,
+                           weights_root: str | Path) -> Path:
+    """Chuyển (KHÔNG xoá) .npz và trọng số của một lần chạy theo giao thức cũ sang
+    `pred_root/<giao thức>/` và `weights_root/<giao thức>/` (ví dụ `augment-True__class_weight-False`), để train lại theo
+    cấu hình hiện tại mà không trộn hai giao thức trong thư mục dự đoán. Trùng tên thì thêm hậu tố, không ghi đè."""
+    npz_path, weights_path = Path(npz_path), Path(weights_path)
+    with np.load(npz_path, allow_pickle=True) as d:
+        label = "__".join(f"{k}-{v}" for k, v in read_protocol(d).items())
+
+    def move(src: Path, root: str | Path) -> Path:
+        dst = Path(root) / label / src.name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        n = 1
+        while dst.exists():
+            dst = dst.with_name(f"{src.name}.{n}")
+            n += 1
+        shutil.move(str(src), str(dst))
+        return dst
+
+    if weights_path.exists():
+        move(weights_path, weights_root)
+    return move(npz_path, pred_root)
 
 
 def check_single_protocol(runs: pd.DataFrame) -> None:

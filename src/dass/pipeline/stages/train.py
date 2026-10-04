@@ -10,7 +10,7 @@ from ..pool import load_selections, resolve_candidate_pool, resolve_majority_poo
 from . import init_tensorflow
 
 
-def run(cfg: Config, model_name: str, seeds: list[int] | None = None) -> None:
+def run(cfg: Config, model_name: str, seeds: list[int] | None = None, archive_mismatched: bool = False) -> None:
     from ...engine.trainer import run_experiments
 
     ctx = Context.create(cfg, f"train:{model_name}")
@@ -43,4 +43,5 @@ def run(cfg: Config, model_name: str, seeds: list[int] | None = None) -> None:
                                 class_weight_methods=class_weight_methods,
                                 majority=ctx.budget.majority, majority_synth=majority_synth, extra_real=extra_real)
     assert_clean_eval_sets(variants, ctx.layout.test_pp, cfg.data.class_names)
-    run_experiments(cfg, ctx.layout, model_name, variants, seeds or cfg.classifier.seeds, ctx.channels)
+    run_experiments(cfg, ctx.layout, model_name, variants, seeds or cfg.classifier.seeds, ctx.channels,
+                    archive_mismatched)

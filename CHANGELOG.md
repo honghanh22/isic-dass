@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.8.3 — `train --archive-mismatched`
+- Dự đoán `.npz` đã có nhưng train theo giao thức khác cấu hình hiện tại (augmentation / class weight) vẫn bị chặn như
+  trước; thêm cờ `--archive-mismatched` để **chuyển** (không xoá) `.npz` sang
+  `results_<run>/predictions_superseded/<giao thức>/` và trọng số trên Drive sang
+  `checkpoints_<run>/classifiers_superseded/<giao thức>/`, rồi train lại. Trùng tên thì thêm hậu tố, không ghi đè.
+  Thư mục `predictions/` vì thế chỉ chứa một giao thức; `evaluate` không đọc thư mục superseded.
+- Lý do: RSNA `rsna_v2` có một phần EfficientNetV2B0 đã train CÓ augmentation (trước khi Colab lấy bản 1.8.2); các
+  kết quả đó được giữ lại trong thư mục superseded.
+
 ## 1.8.2 — RSNA: classifier không augmentation
 - `configs/datasets/rsna_pneumonia.yaml`: `classifier.augment: false` (người dùng quyết định, trước khi train
   classifier RSNA). Mọi biến thể của RSNA cùng không augmentation nên vẫn so sánh công bằng; khác `v10` / `bt_v5` (có

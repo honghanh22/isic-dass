@@ -7,6 +7,7 @@ from PIL import Image
 
 from dass.evaluation import reporting
 from dass.evaluation.aggregate import (
+    archive_superseded_run,
     check_single_protocol,
     compare_pairs,
     compare_to_baseline,
@@ -105,6 +106,24 @@ def test_save_npz_atomic_and_protocol_check(tmp_path):
     old = tmp_path / "old.npz"
     np.savez(old, y=np.arange(3))                                      # .npz cũ không ghi thiết lập -> không chặn
     assert protocol_mismatch(old, {"augment": False, "class_weight": True}) is None
+
+
+def test_archive_superseded_run_moves_never_deletes(tmp_path):
+    pred, weights = tmp_path / "predictions", tmp_path / "classifiers"
+    pred.mkdir()
+    weights.mkdir()
+    npz, w = pred / "E__M0_real_only_p1.5__s2026.npz", weights / "E__M0_real_only_p1.5__s2026.weights.h5"
+    save_npz_atomic(npz, y=np.arange(3), augment=True, class_weight=True)
+    w.write_bytes(b"w")
+    moved = archive_superseded_run(npz, w, tmp_path / "predictions_superseded", tmp_path / "classifiers_superseded")
+    label = "augment-True__class_weight-True"
+    assert moved == tmp_path / "predictions_superseded" / label / npz.name and not npz.exists() and not w.exists()
+    assert (tmp_path / "classifiers_superseded" / label / w.name).read_bytes() == b"w"
+    assert list(np.load(moved)["y"]) == [0, 1, 2]
+    assert load_all_runs(pred)[0].empty                                # thư mục dự đoán chính không còn giao thức cũ
+    save_npz_atomic(npz, y=np.arange(2), augment=True, class_weight=True)   # lần thứ hai cùng tên: không ghi đè
+    again = archive_superseded_run(npz, w, tmp_path / "predictions_superseded", tmp_path / "classifiers_superseded")
+    assert again != moved and moved.exists() and list(np.load(moved)["y"]) == [0, 1, 2]
 
 
 def test_mixed_protocols_rejected_and_labels_follow_class_weight():

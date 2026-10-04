@@ -193,6 +193,9 @@ baseline cân bằng bằng class weight.
 CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub): `ViT-B16`, `SwinT`.
 Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
 
+Báo lỗi "được train với thiết lập khác" (dự đoán cũ theo giao thức khác): thêm `--archive-mismatched` để chuyển kết
+quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
+
 Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 `!dass {CFG} -c configs/experiments/smoke.yaml run --from train --to train --models ConvNeXtTiny ViT-B16 SwinT`
 """)

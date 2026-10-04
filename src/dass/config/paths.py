@@ -28,6 +28,8 @@ class Layout:
         # ---- kết quả (Drive) ----
         self.results_dir = drive / f"results_{p.run_tag}"
         self.pred_dir = self.results_dir / "predictions"
+        # kết quả của giao thức train cũ được chuyển ra đây (train --archive-mismatched), không bao giờ xoá
+        self.superseded_pred_dir = self.results_dir / "predictions_superseded"
         self.metrics_dir = self.results_dir / "metrics"          # số liệu thô (csv + json)
         self.tables_dir = self.results_dir / "tables"            # bảng cho bài báo (csv + json + tex)
         self.fingerprint_fig_dir = self.results_dir / "frequency_analysis"
@@ -43,6 +45,7 @@ class Layout:
         self.gan_latest_pkl = self.gan_dir / "latest.pkl"
         self.gan_logs_dir = self.gan_dir / "logs_and_samples"
         self.clf_dir = drive / f"checkpoints_{p.run_tag}" / "classifiers"
+        self.superseded_clf_dir = drive / f"checkpoints_{p.run_tag}" / "classifiers_superseded"
         # E_d: của chính lần chạy, hoặc dùng lại của lần chạy khác (encoder.e_d_from_run)
         e = cfg.encoder
         self.e_d_run = {"": p.run_tag, "base": p.base_run_tag or p.run_tag}.get(e.e_d_from_run, e.e_d_from_run)

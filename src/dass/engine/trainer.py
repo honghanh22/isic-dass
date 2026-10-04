@@ -4,7 +4,8 @@
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
 - Mỗi (model, biến thể, seed) lưu một .npz trên Drive (ghi nguyên tử); file đã có -> bỏ qua (chạy lại được), nhưng
-  nếu thiết lập train lưu trong file (augment, class_weight) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại.
+  nếu thiết lập train lưu trong file (augment, class_weight) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại
+  (`--archive-mismatched`: chuyển kết quả cũ sang thư mục *_superseded/ rồi train lại).
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from ..config import Config, Layout
 from ..config.schema import ClassifierConfig
 from ..data.loaders import build_dataset
 from ..data.variants import Variant
-from ..evaluation.aggregate import protocol_mismatch
+from ..evaluation.aggregate import archive_superseded_run, protocol_mismatch
 from ..models.classifiers import build_model, resolve_model_name
 from ..utils import save_npz_atomic
 from .metrics import training_metrics
@@ -98,7 +99,9 @@ def prediction_path(layout: Layout, model_name: str, variant_tag: str, seed: int
 
 
 def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict[str, Variant], seeds: list[int],
-                    channels: int) -> None:
+                    channels: int, archive_mismatched: bool = False) -> None:
+    """`archive_mismatched`: .npz đã có nhưng train theo giao thức khác cấu hình hiện tại -> chuyển nó (và trọng số
+    trên Drive) sang `*_superseded/<giao thức>/` rồi train lại; mặc định báo lỗi."""
     model_name = resolve_model_name(model_name)
     for tag, variant in variants.items():
         for seed in seeds:
@@ -106,11 +109,17 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
             if out.exists():
                 mismatch = protocol_mismatch(out, {"augment": cfg.classifier.augment,
                                                    "class_weight": variant.class_weight})
-                if mismatch:
+                if not mismatch:
+                    log.info("[bỏ qua, đã có] %s", out.name)
+                    continue
+                if not archive_mismatched:
                     raise RuntimeError(f"{out.name} được train với thiết lập khác ({mismatch}). Không dùng lại kết quả "
-                                       "của giao thức khác: đổi --tag / run_tag cho cấu hình mới.")
-                log.info("[bỏ qua, đã có] %s", out.name)
-                continue
+                                       "của giao thức khác: đổi --tag / run_tag cho cấu hình mới, hoặc chạy "
+                                       "`train --archive-mismatched` để chuyển kết quả cũ sang predictions_superseded/ "
+                                       "(không xoá) rồi train lại.")
+                moved = archive_superseded_run(out, layout.clf_dir / f"{model_name}__{tag}__s{seed}.weights.h5",
+                                               layout.superseded_pred_dir, layout.superseded_clf_dir)
+                log.warning("Giao thức cũ (%s): đã chuyển %s -> %s, train lại", mismatch, out.name, moved)
             log.info("=== %s | %s | seed %d ===", model_name, tag, seed)
             model, preprocess, best_epoch = train_classifier(cfg, layout, model_name, variant, seed, channels)
             y_val, p_val = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)

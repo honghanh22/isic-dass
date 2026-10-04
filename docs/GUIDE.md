@@ -366,6 +366,10 @@ thực nghiệm chính.
 - **RSNA (`rsna_v2`): classifier không augmentation** (`classifier.augment: false` trong `configs/datasets/`), M0 vẫn có
   class weight. Vẫn công bằng vì mọi biến thể cùng không augmentation; khác `v10` / `bt_v5` ở điểm này, phải nêu
   trong bài báo.
+- Mỗi `.npz` ghi giao thức train (augment, class_weight). Gặp `.npz` của giao thức khác, `train` dừng báo lỗi;
+  `train --archive-mismatched` chuyển nó (và trọng số) sang `predictions_superseded/<giao thức>/` (không xoá) rồi train
+  lại, nên thư mục `predictions/` luôn chỉ có một giao thức. Ở `rsna_v2`, phần EfficientNetV2B0 lỡ train có
+  augmentation (trước bản 1.8.2) nằm trong thư mục này.
 
 **Backbone (pretrain ImageNet):**
 
