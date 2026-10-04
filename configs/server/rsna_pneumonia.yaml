@@ -16,3 +16,7 @@ data:
     train_images: /data/honghanh/datasets/RSNA   # tìm *.dcm + CSV / JSON nhãn đệ quy
   split:
     expected: null       # GAN srv mới -> không buộc khớp split rsna_v2 của GAN cũ
+
+classifier:
+  # Server: bỏ DenseNet121 (cùng kiến trúc với E_d) và ViT-B16 (cần nhiều dữ liệu, nặng nhất). Thứ tự = thứ tự chạy.
+  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny, SwinT]

@@ -17,3 +17,7 @@ data:
     train_labels: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Training_GroundTruth.csv
     test_images: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Test_Data
     test_labels: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Test_GroundTruth.csv
+
+classifier:
+  # Server: bỏ DenseNet121 (cùng kiến trúc với E_d) và ViT-B16 (cần nhiều dữ liệu, nặng nhất). Thứ tự = thứ tự chạy.
+  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny, SwinT]
