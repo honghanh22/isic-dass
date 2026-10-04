@@ -9,7 +9,7 @@ paths:
   drive_root: /data/honghanh/results/ISIC2016
   local_root: /data/honghanh/local_data       # thay /content/local_data (không mất khi tắt máy)
   external_root: /data/honghanh/external      # StyleGAN2-ADA, GANDCTAnalysis được clone vào đây
-  gan_tag: srv           # GAN MỚI train trên server (không dùng lại v5 của Colab) -> checkpoints_srv/
+  gan_tag: v5            # dùng lại GAN Colab (chép checkpoints_v5/ từ Drive; split server trùng split v5 — đã kiểm tra)
 
 data:
   source:   # dữ liệu gốc tách khỏi drive_root (đường dẫn tuyệt đối)
