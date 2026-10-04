@@ -61,6 +61,8 @@ class Layout:
         # ---- cục bộ (/content) ----
         local = Path(p.local_root)
         data_local = local / d.name          # mỗi bộ dữ liệu một thư mục riêng
+        self.local_data = data_local
+        self.local_owner_json = data_local / ".owner.json"            # nguồn nào đang "sở hữu" thư mục cục bộ này
         self.source_extract_dir = data_local / "source_extracted"     # nguồn nén (.zip / .tar) giải nén ra đây
         self.train_raw = data_local / "raw" / "train"
         self.test_raw = data_local / "raw" / "test"

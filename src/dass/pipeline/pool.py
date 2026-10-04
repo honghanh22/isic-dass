@@ -23,11 +23,14 @@ class CandidatePool:
 
 
 def best_kimg(ctx: Context) -> int:
-    from ..models.generator.trainer import load_state
+    """kimg của snapshot tốt nhất; đồng thời kiểm tra GAN đúng bộ dữ liệu + split của lần chạy này."""
+    from ..data.splits import split_hash
+    from ..models.generator.trainer import check_gan_owner, load_state
 
     state = load_state(ctx.layout.gan_state_json)
     if state["best_cum_kimg"] is None:
         raise RuntimeError("Chưa có GAN đã train (gan_state.json trống). Chạy `dass gan` trước.")
+    check_gan_owner(state, ctx.cfg.data.name, split_hash(ctx.split))
     return state["best_cum_kimg"]
 
 

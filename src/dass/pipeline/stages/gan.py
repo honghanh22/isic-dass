@@ -10,6 +10,7 @@ import pandas as pd
 from ...analysis.figures import plot_kid_history, plot_samples
 from ...config import Config, Layout
 from ...data.image_io import load_images
+from ...data.splits import split_hash
 from ...utils import run_command
 from ..context import Context, record_stage
 
@@ -47,7 +48,8 @@ def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
     minority = ctx.budget.minority
     real_feats = inception_features(load_images(ctx.train_paths[minority], ctx.channels))
     log.info("Inception features %s thật (train): %s", minority, real_feats.shape)
-    state = StyleGanTrainer(layout, g, cfg.seed, real_feats, ctx.class_idx(minority)).train(fresh_start=fresh_start)
+    state = StyleGanTrainer(layout, g, cfg.seed, real_feats, ctx.class_idx(minority), data_name=cfg.data.name,
+                            split_sha1=split_hash(ctx.split)).train(fresh_start=fresh_start)
     report(cfg, ctx, state)
     return state
 

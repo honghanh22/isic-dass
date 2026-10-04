@@ -67,6 +67,10 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.
 - **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (ISIC `v10`, RSNA `rsna_v2`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
+- **Tách bộ dữ liệu** (có test `tests/regression/test_dataset_isolation.py`): ổ tạm `<local_root>/<data.name>` thuộc
+  đúng một nguồn (`.owner.json`; trùng tên khác nguồn -> dừng); GAN train từ 1.10.1 ghi `data_name` + `split_sha1` vào
+  `gan_state.json` và mọi stage dùng GAN kiểm tra (GAN cũ ISIC `v5` / RSNA `rsna` chưa ghi -> dựa vào
+  `split.expected` / test regression). Lớp thiểu số nên là lớp 1 (metric tính cho lớp 1; khác thì cảnh báo).
 - Kiểm định: paired bootstrap ΔAUC trên ensemble seed + ΔAUC theo từng seed + `p_holm` (Holm trong mỗi model). RSNA có
   phân tích nhóm con theo tư thế (`evaluation.subgroup_columns: [ViewPosition]`, đăng ký trước kết quả test): AUC
   trong nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh. `.npz` lưu `test_files` và

@@ -28,11 +28,22 @@ log = logging.getLogger(__name__)
 
 def default_state() -> dict:
     return {"cum_kimg": 0, "history": [], "best_kid": None, "best_cum_kimg": None,
-            "bad_count": 0, "finished": False, "stop_reason": None}
+            "bad_count": 0, "finished": False, "stop_reason": None, "data_name": None, "split_sha1": None}
 
 
 def load_state(path: str | Path) -> dict:
     return read_json(path, default=None) or default_state()
+
+
+def check_gan_owner(state: dict, data_name: str | None, split_sha1: str | None) -> None:
+    """GAN chỉ được dùng cho đúng bộ dữ liệu + split nó đã train (ghi trong gan_state.json khi bắt đầu train, từ 1.10.1).
+    Khác -> GAN có thể đã thấy ảnh val / test của lần chạy này, hoặc là GAN của bộ dữ liệu khác -> dừng. GAN cũ chưa ghi
+    thông tin này (ISIC v5, RSNA rsna) -> bỏ qua; split của chúng được giữ bằng split.expected / test regression."""
+    for key, current in (("data_name", data_name), ("split_sha1", split_sha1)):
+        if state.get(key) and current and state[key] != current:
+            raise ValueError(f"GAN này được train với {key} = {state[key]!r}, lần chạy hiện tại có {current!r}: dùng "
+                             "GAN của bộ dữ liệu / split khác -> có thể rò rỉ val / test. Đặt paths.gan_tag mới để "
+                             "train GAN riêng, hoặc đưa data.* / split về đúng như lúc train GAN.")
 
 
 def _list_run_dirs(outdir: Path) -> list[Path]:
@@ -63,12 +74,14 @@ def _last_tick_line(log_path: Path) -> str:
 
 
 class StyleGanTrainer:
-    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int, real_features: np.ndarray, eval_class_idx: int):
+    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int, real_features: np.ndarray, eval_class_idx: int,
+                 data_name: str | None = None, split_sha1: str | None = None):
         self.layout = layout
         self.gan = gan
         self.seed = seed
         self.real_features = real_features      # Inception features của ảnh thật lớp thiểu số (train)
         self.eval_class_idx = eval_class_idx
+        self.data_name, self.split_sha1 = data_name, split_sha1
 
     # ------------------------------------------------------------------ public
     def train(self, fresh_start: bool = False) -> dict:
@@ -78,6 +91,10 @@ class StyleGanTrainer:
         self.layout.gan_dir.mkdir(parents=True, exist_ok=True)
 
         state = load_state(self.layout.gan_state_json)
+        check_gan_owner(state, self.data_name, self.split_sha1)
+        if state["cum_kimg"] == 0 and not state.get("split_sha1"):     # GAN mới: ghi lại dữ liệu + split dùng để train
+            state.update(data_name=self.data_name, split_sha1=self.split_sha1)
+            self._save(state)
         if state["finished"]:
             log.info("GAN đã train xong (%s). Best KID = %.5f tại %s kimg.",
                      state["stop_reason"], state["best_kid"], state["best_cum_kimg"])

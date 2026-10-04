@@ -45,6 +45,31 @@ def record_stage(layout: Layout, cfg: Config, stage: str, **extra) -> None:
     write_json_atomic(layout.run_manifest, manifest)
 
 
+def claim_local_cache(cfg: Config, layout: Layout) -> None:
+    """Thư mục cục bộ `<local_root>/<data.name>` chỉ thuộc về MỘT nguồn dữ liệu. Hai cấu hình khác nguồn mà trùng
+    `data.name` (ví dụ copy config của bộ dữ liệu khác rồi quên đổi tên) sẽ trộn ảnh của nhau vào cùng thư mục -> dừng.
+    Cùng nguồn khác thiết lập (tập con DICOM, --tag, smoke) vẫn dùng chung được."""
+    s = cfg.data.source
+    owner = {"source_type": s.type, "train_images": str(layout.drive_train_images),
+             "test_images": str(layout.drive_test_images or "")}
+    saved = read_json(layout.local_owner_json)
+    if saved is not None and saved != owner:
+        raise ValueError(f"data.name = {cfg.data.name!r} đang được dùng cho NGUỒN KHÁC trên máy này "
+                         f"({saved.get('train_images')}) -> ảnh hai bộ dữ liệu sẽ bị trộn. Đặt data.name riêng cho bộ "
+                         "dữ liệu mới. Nếu chỉ dời dữ liệu sang chỗ khác: khởi động lại runtime (xoá ổ tạm) rồi chạy lại.")
+    if saved is None:
+        write_json_atomic(layout.local_owner_json, owner)
+
+
+def warn_if_minority_not_positive(cfg: Config, budget: ClassBudget) -> None:
+    """Metric phân loại (sensitivity, precision, PR-AUC, F1) tính cho lớp có chỉ số 1. Lớp thiểu số (lớp được sinh ảnh)
+    nên là lớp 1 — lớp bệnh — để các metric đó nói về đúng lớp quan tâm."""
+    if cfg.data.classes.get(budget.minority) != 1:
+        log.warning("Lớp thiểu số %r có chỉ số %s, không phải 1: sensitivity / precision / PR-AUC / F1 tính cho lớp %r. "
+                    "Nên đặt lớp bệnh (thiểu số) = 1 trong data.classes.", budget.minority,
+                    cfg.data.classes.get(budget.minority), budget.majority)
+
+
 def resolve_channels(cfg: Config, layout: Layout) -> int:
     """`data.channels: auto` -> nhận diện từ ảnh gốc (ảnh xám = 1 kênh, ảnh màu = 3 kênh)."""
     if cfg.data.channels != "auto":
@@ -68,6 +93,7 @@ class Context:
         set_seed(cfg.seed, cfg.deterministic)
         layout = Layout(cfg)
         layout.makedirs()
+        claim_local_cache(cfg, layout)
         d = cfg.data
 
         source = build_source(cfg, layout)
@@ -98,6 +124,7 @@ class Context:
         log.info("Thiểu số = %s (%d) | đa số = %s (%d) | cần chọn %d | pool %d ảnh | %d kênh",
                  budget.minority, budget.n_real[budget.minority], budget.majority,
                  budget.n_real[budget.majority], budget.n_select, budget.pool_size, channels)
+        warn_if_minority_not_positive(cfg, budget)
         write_json_atomic(layout.dataset_card, build_dataset_card(cfg, split, channels, budget, test_counts))
         record_stage(layout, cfg, stage, channels=channels)
         return cls(cfg, layout, split, budget, channels)

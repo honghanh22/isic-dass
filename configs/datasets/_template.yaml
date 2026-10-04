@@ -2,15 +2,15 @@
 # rồi tạo configs/experiments/<tên>_dass.yaml kế thừa _base_ + file này (xem isic2016_dass.yaml).
 paths:
   drive_root: /content/drive/MyDrive/ColabData/MyDataset    # ← SỬA: kết quả / checkpoint ghi vào đây
-  gan_tag: v1            # bộ dữ liệu mới -> GAN mới
+  gan_tag: v1            # ← SỬA: bộ dữ liệu mới -> GAN mới (dùng GAN của bộ khác sẽ bị chặn)
   run_tag: v1
 
 data:
-  name: my_dataset       # ← SỬA (tên ngắn, không dấu cách)
+  name: my_dataset       # ← SỬA (tên ngắn, không dấu cách, KHÁC mọi bộ dữ liệu khác: tên thư mục ổ tạm)
   channels: auto         # auto | 1 | 3
   force_grayscale: false # true cho ảnh y tế xám lưu dạng RGB (MRI, X-quang): lưu các kênh bằng nhau
   img_size: 256
-  classes: {normal: 0, abnormal: 1}     # ← SỬA: đúng 2 lớp, 1 = lớp quan tâm
+  classes: {normal: 0, abnormal: 1}     # ← SỬA: đúng 2 lớp, 1 = lớp bệnh (thiểu số): metric tính cho lớp 1
   source:
     type: folders        # folders: <train_images>/<thư mục lớp>/* | csv: thư mục phẳng + CSV nhãn
     train_images: train  # ← SỬA

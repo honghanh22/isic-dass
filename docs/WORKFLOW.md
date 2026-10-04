@@ -72,6 +72,31 @@ Mọi stage chạy lại được: GAN, pool, lựa chọn, dự đoán `.npz` �
 3. Tạo `configs/experiments/<tên>_dass.yaml` (copy `rsna_pneumonia_dass.yaml`, đổi dòng dataset cuối).
 4. `dass -c configs/experiments/<tên>_dass.yaml run`. Bộ dữ liệu mới cần GAN mới (`gan_tag` mới).
 
+**Bắt buộc đổi khi copy config của bộ dữ liệu khác** (code tự chặn nếu quên):
+
+| Khoá | Vì sao | Nếu quên |
+|---|---|---|
+| `data.name` | tên thư mục ổ tạm `/content/local_data/<name>` | `Context` dừng: "data.name đang được dùng cho NGUỒN KHÁC" (không trộn ảnh) |
+| `paths.gan_tag` | GAN của bộ dữ liệu khác | dừng: "GAN này được train với data_name / split_sha1 …" (GAN train từ 1.10.1 ghi lại dữ liệu + split) |
+| `paths.drive_root`, `paths.run_tag` | thư mục kết quả trên Drive | split đã lưu khác -> dừng ("Cách chia hiện tại khác split đã lưu") |
+| `data.split.expected` | split của GAN bộ dữ liệu khác | dừng ("Split khác split tham chiếu") -> xoá dòng này cho bộ dữ liệu mới |
+
+**Nên kiểm tra:**
+- `data.classes`: lớp bệnh (thiểu số) = **1**. Sensitivity, precision, PR-AUC, F1 tính cho lớp 1; nếu lớp thiểu số là 0,
+  `prepare` in cảnh báo.
+- Giao thức classifier (`classifier.augment`, `classifier.baseline_class_weight`) giống bộ dữ liệu sẽ so sánh cùng, nếu
+  muốn so sánh giữa các bộ dữ liệu.
+- Thêm tên file experiment vào `EXPERIMENTS` trong `tests/unit/test_config.py`, rồi `pytest`.
+- `k` và mọi tham số DASS / E_d **không** được ghi đè trong `configs/datasets/` (có test).
+
+**Giới hạn hiện tại:**
+- Nguồn hỗ trợ: `folders`, `csv`, `dicom_csv` (nhãn CSV kiểu Kaggle hoặc JSON MD.ai). Định dạng khác (NIfTI, `.npz` kiểu
+  MedMNIST, ảnh 3D) cần viết thêm một lớp nguồn trong `data/sources/`.
+- `dicom_csv` + `one_per_patient` lấy mã bệnh nhân từ mapping NIH (tên `<8 chữ số>_<số>.png`), tức dành cho dữ liệu gốc
+  NIH như RSNA. Bộ DICOM khác cần thêm cách lấy mã bệnh nhân (ví dụ thẻ `PatientID`), nếu không thì không lọc được theo
+  bệnh nhân. Với `folders` / `csv`: chia theo bệnh nhân bằng `split.group_regex` nếu tên file có mã bệnh nhân.
+- Phân tích nhóm con (`evaluation.subgroup_columns`) cần CSV metadata, hiện chỉ nguồn DICOM ghi ra (`dicom_metadata.csv`).
+
 `data.channels: auto` tự nhận diện ảnh xám / màu; ảnh xám được giữ 1 kênh xuyên suốt.
 Đổi cách chia / seed mà giữ `run_tag` → lệnh báo lỗi (kết quả cũ gắn với split cũ). Pipeline chỉ hỗ trợ 2 lớp.
 

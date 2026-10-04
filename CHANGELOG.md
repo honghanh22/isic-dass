@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.10.1 — thêm bộ dữ liệu mới không "dính" bộ cũ
+Rà soát việc thêm bộ dữ liệu: code không có nhánh riêng cho bộ dữ liệu nào, nhưng có ba chỗ dễ dính dữ liệu cũ khi copy
+config rồi quên đổi tên. Thêm cơ chế chặn, không đổi kết quả của ISIC / RSNA:
+- **Ổ tạm cục bộ:** `<local_root>/<data.name>/.owner.json` ghi nguồn (kiểu, thư mục ảnh). Cấu hình khác nguồn mà trùng
+  `data.name` -> `Context` dừng (trước đây nguồn `folders` / `csv` sẽ trộn ảnh hai bộ dữ liệu vào cùng thư mục, split
+  mới tạo ra không báo lỗi). Cùng nguồn, khác run / `--tag` / smoke vẫn dùng chung.
+- **GAN:** `gan_state.json` của GAN train mới ghi `data_name` và `split_sha1`; `gan` và mọi stage lấy pool (`sample`,
+  `select`, `train`, `evaluate`) kiểm tra khớp, khác -> dừng. GAN đã có (ISIC `v5`, RSNA `rsna`) chưa ghi -> bỏ qua
+  (vẫn được giữ bằng `split.expected` / test regression).
+- **Chỉ số lớp:** cảnh báo khi lớp thiểu số không phải lớp 1 (metric như sensitivity, PR-AUC tính cho lớp 1).
+- WORKFLOW mục 5: bảng khoá bắt buộc đổi khi copy config, việc nên kiểm tra, giới hạn hiện tại (định dạng nguồn,
+  mapping bệnh nhân của DICOM chỉ cho dữ liệu NIH, nhóm con cần metadata). `_template.yaml` ghi chú tương ứng.
+
 ## 1.10.0 — loại Brain Tumor khỏi dự án
 - Người dùng quyết định: bỏ Brain Tumor khỏi dự án và bài báo (AUC chạm trần khoảng 0,99, không phân biệt được các
   phương pháp). Dự án còn hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**.
