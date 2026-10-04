@@ -134,7 +134,7 @@ def test_mixed_protocols_rejected_and_labels_follow_class_weight():
         check_single_protocol(runs.assign(augment=[True, False, True, True]))
     labels = reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline", "M6_dass": "DASS (Ours)"}, runs)
     assert labels == {"M0_real_only": "Imbalanced Baseline (class-weighted)", "M6_dass": "DASS (Ours)"}
-    unweighted = runs.assign(class_weight=False)                       # cấu hình v9 / bt_v4
+    unweighted = runs.assign(class_weight=False)                       # cấu hình ISIC v9 / RSNA
     assert reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline"}, unweighted)["M0_real_only"] == \
         "Imbalanced Baseline"
 

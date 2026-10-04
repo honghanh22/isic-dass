@@ -15,7 +15,7 @@ from PIL import Image
 
 GRAY_MODES = {"1", "L", "LA", "I", "I;16", "F"}
 # Chênh lệch kênh trung bình (mức xám) dưới ngưỡng này coi là ảnh xám: nhiễu nén JPEG của ảnh MRI xám lưu RGB
-# đo được tới ~3.1 (Brain Tumor), ảnh màu thật (dermoscopy) lớn hơn nhiều.
+# đo được tới ~3.1, ảnh màu thật (dermoscopy) lớn hơn nhiều.
 GRAY_TOLERANCE = 5.0
 
 

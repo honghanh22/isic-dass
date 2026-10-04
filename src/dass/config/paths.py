@@ -1,6 +1,6 @@
 """`Layout`: NƠI DUY NHẤT định nghĩa đường dẫn artefact. Drive = lưu lâu dài; local (/content) = mất khi runtime reset.
 
-Tên file giữ tương thích với notebook ISIC v5 / Brain Tumor v1 để dùng lại GAN và kết quả cũ trên Drive
+Tên file giữ tương thích với notebook ISIC v5 để dùng lại GAN và kết quả cũ trên Drive
 (test `tests/regression/test_artifact_paths.py` khoá các đường dẫn này).
 """
 

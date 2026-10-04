@@ -14,7 +14,8 @@ classifier:
   early_stop_patience: 8
   monitor: val_macro_recall     # (sensitivity + specificity) / 2 ở ngưỡng 0.5
   # Giống ISIC v7 (notebook v5): augmentation chuẩn cho MỌI biến thể, baseline (M0) có class weight.
-  # (1.4.0 / v9 / bt_v4 tắt cả hai — kết quả đó được giữ nguyên để đối chiếu.)
+  # (1.4.0 / ISIC v9 tắt cả hai — kết quả đó được giữ nguyên để đối chiếu; RSNA cũng tắt cả hai, xem
+  # configs/datasets/rsna_pneumonia.yaml.)
   augment: true                 # lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
   baseline_class_weight: true   # M0 train với class weight (cân bằng trong loss)
   mixed_precision: false

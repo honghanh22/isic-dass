@@ -23,7 +23,7 @@ với M1–M6, chỉ khác ở chỗ ảnh thêm vào là ảnh THẬT nhắc l�
 M0b không chọn gì từ pool nên không nằm trong `selections.json`; tập train được ghép ở bước train
 (`data.variants.oversample_indices`).
 
-M7 (từ pipeline Brain Tumor): nếu ảnh sinh chỉ có ở lớp thiểu số thì "trông giống ảnh GAN" trở thành manh mối
+M7: nếu ảnh sinh chỉ có ở lớp thiểu số thì "trông giống ảnh GAN" trở thành manh mối
 của nhãn (shortcut). Thêm ảnh sinh vào cả lớp đa số làm dấu vết GAN không còn gắn với một nhãn; lớp đa số to ra
 nên mất cân bằng quay lại một phần và được bù bằng class weight.
 """

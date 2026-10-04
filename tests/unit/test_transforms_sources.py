@@ -113,8 +113,12 @@ def test_build_source_dispatch():
     from conftest import CONFIGS
 
     from dass.config import Layout, load_config
+    from dass.data.sources import DicomCsvSource
 
-    for name, kind in [("isic2016_dass.yaml", CsvSource), ("brain_tumor_dass.yaml", FolderSource)]:
-        cfg = load_config([CONFIGS / "experiments" / name])
+    folders = ["data.source.type=folders", "data.source.train_labels=''", "data.source.test_labels=''"]
+    for overrides, kind in [([], CsvSource), (folders, FolderSource)]:
+        cfg = load_config([CONFIGS / "experiments" / "isic2016_dass.yaml"], overrides)
         src = build_source(cfg, Layout(cfg))
-        assert isinstance(src, kind) and src.has_test_set == (kind is CsvSource)
+        assert isinstance(src, kind) and src.has_test_set           # ISIC có tập test riêng
+    cfg = load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"])
+    assert isinstance(build_source(cfg, Layout(cfg)), DicomCsvSource)

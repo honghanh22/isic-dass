@@ -31,7 +31,7 @@ def test_no_references_in_code_configs_or_runner():
                                       "generator.apply_spectral_mitigation=true"])
 def test_old_flags_are_rejected_clearly(override):
     with pytest.raises(KeyError, match="không hợp lệ"):
-        load_config([CONFIGS / "experiments" / "brain_tumor_dass.yaml"], [override])
+        load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], [override])
 
 
 def test_modules_are_gone():

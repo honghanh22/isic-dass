@@ -8,7 +8,7 @@ from dass.config import Config, Layout, load_config, parse_override
 from dass.config.loader import apply_file
 
 BASES = sorted((CONFIGS / "_base_").glob("*.yaml"))
-EXPERIMENTS = ["isic2016_dass.yaml", "brain_tumor_dass.yaml", "rsna_pneumonia_dass.yaml"]
+EXPERIMENTS = ["isic2016_dass.yaml", "rsna_pneumonia_dass.yaml"]
 
 
 def test_base_yaml_matches_schema_defaults():
@@ -35,8 +35,8 @@ def test_oversampling_baseline_and_extra_comparisons_enabled(name):
 
 @pytest.mark.parametrize("name", EXPERIMENTS)
 def test_classifier_training_like_isic_v7(name):
-    """ISIC / Brain như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight. Ngoại lệ RSNA (người dùng
-    quyết định): không can thiệp dữ liệu — tắt cả augmentation lẫn class weight của M0 (như v9 / bt_v4)."""
+    """ISIC như ISIC v7: augmentation cho mọi biến thể, baseline M0 có class weight. RSNA (người dùng quyết định):
+    không can thiệp dữ liệu — tắt cả augmentation lẫn class weight của M0 (như ISIC v9)."""
     clf = load_config([CONFIGS / "experiments" / name]).classifier
     expected = name != "rsna_pneumonia_dass.yaml"
     assert clf.augment is expected and clf.baseline_class_weight is expected
@@ -59,13 +59,13 @@ def test_rsna_config_and_augment_profiles():
     assert (rsna.data.source.id_column, rsna.data.source.label_column) == ("patientId", "Target")
     assert rsna.paths.gan_tag == "rsna" and rsna.data.split.type == "stratified"
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
-    assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC / Brain
+    assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC
     assert rsna.selection == isic.selection and rsna.encoder == isic.encoder        # cùng công thức DASS / E_d
     # classifier: chỉ khác augmentation và class weight của M0 (người dùng tắt cả hai cho RSNA); mọi siêu tham số khác
     # giống ISIC
     assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is False
     assert dataclasses.replace(rsna.classifier, augment=True, baseline_class_weight=True) == isic.classifier
-    # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC / Brain không có metadata
+    # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC không có metadata
     assert rsna.evaluation.subgroup_columns == ["ViewPosition"] and isic.evaluation.subgroup_columns == []
     assert dataclasses.replace(rsna.evaluation, subgroup_columns=[]) == isic.evaluation
     # GAN: chỉ khác mirror (X-quang ngực không đối xứng trái / phải), mọi tham số khác giống ISIC
@@ -103,14 +103,16 @@ def test_unknown_backbone_rejected_at_load_time():
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["classifier.seeds=[]"])
 
 
-def test_experiments_differ_only_in_data_and_paths():
+def test_experiments_differ_only_in_allowed_sections():
+    """ISIC vs RSNA: khác ở dữ liệu / đường dẫn, cộng đúng các ngoại lệ đã ghim trong test_rsna_config_and_augment_profiles
+    (generator.mirror, classifier.augment / baseline_class_weight, evaluation.subgroup_columns); DASS / E_d giống hệt."""
     a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).to_dict()
     b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]).to_dict()
-    assert {k for k in a if a[k] != b[k]} == {"paths", "data"}
+    assert {k for k in a if a[k] != b[k]} == {"paths", "data", "generator", "classifier", "evaluation"}
 
 
 def test_k_is_identical_across_datasets():
-    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa hai bộ dữ liệu; k = 1,5."""
+    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa các bộ dữ liệu; k = 1,5."""
     a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]])
     assert a.selection == b.selection and a.encoder == b.encoder
@@ -123,8 +125,8 @@ def test_k_is_identical_across_datasets():
 def test_e_d_reuse_from_main_run():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"], tag="x")
     lay = Layout(cfg)
-    assert lay.e_d_run == "bt_v5" and lay.results_dir.name == "results_bt_v5_x"
-    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_bt_v5" / "classifiers" / \
+    assert lay.e_d_run == "rsna_v2" and lay.results_dir.name == "results_rsna_v2_x"
+    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_rsna_v2" / "classifiers" / \
         "Ed_DenseNet121_s4242.weights.h5"
     with pytest.raises(ValueError, match="--tag"):          # "base" mà không có --tag -> lỗi
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"])
@@ -132,7 +134,7 @@ def test_e_d_reuse_from_main_run():
 
 def test_main_run_trains_its_own_e_d():
     lay = Layout(load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]))
-    assert lay.e_d_run == "bt_v5" and lay.e_d_ckpt.parent == lay.clf_dir
+    assert lay.e_d_run == "rsna_v2" and lay.e_d_ckpt.parent == lay.clf_dir
 
 
 def test_smoke_profile_composes_with_any_dataset():

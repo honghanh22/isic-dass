@@ -1,5 +1,6 @@
-"""Split phải tái lập ĐÚNG thuật toán của hai notebook gốc: GAN cũ (checkpoints_v5, checkpoints_bt) đã được train
-trên phần train của các split đó — lệch split = GAN có thể đã thấy ảnh val/test."""
+"""Thuật toán chia phải giữ ĐÚNG như bản tham chiếu (chép nguyên văn bên dưới): GAN đã train (ISIC checkpoints_v5;
+RSNA checkpoints_rsna, gắn với split rsna_v2 qua `split.expected`) chỉ được thấy phần train của đúng split đó —
+đổi thuật toán / thứ tự gọi RNG = split khác = GAN có thể đã thấy ảnh val/test."""
 
 import os
 import re
@@ -23,8 +24,8 @@ def _isic_v5(pp, classes, val_fraction, seed):
     return split
 
 
-def _brain_v1(pp, classes, test_fraction, val_fraction, seed, group_regex=None):
-    """create_split — notebook Brain Tumor v1 (cell 9), chép nguyên văn."""
+def _reference_stratified(pp, classes, test_fraction, val_fraction, seed, group_regex=None):
+    """create_split tham chiếu (từ notebook gốc), chép nguyên văn — khoá thuật toán của `stratified`."""
     rng = np.random.default_rng(seed)
     split = {}
     for label in classes:
@@ -55,12 +56,14 @@ def test_holdout_val_reproduces_isic_v5(image_tree):
     assert holdout_val(image_tree, CLASSES, 0.15, 2026) == _isic_v5(image_tree, CLASSES, 0.15, 2026)
 
 
-def test_stratified_reproduces_brain_tumor_v1(gray_tree):
+def test_stratified_matches_reference(gray_tree):
+    """Đúng tham số của RSNA (test 0,15, val 0,176, seed 2026) — split rsna_v2 mà GAN rsna đã dùng."""
     classes = ["negative", "positive"]
-    assert stratified(gray_tree, classes, 0.176, 0.15, 2026) == _brain_v1(gray_tree, classes, 0.15, 0.176, 2026)
+    assert stratified(gray_tree, classes, 0.176, 0.15, 2026) == \
+        _reference_stratified(gray_tree, classes, 0.15, 0.176, 2026)
 
 
-def test_grouped_split_reproduces_v1_and_keeps_patients_together(tmp_path):
+def test_grouped_split_matches_reference_and_keeps_patients_together(tmp_path):
     root = tmp_path / "pp"
     for label, n in [("benign", 8), ("malignant", 5)]:
         (root / label).mkdir(parents=True)
@@ -69,7 +72,7 @@ def test_grouped_split_reproduces_v1_and_keeps_patients_together(tmp_path):
                 (root / label / f"P{label[0]}{p:02d}_slice{s}.png").write_bytes(b"x")
     regex = r"^(P\w\d+)_"
     split = stratified(root, CLASSES, 0.25, 0.2, 3, regex)
-    assert split == _brain_v1(root, CLASSES, 0.2, 0.25, 3, regex)
+    assert split == _reference_stratified(root, CLASSES, 0.2, 0.25, 3, regex)
     for parts in split.values():
         patients = {s: {f.split("_")[0] for f in files} for s, files in parts.items()}
         assert not (patients["train"] & patients["test"]) and not (patients["train"] & patients["val"])

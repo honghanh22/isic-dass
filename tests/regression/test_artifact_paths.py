@@ -1,6 +1,5 @@
-"""Đường dẫn artefact trên Drive: dùng lại GAN cũ (ISIC: checkpoints_v5; Brain Tumor: checkpoints_bt + split tham chiếu
-real_split.json), còn kết quả của cấu hình hiện tại (k = 1,5, có augmentation, M0 có class weight) ghi vào thư mục MỚI
-(ISIC v10, Brain bt_v5) — không đụng kết quả cũ (ISIC v7 / v9; Brain bt_v3 / bt_v4)."""
+"""Đường dẫn artefact trên Drive: ISIC dùng lại GAN cũ (checkpoints_v5), RSNA dùng GAN mới (checkpoints_rsna, gắn với
+split rsna_v2); kết quả của cấu hình hiện tại ghi vào thư mục MỚI (ISIC v10, RSNA rsna_v2) — không đụng kết quả cũ."""
 
 from pathlib import Path
 
@@ -9,7 +8,6 @@ from conftest import CONFIGS
 from dass.config import Layout, load_config
 
 ISIC_ROOT = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3")
-BT_ROOT = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/BrainTumor_GAN")
 
 
 def _layout(name: str, tag: str | None = None) -> Layout:
@@ -30,17 +28,8 @@ def test_isic_artifact_paths():
     assert lay.expected_split is None
 
 
-def test_brain_tumor_artifact_paths():
-    lay = _layout("brain_tumor_dass.yaml")
-    assert lay.gan_best_pkl == BT_ROOT / "checkpoints_bt/stylegan2ada/best.pkl"
-    assert lay.expected_split == BT_ROOT / "checkpoints_bt/data/real_split.json"
-    assert lay.results_dir == BT_ROOT / "results_bt_v5"            # tách khỏi results_bt, results_bt_v3, results_bt_v4
-    assert lay.drive_train_images == Path("/content/drive/MyDrive/Colab Notebooks/ColabData/Brain_Tumor_Dataset")
-    assert lay.drive_test_images is None and lay.drive_train_labels is None
-
-
 def test_rsna_artifact_paths():
-    """Dữ liệu gốc (RSNA Pneumonia) tách khỏi kết quả (RSNA Pneumonia/Result_Pneumonia), như Brain Tumor."""
+    """Dữ liệu gốc (RSNA Pneumonia) tách khỏi kết quả (RSNA Pneumonia/Result_Pneumonia)."""
     data = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia")
     out = data / "Result_Pneumonia"
     lay = _layout("rsna_pneumonia_dass.yaml")
@@ -57,15 +46,14 @@ def test_rsna_artifact_paths():
     assert v3.split_json != lay.split_json and v3.expected_split == lay.expected_split   # run mới: so với split v2
 
 
-def test_brain_tumor_uses_three_channels_like_reused_gan():
-    """GAN checkpoints_bt được train trên ảnh 3 kênh -> dữ liệu Brain Tumor cũng 3 kênh (pool không có hậu tố _c1)."""
-    cfg = load_config([CONFIGS / "experiments" / "brain_tumor_dass.yaml"])
-    assert cfg.data.channels == 3 and cfg.paths.gan_tag == "bt"
-    assert cfg.data.force_grayscale is True        # loại nhiễu màu JPEG chỉ có ở lớp negative
+def test_channels_match_the_gan_of_each_dataset():
+    """ISIC: ảnh màu, GAN v5 3 kênh. RSNA: ảnh xám 1 kênh, GAN rsna 1 kênh (pool có hậu tố _c1)."""
     isic = load_config([CONFIGS / "experiments" / "isic2016_dass.yaml"])
-    assert isic.data.force_grayscale is False      # dermoscopy là ảnh màu thật
+    rsna = load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"])
+    assert isic.data.force_grayscale is False and rsna.data.force_grayscale is False
+    assert rsna.data.channels == 1 and rsna.paths.gan_tag == "rsna"
 
 
 def test_local_dirs_are_separated_per_dataset():
-    a, b = _layout("isic2016_dass.yaml"), _layout("brain_tumor_dass.yaml")
-    assert a.train_pp != b.train_pp and "isic2016" in a.train_pp.parts and "brain_tumor" in b.train_pp.parts
+    a, b = _layout("isic2016_dass.yaml"), _layout("rsna_pneumonia_dass.yaml")
+    assert a.train_pp != b.train_pp and "isic2016" in a.train_pp.parts and "rsna_pneumonia" in b.train_pp.parts

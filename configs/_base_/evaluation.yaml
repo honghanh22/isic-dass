@@ -21,7 +21,7 @@ evaluation:
     Generative Augmentation (StyleGAN2-ADA): [M1_random, M2_visual, M3_disease, M5_diversity, M4_visual_disease, M6_dass]
   n_bootstrap: 2000
   # Đánh giá theo nhóm con (cột metadata, ví dụ [ViewPosition] của RSNA): AUC trong từng nhóm + ΔAUC (Holm), mốc
-  # "chỉ dùng thuộc tính", tỉ lệ thuộc tính trong ảnh sinh. Rỗng = bỏ qua (ISIC / Brain Tumor không có metadata).
+  # "chỉ dùng thuộc tính", tỉ lệ thuộc tính trong ảnh sinh. Rỗng = bỏ qua (ISIC không có metadata).
   subgroup_columns: []
   kid_subsets: 50                # KID (Inception-v3): mean ± std qua các tập con
   kid_subset_size: 1000

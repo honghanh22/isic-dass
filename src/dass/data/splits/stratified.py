@@ -1,7 +1,8 @@
 """Chia ngẫu nhiên phân tầng theo lớp: [test | val | train] theo thứ tự sau khi xáo trộn.
 
 - `holdout_val` (có tập test riêng, ví dụ ISIC): test = 0, chỉ tách val — tái lập đúng notebook ISIC v5.
-- `stratified` (không có tập test riêng, ví dụ Brain Tumor): tách test rồi val — tái lập đúng notebook Brain v1.
+- `stratified` (không có tập test riêng, ví dụ RSNA): tách test rồi val — thuật toán được khoá bằng test regression
+  (GAN rsna gắn với split rsna_v2 qua `split.expected`).
   `group_regex` chia theo nhóm (mã bệnh nhân) để mọi ảnh của một bệnh nhân nằm cùng một phần.
 
 Một RNG chung, duyệt lớp theo thứ tự cấu hình. KHÔNG đổi thứ tự gọi RNG: GAN cũ được train trên các split này.

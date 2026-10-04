@@ -1,5 +1,5 @@
 # Chạy thử nhanh (kiểm tra code, KHÔNG dùng cho kết quả báo cáo). Ghép SAU một thực nghiệm bất kỳ:
-#   dass -c configs/experiments/brain_tumor_dass.yaml -c configs/experiments/smoke.yaml run
+#   dass -c configs/experiments/rsna_pneumonia_dass.yaml -c configs/experiments/smoke.yaml run
 # Ghi vào results_smoke / checkpoints_smoke của bộ dữ liệu đó; GAN vẫn dùng lại checkpoint thật (gan_tag giữ nguyên).
 paths:
   run_tag: smoke

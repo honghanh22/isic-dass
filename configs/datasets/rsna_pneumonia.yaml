@@ -14,7 +14,7 @@ data:
   classes: {negative: 0, positive: 1}
   source:
     type: dicom_csv
-    # DỮ LIỆU GỐC (đường dẫn tuyệt đối, tách khỏi drive_root như Brain Tumor): tìm *.dcm + CSV nhãn đệ quy, tự giải nén
+    # DỮ LIỆU GỐC (đường dẫn tuyệt đối, tách khỏi drive_root): tìm *.dcm + CSV nhãn đệ quy, tự giải nén
     # .zip / .tar nếu cần, bỏ qua thư mục kết quả. Thư mục này không có dữ liệu mà có đúng một bản "RSNA Pneumonia (1)"
     # (Google Drive tạo khi trùng tên) chứa dữ liệu -> tự đọc từ bản đó.
     train_images: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia
@@ -44,13 +44,13 @@ data:
 
 generator:
   # X-quang ngực không đối xứng trái / phải (tim, quai động mạch chủ, chữ đánh dấu L / R): GAN không học bản lật ngang,
-  # nếu không khoảng một nửa ảnh sinh có tim bên phải. Mọi tham số GAN khác giữ như ISIC / Brain Tumor.
+  # nếu không khoảng một nửa ảnh sinh có tim bên phải. Mọi tham số GAN khác giữ như ISIC.
   mirror: false
 
 classifier:
   # Người dùng quyết định (2026-10-04): RSNA KHÔNG can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào —
   # không augmentation, và M0 không class weight (baseline mất cân bằng thật; ROS là baseline cân bằng bằng dữ liệu),
-  # như cấu hình v9 / bt_v4. Khác v10 / bt_v5 -> nêu trong bài báo. E_d vẫn train có augmentation + class weight
+  # như cấu hình ISIC v9. Khác ISIC v10 -> nêu trong bài báo. E_d vẫn train có augmentation + class weight
   # (thành phần của DASS); ADA của GAN giữ nguyên.
   augment: false
   baseline_class_weight: false

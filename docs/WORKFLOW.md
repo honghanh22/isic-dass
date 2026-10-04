@@ -69,7 +69,7 @@ Mọi stage chạy lại được: GAN, pool, lựa chọn, dự đoán `.npz` �
    | `stratified` | `test: 0.15, val: 0.176` (+ `group_regex`) | một nguồn ảnh, tự tách test (theo bệnh nhân nếu có mã) |
    | `file` | `file: my_split.csv` (`image_id,split`) | cách chia cố định cho trước |
 
-3. Tạo `configs/experiments/<tên>_dass.yaml` (copy `brain_tumor_dass.yaml`, đổi dòng dataset cuối).
+3. Tạo `configs/experiments/<tên>_dass.yaml` (copy `rsna_pneumonia_dass.yaml`, đổi dòng dataset cuối).
 4. `dass -c configs/experiments/<tên>_dass.yaml run`. Bộ dữ liệu mới cần GAN mới (`gan_tag` mới).
 
 `data.channels: auto` tự nhận diện ảnh xám / màu; ảnh xám được giữ 1 kênh xuyên suốt.
@@ -83,7 +83,7 @@ Mọi stage chạy lại được: GAN, pool, lựa chọn, dự đoán `.npz` �
 | Ý tưởng mới trên cùng pipeline | thêm vào đúng tầng (`selection/`, `models/classifiers/`, …) + tham số + test |
 | Dự án khác hẳn | repo riêng, dùng lại cấu trúc này |
 
-Notebook cũ: đặt vào `notebooks/archive/`, nhờ Claude chuyển thành module (như đã làm với ISIC v5 và Brain Tumor v1).
+Notebook cũ: đặt vào `notebooks/archive/`, nhờ Claude chuyển thành module (như đã làm với ISIC v5).
 
 ## 7. Đồng bộ code giữa máy bạn và Colab
 

@@ -17,18 +17,18 @@ def _write_yaml(path, text):
 
 
 def test_grayscale_folder_dataset_stays_single_channel(tmp_path):
-    # ảnh xám lưu dạng RGB có 3 kênh bằng nhau (như Brain Tumor) + đuôi .jpg lẫn .png
-    src = tmp_path / "Brain_Tumor_Dataset"
+    # ảnh xám lưu dạng RGB có 3 kênh bằng nhau (ví dụ MRI xuất ra JPEG / PNG RGB)
+    src = tmp_path / "Gray_Folder_Dataset"
     for folder, n in [("Negative", 20), ("Positive", 8)]:
         (src / folder).mkdir(parents=True)
         r = np.random.default_rng(len(folder))
         for i in range(n):
             g = r.integers(0, 255, (24, 20), dtype=np.uint8)
             Image.fromarray(np.stack([g] * 3, -1)).save(src / folder / f"{folder}_{i:02d}.png")
-    cfg_path = _write_yaml(tmp_path / "bt.yaml", f"""
+    cfg_path = _write_yaml(tmp_path / "gray_folder.yaml", f"""
 paths: {{drive_root: {tmp_path / 'drive'}, local_root: {tmp_path / 'local'}, run_tag: t}}
 data:
-  name: bt
+  name: gray_folder
   channels: auto
   img_size: 16
   classes: {{negative: 0, positive: 1}}

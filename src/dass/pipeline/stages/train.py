@@ -35,7 +35,7 @@ def run(cfg: Config, model_name: str, seeds: list[int] | None = None, archive_mi
                       **{m: v for m, v in selections.items() if m != BASELINE}}
     sel = cfg.selection
     # Class weight: M7 (lớp đa số to ra vì có ảnh sinh) luôn có; baseline M0 khi bật classifier.baseline_class_weight
-    # (mặc định bật; tắt -> M0 train thẳng trên dữ liệu mất cân bằng, như v9 / bt_v4).
+    # (mặc định bật; tắt -> M0 train thẳng trên dữ liệu mất cân bằng, như ISIC v9 / RSNA).
     # (dùng hằng BASELINE, không dùng evaluation.baseline_method: đổi đối chứng thống kê không được đổi cách train)
     class_weight_methods = {BOTH_CLASSES} | ({BASELINE} if cfg.classifier.baseline_class_weight else set())
     variants = prepare_variants(ctx.layout.variants, ctx.layout.train_pp, ctx.split, ctx.budget.minority, selections,

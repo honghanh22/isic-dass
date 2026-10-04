@@ -1,5 +1,5 @@
-"""Ảnh y tế xám lưu dạng RGB có nhiễu màu JPEG CHỈ ở một lớp (Brain Tumor: 129 / 2000 ảnh negative, 0 / 400 positive)
-là manh mối màu giả gắn với nhãn. `force_grayscale` phải loại bỏ nó: mọi ảnh lưu 3 kênh BẰNG NHAU."""
+"""Tuỳ chọn chung `data.force_grayscale`: ảnh y tế xám lưu dạng RGB có nhiễu màu JPEG CHỈ ở một lớp là manh mối màu
+giả gắn với nhãn. `force_grayscale` phải loại bỏ nó: mọi ảnh lưu 3 kênh BẰNG NHAU (luminance của PIL)."""
 
 import numpy as np
 from PIL import Image
@@ -55,20 +55,20 @@ def test_pool_tag_separates_gray_pools():
     assert pool_tag(1200, 1344, channels=3, force_gray=True) == "from1200kimg_n1344_gray"
 
 
-def test_brain_like_dataset_has_no_label_correlated_color(tmp_path, rng):
-    """Nhiễu màu chỉ ở lớp negative (như dữ liệu thật) -> sau tiền xử lý mọi ảnh 3 kênh bằng nhau ở cả hai lớp."""
-    src = tmp_path / "Brain_Tumor_Dataset"
+def test_gray_as_rgb_dataset_has_no_label_correlated_color(tmp_path, rng):
+    """Nhiễu màu chỉ ở lớp negative -> sau tiền xử lý mọi ảnh 3 kênh bằng nhau ở cả hai lớp."""
+    src = tmp_path / "Gray_RGB_Dataset"
     for folder, n, noisy in [("Negative", 20, True), ("Positive", 8, False)]:
         (src / folder).mkdir(parents=True)
         for i in range(n):
             arr = _noisy_rgb(rng) if noisy and i % 3 == 0 else np.repeat(rng.integers(0, 255, (20, 24, 1),
                                                                                       dtype=np.uint8), 3, -1)
             Image.fromarray(arr).save(src / folder / f"{folder}_{i:02d}.png")
-    cfg_path = tmp_path / "bt.yaml"
+    cfg_path = tmp_path / "gray_rgb.yaml"
     cfg_path.write_text(f"""
 paths: {{drive_root: {tmp_path / 'drive'}, local_root: {tmp_path / 'local'}, run_tag: t}}
 data:
-  name: bt
+  name: gray_rgb
   channels: 3
   force_grayscale: true
   img_size: 16

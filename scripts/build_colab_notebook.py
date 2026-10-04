@@ -76,13 +76,13 @@ print("PROJECT_DIR =", PROJECT_DIR)
 md("""
 ## 1. Chọn thực nghiệm
 
-`EXPERIMENT`: `configs/experiments/isic2016_dass.yaml`, `configs/experiments/brain_tumor_dass.yaml` hoặc
-`configs/experiments/rsna_pneumonia_dass.yaml` (RSNA: `prepare` tự đọc DICOM; `gan` train GAN mới, chạy lâu).
+`EXPERIMENT`: `configs/experiments/rsna_pneumonia_dass.yaml` (RSNA: `prepare` tự đọc DICOM; GAN `rsna` đã train) hoặc
+`configs/experiments/isic2016_dass.yaml`.
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
 """)
 code("""
-EXPERIMENT = "configs/experiments/brain_tumor_dass.yaml"
+EXPERIMENT = "configs/experiments/rsna_pneumonia_dass.yaml"
 PROFILE = ""          # "configs/experiments/smoke.yaml" để chạy thử
 EXTRA = ""            # ví dụ "--set selection.gamma=0.25 --tag gamma025"
 CFG = f"-c {EXPERIMENT}" + (f" -c {PROFILE}" if PROFILE else "") + (f" {EXTRA}" if EXTRA else "")
@@ -129,7 +129,7 @@ md("""
 
 `gan-setup` clone repo NVlabs, vá cho PyTorch 2.x và biên dịch plugin CUDA. `gan` train với early stopping theo KID
 của lớp thiểu số — **Colab ngắt thì chạy lại đúng cell này** để resume. GAN đã train xong (ISIC: `checkpoints_v5`,
-Brain Tumor: `checkpoints_bt`) được dùng lại ngay. `--fresh-start` XOÁ GAN cũ.
+RSNA: `checkpoints_rsna`) được dùng lại ngay. `--fresh-start` XOÁ GAN cũ.
 """)
 code("""
 !dass {CFG} gan-setup

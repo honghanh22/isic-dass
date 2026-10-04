@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB), Brain Tumor MRI (ảnh xám) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`; đề xuất thay Brain Tumor), chạy chung một package `dass` và **cùng công thức**; chỉ khác nhau ở `configs/datasets/*.yaml`.
+Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`), chạy chung một package `dass` và **cùng công thức DASS**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
@@ -15,7 +15,7 @@ Tài liệu:
 
 Quy ước ngôn ngữ: chú thích, docstring, log và `docs/` viết bằng **tiếng Việt**; tên hàm / biến và README bằng tiếng Anh.
 
-`notebooks/archive/` là notebook gốc (ISIC v5, Brain Tumor v1), chỉ để tham khảo; **không chạy, không dùng làm nguồn sự thật**.
+`notebooks/archive/` là notebook gốc (ISIC v5), chỉ để tham khảo; **không chạy, không dùng làm nguồn sự thật**.
 
 ## Lệnh
 
@@ -24,7 +24,7 @@ pip install -e ".[dev]"            # cục bộ, không cần GPU
 pytest                             # unit + regression, ~10 s; không cần TF / torch / GPU
 ruff check src tests scripts
 python -m compileall -q src        # kiểm tra cú pháp các module TF / torch không import được cục bộ
-dass -c configs/experiments/brain_tumor_dass.yaml show-config
+dass -c configs/experiments/rsna_pneumonia_dass.yaml show-config
 python scripts/build_colab_notebook.py   # sinh lại notebooks/colab_pipeline.ipynb
 ```
 
@@ -45,10 +45,10 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 ## Bất biến (không được phá vỡ — đa số có test regression)
 
 - **Giữ số kênh gốc:** mọi đọc / ghi ảnh đi qua `data/image_io.py`. Ảnh xám lưu PNG "L" và được giữ 1 kênh. Chỉ nhân bản 1 → 3 kênh trên bộ nhớ, ngay trước mạng pretrain (`data/loaders.to_backbone_input`, `models/generator/inception`). Không bước nào được biến đổi ảnh theo từng kênh. GAN 3 kênh dùng cho dữ liệu 1 kênh chỉ được gộp kênh khi 3 kênh giống hệt nhau (`generator.channel_tolerance`).
-- Brain Tumor dùng `channels: 3` cùng `force_grayscale: true`: ảnh thật và ảnh sinh đều lưu 3 kênh bằng nhau, vì nhiễu màu JPEG chỉ có ở lớp negative nên sẽ thành shortcut. Mọi phép chuyển xám phải dùng đúng luminance của PIL (`convert("L")`), giống nhau cho ảnh thật và ảnh sinh.
+- Tuỳ chọn chung `force_grayscale` (hiện không bộ dữ liệu nào dùng): ảnh xám lưu RGB được chuyển về luminance rồi lưu 3 kênh bằng nhau, cho cả ảnh thật và ảnh sinh (tránh nhiễu màu JPEG gắn với một lớp). Mọi phép chuyển xám phải dùng đúng luminance của PIL (`convert("L")`), giống nhau cho ảnh thật và ảnh sinh.
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_macro_recall`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
-- `data/splits/stratified.py` phải tái lập **đúng** split của notebook ISIC v5 và Brain Tumor v1 (GAN cũ được train trên đó). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
+- `data/splits/stratified.py` phải giữ **đúng** thuật toán đã khoá trong `tests/regression/test_split_reproduction.py` (ISIC: split của notebook v5, GAN `v5`; RSNA: split `rsna_v2`, GAN `rsna` gắn qua `split.expected`). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
 - Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
   (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
   trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Không đổi **mã** các biến thể đã có (mã nằm trong `.npz` trên
@@ -58,14 +58,14 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   M6 vs M1).
 - **Huấn luyện classifier như ISIC v7** (người dùng quyết định, 1.5.0): `classifier.augment: true` (cùng augmentation
   cho mọi biến thể) và `classifier.baseline_class_weight: true` (M0 = "Imbalanced Baseline (class-weighted)"). Cấu
-  hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9` / Brain `bt_v4`, giữ nguyên để báo cáo riêng. E_d luôn train có
+  hình 1.4.0 (cả hai tắt) đã chạy ở ISIC `v9`, giữ nguyên để báo cáo riêng. E_d luôn train có
   augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA của GAN giữ nguyên.
   **Ngoại lệ RSNA** (người dùng quyết định: không can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào):
   `classifier.augment: false` (1.8.2) và `classifier.baseline_class_weight: false` (1.9.1; M0 = baseline mất cân bằng
-  thật, như v9 / bt_v4) trong `configs/datasets/rsna_pneumonia.yaml`. RSNA còn `generator.mirror: false` (X-quang
+  thật, như ISIC v9) trong `configs/datasets/rsna_pneumonia.yaml`. RSNA còn `generator.mirror: false` (X-quang
   không đối xứng trái / phải). Các khác biệt này có test; mọi tham số khác của classifier / GAN giống ISIC. Khi người
   dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.
-- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (ISIC `v10`, RSNA `rsna_v2`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 - Kiểm định: paired bootstrap ΔAUC trên ensemble seed + ΔAUC theo từng seed + `p_holm` (Holm trong mỗi model). RSNA có
   phân tích nhóm con theo tư thế (`evaluation.subgroup_columns: [ViewPosition]`, đăng ký trước kết quả test): AUC

@@ -182,7 +182,7 @@ class ClassifierConfig:
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_macro_recall"
     augment: bool = True             # augmentation khi train classifier (mọi biến thể, chỉ tập train)
-    baseline_class_weight: bool = True   # M0 có class weight (false: baseline mất cân bằng thật, như v9 / bt_v4)
+    baseline_class_weight: bool = True   # M0 có class weight (false: baseline mất cân bằng thật, như ISIC v9 / RSNA)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"

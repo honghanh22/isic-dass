@@ -1,4 +1,4 @@
-"""Nguồn dạng thư mục chia sẵn theo lớp `<root>/<thư mục lớp>/*` (ví dụ Brain Tumor)."""
+"""Nguồn dạng thư mục chia sẵn theo lớp `<root>/<thư mục lớp>/*` (kiểu phổ biến của bộ dữ liệu trên Kaggle)."""
 
 from __future__ import annotations
 

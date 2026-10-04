@@ -2,26 +2,26 @@
 
 Tài liệu dành cho người mới tiếp cận dự án, đồng thời là nguồn tham chiếu khi viết phần *Phương pháp* và *Thực
 nghiệm* của bài báo. Mọi công thức, con số và tham số dưới đây khớp với code (`src/dass/`) và cấu hình (`configs/`)
-của phiên bản **1.9.0**: k = 1,5 cho cả ba bộ dữ liệu; ISIC `v10` và Brain Tumor `bt_v5` train classifier có
-augmentation và M0 có class weight; RSNA `rsna_v2` không can thiệp dữ liệu (không augmentation, M0 không class
-weight). Khi đổi code hoặc cấu hình,
-cập nhật file này.
+của phiên bản **1.10.0**. Hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**; k = 1,5 cho cả hai. Brain Tumor
+đã bị loại khỏi dự án và bài báo (1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp; kết quả cũ vẫn
+trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
 
 **Các cấu hình đã chạy** (kết quả đều giữ trên Drive, không trộn với nhau):
 
-| Run tag (ISIC / Brain) | k | Augmentation classifier | Class weight M0 | Ghi chú |
+| Run tag | k | Augmentation classifier | Class weight M0 | Ghi chú |
 |---|---|---|---|---|
-| `v7` / — | 4 | có | có | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
-| — / `bt_v3` | 3 | có | có | Brain: EfficientNetV2B0, ResNet50, ConvNeXtTiny |
-| `v9` / `bt_v4` | 2 | **không** | **không** | ISIC: EfficientNetV2B0, ResNet50 |
-| **`v10` / `bt_v5`** | **1,5** | **có** | **có** | **cấu hình hiện tại** |
+| ISIC `v7` | 4 | có | có | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
+| ISIC `v9` | 2 | **không** | **không** | EfficientNetV2B0, ResNet50 |
+| **ISIC `v10`** | **1,5** | **có** | **có** | cấu hình hiện tại của ISIC |
+| **RSNA `rsna_v2`** | **1,5** | **không** | **không** | cấu hình chính của RSNA (mục 2.5) |
 
-RSNA Pneumonia (mục 2.5) dùng cùng công thức DASS với `v10` / `bt_v5` (k = 1,5) **nhưng classifier không can thiệp
-dữ liệu**: không augmentation (1.8.2) và M0 không class weight (1.9.1), như `v9` / `bt_v4` (người dùng quyết định;
-M0 của ResNet50 lỡ train có class weight được chuyển sang `predictions_superseded/` và train lại): `rsna_v2` là cấu hình chính
-(toàn bộ ảnh, đã loại "Exclude"); `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
+RSNA dùng cùng công thức DASS với ISIC `v10` (k = 1,5) **nhưng classifier không can thiệp dữ liệu**: không
+augmentation (1.8.2) và M0 không class weight (1.9.1), như ISIC `v9` (người dùng quyết định; M0 của ResNet50 lỡ train
+có class weight được chuyển sang `predictions_superseded/` và train lại). `rsna_v2`: toàn bộ ảnh, đã loại "Exclude";
+`rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`. Hai bộ dữ liệu hiện chạy **khác giao thức classifier**: muốn so
+sánh trực tiếp thì cần thêm một lần chạy ISIC không can thiệp với k = 1,5.
 
-**Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`, `bt_v3`) và mọi E_d cũ dùng augmentation tương quan này; `v10` / `bt_v5` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
+**Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`) và mọi E_d cũ dùng augmentation tương quan này; `v10` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
 
 Cấu hình được đổi nhiều lần sau khi đã xem kết quả test. Khi viết bài báo phải nêu rõ điều này, và nên báo cáo kết
 quả của mọi cấu hình đã chạy (ví dụ trong phụ lục) thay vì chỉ chọn cấu hình có kết quả đẹp nhất.
@@ -98,7 +98,7 @@ Tám biến thể M0, M0b, M1–M6 ([mục 3.7](#37-các-biến-thể-so-sánh))
 | RQ3 | Ảnh sinh có mang thêm thông tin so với **nhân bản ảnh thật** không? (cùng số ảnh, cùng số bước train, cùng cách cân bằng) | M6 vs M0b | **H2: AUC(M6) > AUC(M0b)** |
 | RQ4 | Chọn lọc có tốt hơn chọn ngẫu nhiên không? | M6 vs M1 | **H3: AUC(M6) > AUC(M1)** |
 | RQ5 | Mỗi thành phần đóng góp gì? | M2 / M3 vs M4 (một hay hai không gian); M4 vs M6 (thêm đa dạng); M5 vs M6 (thêm điểm lề) | H4: M6 ≥ M2, M3, M4, M5 |
-| RQ6 | Kết quả có nhất quán giữa các backbone (CNN, Transformer) và giữa các bộ dữ liệu không? | 6 backbone × 3 bộ dữ liệu (ISIC, Brain Tumor, RSNA; RSNA không augmentation, M0 không class weight — khác giao thức, nêu khi so sánh) | H5: chiều của H1–H3 giữ ở đa số cấu hình |
+| RQ6 | Kết quả có nhất quán giữa các backbone (CNN, Transformer) và giữa các bộ dữ liệu không? | 6 backbone × 2 bộ dữ liệu (ISIC, RSNA; RSNA không augmentation, M0 không class weight — khác giao thức ISIC `v10`, cần một lần chạy ISIC cùng giao thức để so sánh trực tiếp) | H5: chiều của H1–H3 giữ ở đa số cấu hình |
 | RQ7 | Ảnh được chọn khác pool như thế nào (chất lượng, khả năng tạo shortcut)? | KID, AUC thật-vs-sinh, Jaccard | (mô tả) |
 
 **H1, H2, H3** được kiểm định thống kê trực tiếp bằng paired bootstrap ΔAUC: mọi biến thể so với M0, cộng hai cặp
@@ -111,69 +111,69 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 
 ### 2.1 Hai bộ dữ liệu
 
-| | ISIC 2016 Part 3 | Brain Tumor MRI |
+| | ISIC 2016 Part 3 | RSNA Pneumonia (chi tiết ở mục 2.5) |
 |---|---|---|
-| Loại ảnh | dermoscopy, RGB | MRI, xám (lưu dạng 3 kênh bằng nhau, xem 2.2) |
-| Lớp đa số / thiểu số | benign (0) / **malignant (1)** | negative (0) / **positive (1)** |
-| Nguồn | thư mục ảnh `.jpg` + CSV nhãn; có tập test chính thức | thư mục `Negative/`, `Positive/`; không có tập test riêng |
-| Số ảnh gốc | train 900 (727 / 173), test 379 (304 / 75) | 2.000 / 400 |
-| Tỉ lệ mất cân bằng | ≈ 4,2 : 1 | 5 : 1 |
+| Loại ảnh | dermoscopy, RGB | X-quang ngực, DICOM xám 1 kênh |
+| Lớp đa số / thiểu số | benign (0) / **malignant (1)** | negative (0) / **positive (1)** = "Lung Opacity" |
+| Nguồn | thư mục ảnh `.jpg` + CSV nhãn; có tập test chính thức | DICOM + nhãn JSON MD.ai; không có tập test có nhãn |
+| Số ảnh dùng | train 900 (727 / 173), test 379 (304 / 75) | 12.249 (10.738 / 1.511), 1 ảnh mỗi bệnh nhân |
+| Tỉ lệ mất cân bằng | ≈ 4,2 : 1 | ≈ 7,1 : 1 |
 
 ### 2.2 Tiền xử lý (chạy một lần, áp dụng như nhau cho mọi tập)
 
-| Bước | ISIC 2016 | Brain Tumor |
+| Bước | ISIC 2016 | RSNA Pneumonia |
 |---|---|---|
-| Đọc ảnh | RGB | chuyển về luminance bằng `PIL.convert("L")`, lưu thành **3 kênh bằng nhau** (`force_grayscale`) |
-| Cắt viền | cắt viền đen: pixel có trung bình kênh > 15 được coi là nội dung; chỉ cắt khi vùng nội dung chiếm **< 50 %** một cạnh | không cắt (ảnh đã sát viền, tỉ lệ nội dung trung vị ≈ 0,90) |
-| Đưa về 256 × 256 | kéo giãn (bilinear) | **đệm nền đen thành ảnh vuông** (giữ tỉ lệ giải phẫu), rồi resize bilinear |
+| Đọc ảnh | RGB | DICOM → PNG xám 1 kênh (8 bit, giữ nguyên giá trị) |
+| Cắt viền | cắt viền đen: pixel có trung bình kênh > 15 được coi là nội dung; chỉ cắt khi vùng nội dung chiếm **< 50 %** một cạnh | không cắt (tỉ lệ nội dung trung vị 1,00) |
+| Đưa về 256 × 256 | kéo giãn (bilinear) | kéo giãn (ảnh gốc đã vuông 1024 × 1024) |
 | Lưu | PNG | PNG |
 
 - **Mọi ảnh lưu PNG** (nén không mất dữ liệu), để ảnh thật và ảnh sinh không khác nhau về kiểu nén.
-- **Lý do dùng `force_grayscale` cho Brain Tumor:** 129 / 2.000 ảnh negative có nhiễu màu JPEG (độ lệch giữa các kênh
-  ≤ 3,1 mức xám), trong khi 0 / 400 ảnh positive có nhiễu này. "Có chút màu" vì thế gắn với nhãn negative và trở thành
-  manh mối giả (shortcut). Sau khi chuyển về luminance, 2.271 / 2.400 ảnh giữ nguyên giá trị. Ảnh sinh đi qua **đúng
-  cùng phép chuyển** này.
+- Tuỳ chọn chung `force_grayscale` (chuyển ảnh xám lưu RGB về luminance, 3 kênh bằng nhau, cho cả ảnh thật và ảnh sinh)
+  vẫn có trong code nhưng hiện không bộ dữ liệu nào dùng.
 - Khi đưa vào classifier, ảnh được resize về 224 × 224 rồi chuẩn hoá theo yêu cầu của từng backbone.
 
 ### 2.3 Cách chia
 
-| | ISIC 2016 | Brain Tumor |
+| | ISIC 2016 | RSNA Pneumonia |
 |---|---|---|
 | Kiểu chia | `holdout_val`: tách val 15 % từ train (phân tầng theo lớp) | `stratified`: test 15 %, sau đó val 17,6 % phần còn lại, tức **70 / 15 / 15** |
-| Train (đa số + thiểu số) | 618 + 148 | 1.401 + 281 |
-| Val | 109 + 25 | 299 + 59 |
-| Test | 304 + 75 (chính thức) | 300 + 60 |
+| Train (đa số + thiểu số) | 618 + 148 | 7.522 + 1.059 |
+| Val | 109 + 25 | 1.606 + 226 |
+| Test | 304 + 75 (chính thức) | 1.610 + 226 |
 
 - Split **tất định** (seed toàn cục 2026), lưu thành JSON. Chạy lại với cách chia khác mà vẫn giữ `run_tag` thì lệnh
   **dừng**, vì kết quả cũ gắn với split cũ.
-- Split **tái lập đúng** split của notebook gốc (ISIC v5, Brain Tumor v1), vì GAN được dùng lại đã train trên phần
-  train của split đó. Brain Tumor có kiểm tra tự động với `checkpoints_bt/data/real_split.json` (`split.expected`).
-  ISIC được bảo đảm bằng test regression `tests/regression/test_split_reproduction.py`.
+- GAN chỉ được thấy phần train của split nó đã train. ISIC: split tái lập đúng notebook v5 (test regression
+  `tests/regression/test_split_reproduction.py`). RSNA: GAN `rsna` gắn với split `rsna_v2` qua `split.expected`, kiểm
+  tra tự động ở mọi stage; thuật toán `stratified` cũng được khoá bằng test regression.
 - **Val và test luôn 100 % ảnh thật.**
 
 ### 2.4 Ngân sách sinh và ý nghĩa của k
 
-| | ISIC 2016 | Brain Tumor |
+| | ISIC 2016 | RSNA Pneumonia |
 |---|---|---|
-| n = n_maj − n_min | 618 − 148 = **470** | 1.401 − 281 = **1.120** |
+| n = n_maj − n_min | 618 − 148 = **470** | 7.522 − 1.059 = **6.463** |
 | k (`pool_mult`) | 1,5 | 1,5 |
-| N = ⌈k · n⌉ (pool) | **705** | **1.680** |
-| Tập train sau khi thêm ảnh sinh | 618 : (148 + 470) = **1 : 1** | 1.401 : (281 + 1.120) = **1 : 1** |
+| N = ⌈k · n⌉ (pool) | **705** | **9.695** |
+| Tập train sau khi thêm ảnh sinh | 618 : (148 + 470) = **1 : 1** | 7.522 : (1.059 + 6.463) = **1 : 1** |
+| Tỉ lệ ảnh sinh trong lớp thiểu số | 76 % | 86 % |
 
 - **n quyết định tỉ lệ lớp cuối cùng** (luôn 1 : 1). **k chỉ quyết định độ chọn lọc:** DASS giữ 1/k pool.
   - k = 1: pool đúng bằng n, nên mọi biến thể M1–M6 chọn **cùng một tập** (không có gì để chọn).
   - k = 1,5: mỗi biến thể giữ 2/3 pool (loại 1/3). k lớn hơn thì chọn lọc gắt hơn, nhưng tập được chọn lệch xa phân
     phối ảnh thật hơn.
-- **k = 1,5** (từ phiên bản 1.5.0), dùng chung cho mọi bộ dữ liệu. Lịch sử: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` /
-  `bt_v4`) → 1,5. Lý do giảm dần: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật (Brain k = 3: KID 0,100 so
-  với 0,029 của toàn pool; độ đa dạng 0,168 so với 0,241). CosSIF (FAGT) cũng chỉ loại 15–25 % ảnh sinh (k ≈ 1,2–1,3).
+- **k = 1,5** (từ phiên bản 1.5.0), dùng chung cho mọi bộ dữ liệu. Lịch sử: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5.
+  Lý do giảm dần: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật (ở một lần chạy với k = 3: KID của tập chọn
+  0,100 so với 0,029 của toàn pool; độ đa dạng 0,168 so với 0,241). CosSIF (FAGT) cũng chỉ loại 15–25 % ảnh sinh (k ≈ 1,2–1,3).
   **Phải nêu trong bài báo** rằng k được đổi sau các lần chạy trước, kèm lý do. Không chạy ablation theo k.
 - **Mốc tham chiếu khi đọc Jaccard:** hai tập con ngẫu nhiên độc lập, mỗi tập chiếm 1/k pool, có Jaccard kỳ vọng
   1/(2k − 1) = **0,5** khi k = 1,5.
 
-### 2.5 Bộ dữ liệu thứ ba: RSNA Pneumonia (X-quang ngực)
+### 2.5 Chi tiết RSNA Pneumonia (X-quang ngực)
 
-Đề xuất thay cho Brain Tumor, vì có nguồn gốc rõ ràng, hai lớp cùng nguồn chụp và đủ ảnh lớp thiểu số để train GAN.
+Chọn vì có nguồn gốc rõ ràng, nhãn do bác sĩ gán và hội chẩn, hai lớp cùng nguồn chụp, đủ ảnh lớp thiểu số để train
+GAN, và còn chỗ để cải thiện (không chạm trần).
 
 | | RSNA Pneumonia Detection Challenge 2018 |
 |---|---|
@@ -186,7 +186,7 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
 | Augmentation | classifier: **không** (`classifier.augment: false`, người dùng quyết định); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
-| GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó, như Brain Tumor |
+| GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
   sang PNG và ghi `checkpoints_rsna_v2/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi). Đổi thiết lập nguồn
@@ -252,9 +252,8 @@ xong được khôi phục hoặc bỏ qua).
   - Snapshot được tính là **cải thiện** khi KID < 0,98 × KID tốt nhất trước đó (giảm ít nhất 2 %).
   - Sau 400 kimg, nếu 5 snapshot liên tiếp không cải thiện thì dừng. Tối đa 3.000 kimg.
   - Bước sau dùng **snapshot có KID thấp nhất** (`best.pkl`), không dùng snapshot cuối.
-- **Hiện trạng:** ISIC và Brain Tumor **dùng lại GAN đã train**. Brain Tumor dùng `checkpoints_bt`: KID tốt nhất
-  0,02985 tại 1.200 kimg, dừng sớm ở 1.700 kimg. ISIC dùng `checkpoints_v5`. Khi đó lệnh `gan` chỉ báo cáo (đường KID,
-  ảnh mẫu) và không train lại. RSNA train GAN mới (`checkpoints_rsna`, 1 kênh, `mirror: false`): KID tốt nhất 0,0145
+- **Hiện trạng:** ISIC **dùng lại GAN đã train** (`checkpoints_v5`, KID tốt nhất 0,02007 tại 1.800 kimg, dừng sớm ở
+  2.300 kimg); khi đó lệnh `gan` chỉ báo cáo (đường KID, ảnh mẫu) và không train lại. RSNA train GAN mới (`checkpoints_rsna`, 1 kênh, `mirror: false`): KID tốt nhất 0,0145
   tại 800 kimg, dừng sớm ở 1.300 kimg (khoảng 5,5 giờ trên A100); xác suất ADA chỉ 0–0,03 (đủ dữ liệu, gần như không
   cần tăng cường).
 
@@ -262,8 +261,7 @@ xong được khôi phục hoặc bỏ qua).
 
 - Sinh N = ⌈k · n⌉ ảnh lớp thiểu số từ `best.pkl` với `truncation ψ = 1` (không cắt bớt độ đa dạng). Seed cố định
   777, nên pool tái lập được. Pool được nén zip lên Drive.
-- Ảnh sinh lưu đúng số kênh của bộ dữ liệu. Với Brain Tumor, ảnh sinh đi qua đúng phép chuyển luminance như ảnh thật
-  (log in ra `force_gray=1`).
+- Ảnh sinh lưu đúng số kênh của bộ dữ liệu: ISIC 3 kênh; RSNA 1 kênh (generator 1 kênh, pool có hậu tố `_c1`).
 - **Mọi biến thể chọn từ cùng một pool**, nên khác biệt giữa các biến thể chỉ đến từ tiêu chí chọn.
 
 ### 3.4 Hai không gian đặc trưng
@@ -333,8 +331,9 @@ M1–M6 chọn **đúng n ảnh sinh từ cùng một pool**. M0 và M0b không 
 
 **Cách M0b nhân bản ảnh** (`data.variants.oversample_indices`, seed 2026): cần thêm n bản sao từ n_min ảnh thật, nên
 mỗi ảnh được lặp q = ⌊n / n_min⌋ lần, và r = n mod n_min ảnh (chọn ngẫu nhiên, không lặp) được lặp thêm một lần. Số
-lần xuất hiện của các ảnh vì thế chênh nhau tối đa 1. Ví dụ Brain Tumor: 1.120 = 281 × 3 + 277, nên mỗi ảnh positive
-thật xuất hiện 4 hoặc 5 lần trong tập train, mỗi lần với một phép augmentation khác nhau. M0b không chọn gì từ pool
+lần xuất hiện của các ảnh vì thế chênh nhau tối đa 1. Ví dụ ISIC: 470 = 148 × 3 + 26, nên mỗi ảnh malignant thật xuất
+hiện 4 hoặc 5 lần trong tập train; RSNA: 6.463 = 1.059 × 6 + 109, nên mỗi ảnh dương thật xuất hiện 7 hoặc 8 lần (RSNA
+không augmentation, nên đây là các bản sao y hệt). M0b không chọn gì từ pool
 nên không nằm trong `selections.json`; tập train của M0b được ghép ở bước `train` (bật bằng
 `selection.oversample_variant`, mặc định bật). Lý do có M0b: theo Buda et al. (2018), oversampling tới 1 : 1 là cách
 xử lý mất cân bằng đơn giản mạnh nhất với CNN, nên **M6 vs M0b** là phép so sánh công bằng nhất cho đóng góp của
@@ -355,24 +354,24 @@ thực nghiệm chính.
 
 **Cân bằng lớp:**
 
-| | Số ảnh train (Brain Tumor) | Bước mỗi epoch | Cân bằng bằng |
-|---|---|---|---|
-| M0 (Imbalanced Baseline, class-weighted) | 1.401 : 281 | 106 | **class weight** w_c = N_train / (2 · n_c) |
-| M0b (ROS) | 1.401 : (281 + 1.120 bản sao) | 176 | dữ liệu (ảnh thật nhắc lại) |
-| M1–M6 | 1.401 : (281 + 1.120 ảnh sinh) | 176 | dữ liệu (ảnh sinh) |
+| | Số ảnh train: ISIC (`v10`) | RSNA (`rsna_v2`) | Bước mỗi epoch (ISIC / RSNA) | Cân bằng bằng |
+|---|---|---|---|---|
+| M0 Imbalanced Baseline | 618 : 148 | 7.522 : 1.059 | 48 / 537 | ISIC: **class weight** w_c = N_train / (2 · n_c); RSNA: **không cân bằng** |
+| M0b (ROS) | 618 : (148 + 470 bản sao) | 7.522 : (1.059 + 6.463 bản sao) | 78 / 941 | dữ liệu (ảnh thật nhắc lại) |
+| M1–M6 | 618 : (148 + 470 ảnh sinh) | 7.522 : (1.059 + 6.463 ảnh sinh) | 78 / 941 | dữ liệu (ảnh sinh) |
 
-- Như ISIC `v7`: mọi biến thể dùng **cùng augmentation** (`classifier.augment: true`), M0 cân bằng bằng **class
-  weight** (`classifier.baseline_class_weight: true`). Mọi biến thể vì thế có tỉ lệ lớp hiệu dụng 1 : 1, và ngưỡng 0,5
-  so sánh được giữa các biến thể.
+- ISIC `v10` (như ISIC `v7`): mọi biến thể dùng **cùng augmentation** (`classifier.augment: true`), M0 cân bằng bằng
+  **class weight** (`classifier.baseline_class_weight: true`). Mọi biến thể vì thế có tỉ lệ lớp hiệu dụng 1 : 1, và
+  ngưỡng 0,5 so sánh được giữa các biến thể.
 - M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách cân bằng; chỉ khác **nội dung** ảnh thêm vào. Vì vậy
   **M6 vs M0b** là phép so sánh chặt chẽ nhất.
-- Cấu hình không can thiệp dữ liệu (`v9` / `bt_v4`) chạy lại được bằng `--set classifier.augment=false
+- Cấu hình không can thiệp dữ liệu (ISIC `v9`) chạy lại được bằng `--set classifier.augment=false
   --set classifier.baseline_class_weight=false` kèm `--tag` riêng.
 - **RSNA (`rsna_v2`): không can thiệp dữ liệu ở classifier** — không augmentation (`classifier.augment: false`) và M0
-  **không class weight** (`classifier.baseline_class_weight: false`), như `v9` / `bt_v4`. M0 vì thế là baseline mất cân
+  **không class weight** (`classifier.baseline_class_weight: false`), như ISIC `v9`. M0 vì thế là baseline mất cân
   bằng thật (1 : 7,1); ROS là baseline cân bằng bằng ảnh thật. Tên trong bảng tự thành "Imbalanced Baseline" (không có
   hậu tố "(class-weighted)"). Ở ngưỡng 0,5, M0 sẽ ít khi đoán dương nên sensitivity thấp; so sánh chính dựa vào AUC.
-  Khác `v10` / `bt_v5` ở điểm này, phải nêu trong bài báo.
+  Khác ISIC `v10` ở điểm này, phải nêu trong bài báo.
 - Mỗi `.npz` ghi giao thức train (augment, class_weight). Gặp `.npz` của giao thức khác, `train` dừng báo lỗi;
   `train --archive-mismatched` chuyển nó (và trọng số) sang `predictions_superseded/<giao thức>/` (không xoá) rồi train
   lại, nên thư mục `predictions/` luôn chỉ có một giao thức. Ở `rsna_v2`, phần EfficientNetV2B0 lỡ train có
@@ -385,15 +384,15 @@ thực nghiệm chính.
 | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny | CNN | `keras.applications` | pooling trung bình → Dropout 0,3 → Dense(1, sigmoid) |
 | ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
-**Augmentation** (chỉ tập train, **giống hệt nhau cho mọi biến thể, kể cả M0 và M0b**): lật ngang và dọc, xoay
-ngẫu nhiên tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %. Augmentation được áp dụng trực
-tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng số ảnh và không đổi tỉ lệ lớp; tác dụng của ảnh sinh được
-đo **trên nền** augmentation. Ngoài ra:
-- **ADA của StyleGAN2-ADA** là augmentation cho discriminator khi train GAN (GAN được dùng lại, đã train xong);
-- **E_d** (encoder bệnh của DASS) train với augmentation và class weight.
+**Augmentation** của classifier (ISIC; RSNA không dùng) — chỉ tập train, **giống hệt nhau cho mọi biến thể, kể cả M0
+và M0b**: lật ngang và dọc, xoay ngẫu nhiên tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %.
+Augmentation được áp dụng trực tuyến (biến đổi ngẫu nhiên mỗi batch), nên không làm tăng số ảnh và không đổi tỉ lệ lớp;
+tác dụng của ảnh sinh được đo **trên nền** augmentation. Ngoài ra:
+- **ADA của StyleGAN2-ADA** là augmentation cho discriminator khi train GAN;
+- **E_d** (encoder bệnh của DASS) luôn train với augmentation và class weight (RSNA dùng profile `upright`: lật ngang,
+  xoay ±10°).
 
-Tiền xử lý dữ liệu (cắt viền đen ở ISIC; đệm vuông và ép xám ở Brain Tumor) là làm sạch dữ liệu, áp dụng như nhau cho
-mọi ảnh, không phải augmentation.
+Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ liệu, áp dụng như nhau cho mọi ảnh, không phải augmentation.
 
 **Huấn luyện 2 giai đoạn** (loss binary cross-entropy, ảnh 224 × 224, batch 16):
 1. Đóng băng backbone, train lớp đầu ra **5 epoch** (AdamW, lr 1e-3).
@@ -422,11 +421,11 @@ mọi ảnh, không phải augmentation.
 
 ### 4.2 Ma trận thực nghiệm
 
-| | Mỗi bộ dữ liệu | Hai bộ dữ liệu |
+| | Mỗi bộ dữ liệu | Hai bộ dữ liệu (ISIC + RSNA) |
 |---|---|---|
 | Lần train classifier | 8 biến thể × 6 backbone × 3 seed = **144** | **288** |
 | Lần train E_d | 1 | 2 |
-| GAN | dùng lại (0 lần train) | 0 |
+| GAN | ISIC dùng lại `v5`; RSNA train một lần (`rsna`) | 1 |
 
 ### 4.3 Siêu tham số được cố định trước
 
@@ -473,8 +472,8 @@ Tính trên **test**, lớp dương = lớp thiểu số, **ngưỡng cố đị
 | MCC | hệ số tương quan Matthews | dùng cả bốn ô của ma trận nhầm lẫn |
 | F1, macro-F1, precision, accuracy | | accuracy chỉ để tham khảo, vì gây hiểu lầm khi lớp mất cân bằng |
 
-Độ phân giải của sensitivity trên test: ISIC có 75 ca dương, nên mỗi ca tương ứng ≈ 1,3 điểm %; Brain Tumor có 60 ca
-dương, mỗi ca ≈ 1,7 điểm %. Chênh lệch nhỏ hơn mức này chỉ là một ca bệnh.
+Độ phân giải của sensitivity trên test: ISIC có 75 ca dương, nên mỗi ca tương ứng ≈ 1,3 điểm %; RSNA có 226 ca
+dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ là một ca bệnh.
 
 ### 5.2 Phân tích thống kê
 
@@ -507,7 +506,7 @@ dương, mỗi ca ≈ 1,7 điểm %. Chênh lệch nhỏ hơn mức này chỉ l
 
 ### 5.3 Chất lượng ảnh sinh (Inception-v3 của StyleGAN2-ADA, 2.048 chiều)
 
-So với **ảnh thật lớp thiểu số của tập train** (ISIC 148 ảnh, Brain Tumor 281 ảnh), tính cho từng tập ảnh được chọn:
+So với **ảnh thật lớp thiểu số của tập train** (ISIC 148 ảnh, RSNA 1.059 ảnh), tính cho từng tập ảnh được chọn:
 
 | Chỉ số | Định nghĩa | Tốt khi |
 |---|---|---|
@@ -535,8 +534,7 @@ Có hai hàng tham chiếu:
 
 ### 5.5 Phân tích theo nhóm con (RSNA: tư thế chụp AP / PA)
 
-Bật bằng `evaluation.subgroup_columns` (RSNA: `[ViewPosition]`, lấy từ `dicom_metadata.csv`; ISIC / Brain Tumor
-không có). **Đăng ký trước** (2026-10-04, trước khi có kết quả test RSNA): báo cáo dù kết quả thế nào. Chạy trong
+Bật bằng `evaluation.subgroup_columns` (RSNA: `[ViewPosition]`, lấy từ `dicom_metadata.csv`; ISIC không có). **Đăng ký trước** (2026-10-04, trước khi có kết quả test RSNA): báo cáo dù kết quả thế nào. Chạy trong
 `evaluate`, không cần GPU, không đổi cách train.
 
 | Bảng | Đo gì | Cách đọc |
@@ -562,8 +560,9 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | Val chỉ để chọn epoch | val không dùng để chọn ngưỡng, chọn k hay chọn phương pháp; val và test 100 % ảnh thật (assert trước khi train) |
 | Không dò ngưỡng | ngưỡng cố định 0,5 |
 | Test chỉ dự đoán một lần | dự đoán sau khi nạp checkpoint tốt nhất; không có vòng lặp nào dùng kết quả test |
-| GAN dùng lại hợp lệ | split phải trùng split mà GAN đã train (Brain Tumor, RSNA: `split.expected`, kiểm tra tự động ở mọi stage; ISIC: test regression) |
-| Không có shortcut định dạng | mọi ảnh lưu PNG; Brain Tumor: 3 kênh bằng nhau cho cả ảnh thật và ảnh sinh |
+| GAN dùng lại hợp lệ | split phải trùng split mà GAN đã train (RSNA: `split.expected`, kiểm tra tự động ở mọi stage; ISIC: test regression) |
+| Không có shortcut định dạng | mọi ảnh lưu PNG, đúng số kênh gốc cho cả ảnh thật và ảnh sinh (ISIC 3 kênh, RSNA 1 kênh) |
+| Không rò rỉ bệnh nhân | RSNA: 1 ảnh mỗi bệnh nhân (mapping NIH), nên chia theo ảnh cũng là chia theo bệnh nhân |
 | So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train, cùng augmentation; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
 
 ### 6.2 Các mối đe doạ đến tính hợp lệ
@@ -573,17 +572,17 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | Nội tại | Ảnh sinh **chỉ** nằm ở lớp thiểu số, nên đặc điểm "trông như ảnh GAN" tương quan với nhãn trong tập train | Test toàn ảnh thật nên điều này không thổi phồng kết quả test, nhưng có thể làm giảm lợi ích. Đo bằng AUC thật-vs-sinh và fingerprint (RSNA `rsna_v2`: khoảng 0,999, ảnh sinh chiếm khoảng 86 % lớp dương). **M7** (tuỳ chọn, chưa bật) là đối chứng trực tiếp: thêm ảnh sinh vào cả lớp đa số. Chạy như một lần chạy riêng, không đụng `rsna_v2`: `dass … --set selection.both_classes_variant=true --set encoder.e_d_from_run=base --tag m7 run --from sample --models EfficientNetV2B0` (dùng lại E_d của `rsna_v2`; cần GPU để sinh pool lớp đa số; run này train lại mọi biến thể cho backbone đã chọn, nên giới hạn bằng `--models`) |
 | Nội tại | **Shortcut tư thế chụp (RSNA):** AP gắn với bệnh nặng (dương ≈ 58 % AP, âm ≈ 23 % AP) | Đo, không sửa dữ liệu: AUC trong từng nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh (mục 5.5) |
 | Nội tại | **RSNA train classifier không can thiệp dữ liệu** (không augmentation, M0 không class weight; người dùng quyết định): công bằng về quy trình nhưng không trung lập về tác động — ROS lặp y hệt mỗi ảnh dương khoảng 7 lần nên dễ học thuộc hơn, trong khi biến thể GAN có ảnh mới | Nêu trong bài. Phân tích độ nhạy (tuỳ chọn): một backbone có augmentation trong lần chạy riêng, `dass … --set classifier.augment=true --set encoder.e_d_from_run=base --tag aug run --from sample --models EfficientNetV2B0` (`split.expected` bảo đảm cùng split; pool sinh lại từ cùng GAN, cùng seed) |
-| Nội tại | M0 có ít bước train hơn (106 so với 176 bước mỗi epoch) và cân bằng bằng loss thay vì bằng dữ liệu, nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
-| Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test | Báo cáo mọi cấu hình đã chạy (`v7`, `v9`, `v10`; `bt_v3`, `bt_v4`, `bt_v5`); kết quả `v9` (không augmentation) cho thấy lợi thế của ảnh sinh phụ thuộc vào augmentation |
+| Nội tại | M0 có ít bước train hơn (ISIC 48 so với 78, RSNA 537 so với 941 bước mỗi epoch) và cân bằng bằng loss (ISIC) hoặc không cân bằng (RSNA), nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
+| Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (ISIC `v7`, `v9`, `v10`; RSNA `rsna_v2`) và nêu lý do loại Brain Tumor; kết quả `v9` (không augmentation) cho thấy lợi thế của ảnh sinh phụ thuộc vào augmentation |
 | Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026); M0b cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 / M0b |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
 | Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy | Kiểm tra ảnh sinh cạnh ảnh thật gần nhất (học thuộc) |
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
 | Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
-| Cấu trúc | Tập thật lớp thiểu số nhỏ (148 / 281) | KID là chỉ số chính, kèm std; FID chỉ tham khảo |
-| Thống kê | Chỉ 3 seed; test nhỏ (75 / 60 ca dương); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; H1–H3 là kiểm định chính (Holm trong từng backbone) |
+| Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo |
+| Thống kê | Chỉ 3 seed; test ISIC nhỏ (75 ca dương; RSNA 226); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; p Holm trong từng backbone |
 | Ngoại tại | Hai bộ dữ liệu, chỉ bài toán nhị phân, một họ GAN, ảnh 256 px | Nêu trong phần hạn chế |
-| Ngoại tại | Brain Tumor **không chia theo bệnh nhân** (tên file không có mã bệnh nhân), nên các lát cắt của cùng một người có thể nằm ở cả train và test | Số tuyệt đối có thể lạc quan, nhưng ảnh hưởng như nhau tới mọi phương pháp. Nếu có mã bệnh nhân, đặt `split.group_regex` |
+| Ngoại tại | RSNA: nhãn "Lung Opacity" là nhận định trên ảnh (không phải chẩn đoán viêm phổi xác nhận lâm sàng), có bất đồng giữa bác sĩ khoảng 11–12 % | Dùng nhãn cuối cùng sau hội chẩn; nêu trong phần hạn chế |
 
 ---
 
@@ -593,13 +592,13 @@ Các điểm sau nên nêu trong bài báo:
 
 - **Dấu vân tay tần số của GAN:** detector của Frank et al. phân biệt ảnh thật / ảnh sinh với AUC ≈ 1. Test toàn ảnh
   thật nên điều này không làm kết quả lạc quan giả tạo, nhưng có thể làm giảm lợi ích của ảnh sinh.
-- **Nhiễu màu JPEG ở Brain Tumor** đã được loại bằng `force_grayscale` cho cả ảnh thật lẫn ảnh sinh. Tuy nhiên GAN được
-  train **trước** khi làm sạch. Ảnh positive (lớp được sinh) vốn không có nhiễu này, nên ảnh hưởng không đáng kể.
-- **Không chia theo bệnh nhân** ở Brain Tumor (xem 6.2).
+- **Shortcut tư thế chụp ở RSNA** (AP gắn với bệnh nặng): không sửa dữ liệu, chỉ đo bằng phân tích nhóm con (mục 5.5).
+- **Hai bộ dữ liệu khác giao thức classifier** (ISIC `v10` có augmentation và class weight, RSNA không): so sánh giữa
+  hai bộ dữ liệu phải nêu điều này.
 - **Chỉ hỗ trợ bài toán nhị phân.** Bài toán đa lớp cần mở rộng DASS theo kiểu one-vs-rest.
 - **Siêu tham số chung**, không dò riêng cho từng backbone; Transformer có thể chưa đạt mức tối ưu.
-- **Kiểm định chính thức** có cho mọi biến thể so với M0 và cho M6 vs M0b, M6 vs M1. Các so sánh thành phần (M6 với
-  M2–M5) chưa có kiểm định, và code chưa tự hiệu chỉnh đa so sánh.
+- **Kiểm định chính thức** có cho mọi biến thể so với M0 và cho M6 vs M0b, M6 vs M1, kèm p hiệu chỉnh Holm trong từng
+  backbone. Các so sánh thành phần (M6 với M2–M5) chưa có kiểm định riêng (thêm được qua `evaluation.comparisons`).
 
 ---
 
@@ -639,9 +638,9 @@ Notebook **tự tải code mới nhất từ GitHub**, không cần upload tay. 
 ### 8.3 Chạy thử (smoke) và chạy thật
 
 ```python
-EXPERIMENT = "configs/experiments/brain_tumor_dass.yaml"   # hoặc "configs/experiments/isic2016_dass.yaml"
-PROFILE = ""                                                # "configs/experiments/smoke.yaml" = chạy thử
-EXTRA = ""                                                  # ghi đè, ví dụ "--set selection.gamma=0 --tag nodiv"
+EXPERIMENT = "configs/experiments/rsna_pneumonia_dass.yaml"   # hoặc "configs/experiments/isic2016_dass.yaml"
+PROFILE = ""                                                   # "configs/experiments/smoke.yaml" = chạy thử
+EXTRA = ""                                                     # ghi đè, ví dụ "--set selection.gamma=0 --tag nodiv"
 ```
 
 | | Smoke (`PROFILE = "configs/experiments/smoke.yaml"`) | Chạy thật (`PROFILE = ""`) |
@@ -653,15 +652,17 @@ EXTRA = ""                                                  # ghi đè, ví dụ
 | Thư mục | `checkpoints_smoke/`, `results_smoke/` | `checkpoints_<run_tag>/`, `results_<run_tag>/` |
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
-1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra có `"run_tag": "bt_v5"` (hoặc `"v10"` với
-   ISIC), `"pool_mult": 1.5`, `"augment": true`, `"baseline_class_weight": true`.
+1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v2"`,
+   `"augment": false`, `"baseline_class_weight": false`; ISIC `"run_tag": "v10"`, `"augment": true`,
+   `"baseline_class_weight": true`; cả hai `"pool_mult": 1.5`.
 2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
    đọc thư mục của smoke.
 3. Chạy tiếp từ `prepare` trở xuống.
 
 ### 8.4 Thứ tự chạy và thời gian
 
-1. **Brain Tumor:** `prepare` → `gan` → `sample` → `fingerprint` → `select` → 6 ô `train` → `evaluate` + `report`.
+1. **RSNA:** `prepare` → `gan` → `sample` → `select` → các ô `train` → `evaluate` + `report` (`fingerprint` tuỳ chọn).
+   GAN `rsna` đã train xong (KID 0,0145 tại 800 kimg); `prepare` mất khoảng 30 phút trên server mới (chuyển DICOM).
 2. **ISIC:** đổi `EXPERIMENT = "configs/experiments/isic2016_dass.yaml"`, chạy lại ô chọn thực nghiệm và ô tiện ích,
    rồi lặp lại đúng chuỗi trên.
 
@@ -687,7 +688,7 @@ Một ô `train` bị ngắt giữa chừng chỉ mất lần chạy đang dở.
 ### 8.6 Chạy bằng lệnh (CLI)
 
 ```bash
-E=configs/experiments/brain_tumor_dass.yaml
+E=configs/experiments/rsna_pneumonia_dass.yaml
 dass -c $E show-config                                   # xem cấu hình đã hợp nhất
 dass -c $E run                                           # toàn bộ chuỗi prepare → report
 dass -c $E run --from select --to report                 # một đoạn của chuỗi
@@ -718,16 +719,16 @@ dass -c $E -c configs/experiments/smoke.yaml run         # chạy thử
 
 Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi đối chiếu với bảng sau:
 
-| Bước | Brain Tumor: phải thấy | ISIC: phải thấy | Nếu khác |
+| Bước | RSNA: phải thấy | ISIC: phải thấy | Nếu khác |
 |---|---|---|---|
-| `prepare` | `Thiểu số = positive (281) \| đa số = negative (1401) \| cần chọn 1120 \| pool 1680 ảnh \| 3 kênh`; `Split trùng khớp split tham chiếu real_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 705 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
-| `gan` | KID tốt nhất 0,02985 tại 1.200 kimg, không train lại | dùng `checkpoints_v5` (KID 0,0201 tại 1.800 kimg), không train lại | sai `gan_tag` |
-| `sample` | `DONE 1680 … force_gray=1` | `DONE 705 …` | |
-| `select` | `M6_dass: chọn 1120 / 1680 ảnh sinh` | `M6_dass: chọn 470 / 705 ảnh sinh` | |
+| `prepare` | `Thiểu số = positive (1059) \| đa số = negative (7522) \| cần chọn 6463 \| pool 9695 ảnh \| 1 kênh`; `Split trùng khớp split tham chiếu real_val_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 705 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
+| `gan` | dùng `checkpoints_rsna` (KID 0,0145 tại 800 kimg), không train lại | dùng `checkpoints_v5` (KID 0,0201 tại 1.800 kimg), không train lại | sai `gan_tag` |
+| `sample` | `Khôi phục 9695 ảnh từ …pool_positive_from800kimg_n9695_c1.zip` | `DONE 705 …` hoặc khôi phục từ zip | |
+| `select` | `M6_dass: chọn 6463 / 9695 ảnh sinh` | `M6_dass: chọn 470 / 705 ảnh sinh` | |
 | `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 0,5 | như bên trái | ghi lại, nêu trong bài |
-| `train` | mỗi lần chạy in `test ROC-AUC = …`; `best fine-tune epoch` không phải lúc nào cũng bằng 1 | như bên trái | nếu luôn bằng 1: lr / val có vấn đề |
-| `train` (ghép dữ liệu) | `M0_real_only_p2: {'train': {'negative': 1401, 'positive': 281}, ...}` và `M0b_real_oversample_p2: {'train': {'negative': 1401, 'positive': 1401}, ...}` | `M0b_real_oversample_p2: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
-| `evaluate` | `Phân loại: 144 lần chạy, 48 nhóm` khi đủ 6 backbone | như bên trái | thiếu: còn backbone chưa xong |
+| `train` | dòng đầu `Giao thức train … \| augment = False … \| class weight: không`; mỗi lần chạy in `test ROC-AUC = …` | dòng đầu `augment = True … class weight: ['M0_real_only']` | sai phiên bản code / cấu hình |
+| `train` (ghép dữ liệu) | `M0_real_only_p1.5: {'train': {'negative': 7522, 'positive': 1059}, ...}` và `M0b_real_oversample_p1.5: {'train': {'negative': 7522, 'positive': 7522}, ...}` | `M0b_real_oversample_p1.5: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
+| `evaluate` | `Phân loại: 144 lần chạy, 48 nhóm` khi đủ 6 backbone; thêm các bảng nhóm con (tư thế AP / PA) | `Phân loại: 144 lần chạy, 48 nhóm` | thiếu: còn backbone chưa xong |
 
 ---
 
@@ -737,13 +738,16 @@ Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi �
 
 Kết quả nằm trong thư mục của từng bộ dữ liệu. Không bao giờ xoá; chạy lại không ghi đè.
 
-| | Brain Tumor (`…/BrainTumor_GAN/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
+| | RSNA (`…/RSNA Pneumonia/Result_Pneumonia/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
-| GAN | `checkpoints_bt/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_bt_v5/` | `checkpoints_v10/` |
-| Dự đoán, số liệu thô, **bảng**, hình | `results_bt_v5/` | `results_v10/` |
-| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_bt_v4/` (k = 2, không augmentation, M0 không class weight); `results_bt_v3/` (k = 3); `results_bt/` (notebook v1, công thức cũ) | `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
+| GAN | `checkpoints_rsna/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
+| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v2/` | `checkpoints_v10/` |
+| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v2/` | `results_v10/` |
+| Kết quả giao thức cũ (chuyển ra, không dùng trong bảng) | `results_rsna_v2/predictions_superseded/`, `checkpoints_rsna_v2/classifiers_superseded/` | — |
+| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v1/` (chỉ `prepare`) | `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
+
+Kết quả Brain Tumor cũ (`…/BrainTumor_GAN/`) vẫn nằm trên Drive, không xoá, nhưng không còn thuộc dự án.
 
 Trong `results_<run_tag>/` có:
 - `tables/`: bảng cho bài báo (`.csv` đã định dạng, `.json` số thô, `.tex` booktabs);

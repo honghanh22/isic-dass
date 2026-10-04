@@ -1,6 +1,6 @@
 """Nạp cấu hình: nhiều file YAML (mỗi file có thể kế thừa `_base_`) áp theo thứ tự, rồi `--set`, rồi `--tag`.
 
-    dass -c configs/experiments/brain_tumor_dass.yaml -c configs/experiments/smoke.yaml \
+    dass -c configs/experiments/rsna_pneumonia_dass.yaml -c configs/experiments/smoke.yaml \
          --set selection.gamma=0.25 --tag gamma025
 
 Giá trị lá (kể cả dict như `data.classes`) được THAY THẾ, không gộp; nhóm (dataclass) được áp đệ quy.

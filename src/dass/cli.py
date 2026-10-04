@@ -1,6 +1,6 @@
 """Giao diện dòng lệnh `dass`.
 
-    dass -c configs/experiments/brain_tumor_dass.yaml run                      # toàn bộ thực nghiệm
+    dass -c configs/experiments/rsna_pneumonia_dass.yaml run                   # toàn bộ thực nghiệm
     dass -c configs/experiments/isic2016_dass.yaml prepare                     # một stage
     dass -c configs/experiments/isic2016_dass.yaml train --model resnet50 --seeds 2026 2027
     dass -c configs/experiments/isic2016_dass.yaml -c configs/experiments/smoke.yaml run

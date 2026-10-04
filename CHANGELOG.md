@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.10.0 — loại Brain Tumor khỏi dự án
+- Người dùng quyết định: bỏ Brain Tumor khỏi dự án và bài báo (AUC chạm trần khoảng 0,99, không phân biệt được các
+  phương pháp). Dự án còn hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**.
+- Xoá: `configs/datasets/brain_tumor.yaml`, `configs/experiments/brain_tumor_dass.yaml`,
+  `notebooks/archive/brain_tumor_stylegan2ada_dass_pipeline_v1.ipynb`, các test chỉ dành cho Brain (đường dẫn
+  artefact, GAN 3 kênh `checkpoints_bt`).
+- Giữ nguyên các tính năng chung (không có nhánh `if dataset == …` nào cho Brain): nguồn `folders`, `force_grayscale`,
+  gộp kênh cho GAN 3 kênh, `split.group_regex`. Test của chúng đổi sang dữ liệu giả lập không mang tên Brain. Test khoá
+  thuật toán `stratified` được giữ (đổi tên): GAN `rsna` gắn với split `rsna_v2` dựa vào thuật toán này.
+- Ví dụ lệnh, notebook (`EXPERIMENT` mặc định = RSNA), README, GUIDE, CLAUDE.md, WORKFLOW chuyển sang ISIC + RSNA.
+  Các mục CHANGELOG cũ giữ nguyên (lịch sử).
+- **Không đụng Drive:** kết quả Brain (`…/BrainTumor_GAN/`: `checkpoints_bt*`, `results_bt*`) vẫn còn nguyên.
+
 ## 1.9.1 — RSNA: M0 không class weight
 - `configs/datasets/rsna_pneumonia.yaml`: `classifier.baseline_class_weight: false` (người dùng quyết định: RSNA không
   can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào — không augmentation, không class weight cho M0, như

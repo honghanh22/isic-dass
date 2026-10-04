@@ -65,7 +65,7 @@ CLASS_WEIGHT_SUFFIX = " (class-weighted)"
 
 def labels_for_runs(labels: dict[str, str] | None, runs: pd.DataFrame | None) -> dict[str, str]:
     """Tên hiển thị khớp với cách đã train: thêm " (class-weighted)" cho phương pháp mà MỌI lần chạy đều có class weight
-    (đọc từ trường `class_weight` trong .npz). Nhờ đó bảng của cấu hình không class weight (v9 / bt_v4) không bị ghi sai.
+    (đọc từ trường `class_weight` trong .npz). Nhờ đó bảng của cấu hình không class weight (ISIC v9, RSNA) không bị ghi sai.
     """
     out = dict(labels or {})
     if runs is None or "class_weight" not in runs:
