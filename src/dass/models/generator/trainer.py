@@ -116,7 +116,9 @@ class StyleGanTrainer:
         import torch
 
         G = load_generator(pkl_path)
-        fake = generate_class_images(G, self.gan.kid_n_gen, self.eval_class_idx, psi=1.0, seed=self.gan.kid_seed)
+        # cùng ψ với lúc sinh pool (`sample`) -> chọn snapshot theo đúng phân phối ảnh sẽ được dùng
+        fake = generate_class_images(G, self.gan.kid_n_gen, self.eval_class_idx, psi=self.gan.trunc_psi,
+                                     seed=self.gan.kid_seed)
         del G
         torch.cuda.empty_cache()
         return kid_from_features(self.real_features, inception_features(fake),

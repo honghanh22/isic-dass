@@ -215,6 +215,11 @@ table("dataset")
 table("classification")
 table("significance")
 table("generation_quality")
+# RSNA: phân tích theo tư thế chụp (bộ dữ liệu khác: "chưa có")
+table("classification_by_subgroup")
+table("significance_by_subgroup")
+table("subgroup_reference")
+table("subgroup_share")
 """)
 
 md("""

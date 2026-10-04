@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.9.0 — đóng các điểm còn mở sau khi rà soát toàn bộ code
+Không đổi cách train, cách chọn ảnh hay bất kỳ kết quả nào đã có; chỉ thêm phép đo, truy vết và sửa lỗi nhỏ.
+
+**Thống kê (`evaluate`)**
+- `significance_vs_baseline`: thêm `delta_auc_seed_mean` / `delta_auc_seed_std` (ΔAUC ghép cặp theo seed, khớp bảng
+  mean ± std; bootstrap trên ensemble chỉ đo dao động do mẫu test) và `p_holm` (Holm–Bonferroni trong mỗi model × k).
+  Bảng `significance` thêm cột `p (Holm)`, `ΔAUC per seed`.
+- `summary_stats`: chỉ 1 seed -> std = NaN, bảng in mean (trước đây "± 0.000" dễ hiểu nhầm). `summary_stats(by=…)`.
+
+**Phân tích nhóm con (RSNA, đăng ký trước kết quả test)**
+- Tuỳ chọn `evaluation.subgroup_columns` (mặc định rỗng; RSNA: `[ViewPosition]` từ `dicom_metadata.csv`). Module
+  `evaluation/subgroups.py` (numpy / sklearn): AUC / PR-AUC trong từng nhóm AP / PA, ΔAUC trong nhóm (Holm trong mỗi
+  model × nhóm), mốc AUC chỉ dùng tư thế, tỉ lệ "trông giống AP" trong ảnh dương thật / pool / ảnh mỗi phương pháp
+  chọn (probe logistic trên E_v từ `embeddings.npz`). Metrics `classification_by_subgroup[_runs]`,
+  `significance_by_subgroup`, `subgroup_reference`, `subgroup_share` + bảng cùng tên. Chạy trong `evaluate`, không GPU.
+- `train` lưu `test_files` (tên ảnh test `lớp/tệp` đúng thứ tự dự đoán) trong `.npz`; `build_dataset` giữ
+  `file_paths`. `.npz` cũ: dựng lại thứ tự từ split (lớp theo cấu hình, tên tăng dần), chỉ khi nhãn khớp.
+
+**Truy vết** (nguyên nhân sự cố EfficientNetV2B0 train bằng code cũ)
+- `utils.code_version()` (commit git, `-dirty` nếu sửa chưa commit). Đầu mỗi `train` in một dòng: commit, phiên bản,
+  augment, profile, phương pháp có class weight, seeds. `.npz` lưu `code_version`, `dass_version`.
+- `run_manifest.json`: `stages.<stage>` lưu riêng commit, phiên bản và config của từng stage (trước đây config cấp
+  trên cùng bị ghi đè bởi stage gần nhất).
+
+**Lỗi nhỏ**
+- DICOM MONOCHROME1: đảo theo 2^BitsStored − 1 thay vì giá trị lớn nhất của từng ảnh (RSNA là MONOCHROME2, không ảnh
+  hưởng).
+- KID dừng sớm của GAN dùng `generator.trunc_psi` như lúc sinh pool (đang là 1,0 nên không đổi kết quả).
+- `load_all_runs` đóng file `.npz`; giá trị trong `probs` thêm phần tử thứ ba (tên ảnh test | None).
+- Chú thích bảng `.tex` bằng tiếng Anh (cùng ngôn ngữ với tên phương pháp).
+
+**Tài liệu**: GUIDE (phiên bản, ba bộ dữ liệu, RQ6, mục 5.2 Holm + ΔAUC theo seed, mục 5.5 nhóm con, mối đe doạ:
+shortcut tư thế, tắt augmentation không trung lập với ROS, M7 / phân tích độ nhạy kèm lệnh chạy riêng), CLAUDE.md,
+README, RESULTS_FORMAT, notebook (ô evaluate in thêm các bảng nhóm con).
+
 ## 1.8.4 — RSNA: GAN gắn với split đã train
 - `configs/datasets/rsna_pneumonia.yaml`: `data.split.expected: checkpoints_rsna_v2/data/real_val_split.json` (như
   Brain Tumor). GAN `rsna` train trên phần train của split `rsna_v2`; mọi lần chạy dùng GAN này (run_tag mới như

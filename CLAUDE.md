@@ -63,8 +63,12 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   **Ngoại lệ RSNA** (người dùng quyết định, 1.8.2, trước khi train classifier RSNA): `classifier.augment: false` trong
   `configs/datasets/rsna_pneumonia.yaml` (class weight M0 vẫn bật). RSNA còn `generator.mirror: false` (X-quang không
   đối xứng trái / phải). Hai khác biệt này có test; mọi tham số khác của classifier / GAN giống ISIC.
-- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa hai bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 (`bt_v3`) → 2 (`v9` / `bt_v4`) → 1,5 (`v10` / `bt_v5`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
+- Kiểm định: paired bootstrap ΔAUC trên ensemble seed + ΔAUC theo từng seed + `p_holm` (Holm trong mỗi model). RSNA có
+  phân tích nhóm con theo tư thế (`evaluation.subgroup_columns: [ViewPosition]`, đăng ký trước kết quả test): AUC
+  trong nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh. `.npz` lưu `test_files` và
+  `code_version`; `run_manifest.json` lưu commit + config theo từng stage.
 
 ## Tương thích artefact trên Drive
 

@@ -13,7 +13,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from .classification import KEY_METRICS, binary_metrics
-from .statistics import paired_bootstrap_auc
+from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
@@ -67,25 +67,30 @@ def check_single_protocol(runs: pd.DataFrame) -> None:
 
 
 def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
+    """(bảng metric từng lần chạy, {RunKey: (y_test, p_test, tên ảnh test | None)}). Tên ảnh test (`lớp/tệp`) có
+    trong .npz từ 1.9.0; .npz cũ -> None (dựng lại từ split khi cần, xem `evaluation.subgroups`)."""
     rows, probs = [], {}
     for path in sorted(Path(pred_dir).glob("*.npz")):
-        d = np.load(path, allow_pickle=True)
-        model, method, k, seed = str(d["model"]), str(d["method"]), float(d["k"]), int(d["seed"])
-        lam = str(d["lam"]) if "lam" in d.files else "-"
-        y_val, p_val, y_test, p_test = d["y_val"], d["p_val"], d["y_test"], d["p_test"]
-        row = {"model": model, "method": method, "lam": lam, "k": k, "seed": seed,
-               "best_epoch": int(d["best_epoch"]), "n_test": len(y_test),
-               "val_roc_auc": float(roc_auc_score(y_val, p_val)), **read_protocol(d)}
+        with np.load(path, allow_pickle=True) as d:
+            model, method, k, seed = str(d["model"]), str(d["method"]), float(d["k"]), int(d["seed"])
+            lam = str(d["lam"]) if "lam" in d.files else "-"
+            y_val, p_val, y_test, p_test = d["y_val"], d["p_val"], d["y_test"], d["p_test"]
+            test_files = [str(f) for f in d["test_files"]] if "test_files" in d.files else None
+            row = {"model": model, "method": method, "lam": lam, "k": k, "seed": seed,
+                   "best_epoch": int(d["best_epoch"]), "n_test": len(y_test),
+                   "val_roc_auc": float(roc_auc_score(y_val, p_val)), **read_protocol(d)}
         row.update(binary_metrics(y_test, p_test, threshold))
         rows.append(row)
-        probs[(model, method, lam, k, seed)] = (y_test, p_test)
+        probs[(model, method, lam, k, seed)] = (y_test, p_test, test_files)
     return pd.DataFrame(rows), probs
 
 
-def summary_stats(runs: pd.DataFrame, metrics: list[str] = KEY_METRICS) -> pd.DataFrame:
-    """Một dòng mỗi (model, method, lam, k): <metric>_mean, <metric>_std, n_seeds (số liệu thô)."""
-    g = runs.groupby(GROUP_COLS)
-    mean, std = g[metrics].mean(), g[metrics].std(ddof=1).fillna(0.0)
+def summary_stats(runs: pd.DataFrame, metrics: list[str] = KEY_METRICS,
+                  by: list[str] | tuple[str, ...] = tuple(GROUP_COLS)) -> pd.DataFrame:
+    """Một dòng mỗi nhóm `by` (mặc định model, method, lam, k): <metric>_mean, <metric>_std, n_seeds (số liệu thô).
+    Chỉ 1 seed -> std = NaN (bảng chỉ in mean), không ghi 0 gây hiểu nhầm là không dao động."""
+    g = runs.groupby(list(by))
+    mean, std = g[metrics].mean(), g[metrics].std(ddof=1)
     out = pd.concat([mean.add_suffix("_mean"), std.add_suffix("_std")], axis=1)
     out["n_seeds"] = g.size()
     ordered = [c for m in metrics for c in (f"{m}_mean", f"{m}_std")] + ["n_seeds"]
@@ -100,7 +105,13 @@ def _runs_of(probs: dict[RunKey, tuple], model: str, k: float, method: str,
 
 def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple], ref_name: str,
              ref: dict[int, tuple], n_boot: int, seed: int) -> dict | None:
-    """Paired bootstrap ΔAUC = AUC(method) − AUC(ref) trên xác suất trung bình qua các seed chung (ensemble)."""
+    """ΔAUC = AUC(method) − AUC(ref), hai cách:
+
+    - `delta_auc`, CI, `p_value`: paired bootstrap trên xác suất TRUNG BÌNH qua các seed chung (ensemble) — đo dao
+      động do mẫu test, không đo dao động giữa các lần train;
+    - `delta_auc_seed_mean` ± `delta_auc_seed_std`: ΔAUC của từng seed (ghép cặp theo seed) — đo dao động giữa các
+      lần train; khớp với chênh lệch của bảng mean ± std.
+    """
     common = sorted(set(ref) & set(cur))
     if not common:
         return None
@@ -110,8 +121,23 @@ def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple],
     p_ref = np.mean([ref[s][1] for s in common], axis=0)
     p_cur = np.mean([cur[s][1] for s in common], axis=0)
     obs, lo, hi, pv = paired_bootstrap_auc(y, p_cur, p_ref, n_boot, seed)
+    per_seed = [roc_auc_score(y, cur[s][1]) - roc_auc_score(y, ref[s][1]) for s in common]
     return {"model": model, "k": k, "method": method, "lam": lam, "vs": ref_name, "n_seeds": len(common),
-            "delta_auc": obs, "ci95_low": lo, "ci95_high": hi, "p_value": pv}
+            "delta_auc": obs, "ci95_low": lo, "ci95_high": hi, "p_value": pv,
+            "delta_auc_seed_mean": float(np.mean(per_seed)),
+            "delta_auc_seed_std": float(np.std(per_seed, ddof=1)) if len(per_seed) > 1 else float("nan")}
+
+
+def add_holm(cmp: pd.DataFrame, family: list[str] | tuple[str, ...] = ("model", "k")) -> pd.DataFrame:
+    """Cột `p_holm`: p hiệu chỉnh Holm trong mỗi họ kiểm định (mặc định mỗi model × k: mọi phương pháp vs M0 + các
+    cặp bổ sung)."""
+    if cmp.empty:
+        return cmp
+    out = cmp.copy()
+    out["p_holm"] = np.nan
+    for _, idx in out.groupby(list(family)).groups.items():
+        out.loc[idx, "p_holm"] = holm_adjust(out.loc[idx, "p_value"].to_numpy())
+    return out
 
 
 def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, seed: int) -> pd.DataFrame:

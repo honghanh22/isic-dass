@@ -27,16 +27,21 @@ from ..data.splits import (
     split_paths,
 )
 from ..data.transforms import preprocess_tree
-from ..utils import list_images, package_versions, read_json, set_seed, write_json_atomic
+from ..utils import code_version, list_images, package_versions, read_json, set_seed, write_json_atomic
 
 log = logging.getLogger(__name__)
 
 
 def record_stage(layout: Layout, cfg: Config, stage: str, **extra) -> None:
+    """`run_manifest.json`: cấp trên cùng = lần ghi gần nhất (giữ tương thích); `stages[<stage>]` lưu RIÊNG commit
+    code, phiên bản và cấu hình của từng stage (ví dụ `train:ResNet50`) -> biết mỗi kết quả được tạo bằng code nào."""
     manifest = read_json(layout.run_manifest, default={}) or {}
-    manifest.update(dass_version=__version__, config=cfg.to_dict(), versions=package_versions(), **extra)
+    code = code_version()
+    manifest.update(dass_version=__version__, code_version=code, config=cfg.to_dict(), versions=package_versions(),
+                    **extra)
     manifest.setdefault("stages", {})[stage] = {"time_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-                                                "argv": sys.argv}
+                                                "argv": sys.argv, "dass_version": __version__, "code_version": code,
+                                                "config": cfg.to_dict()}
     write_json_atomic(layout.run_manifest, manifest)
 
 

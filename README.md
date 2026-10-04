@@ -148,9 +148,10 @@ src/dass/
 │
 ├── evaluation/                METRICS & TABLES (numpy / sklearn only)
 │   ├── classification.py      AUC, PR-AUC, sensitivity, specificity, BA, G-mean, MCC, F1 at a fixed threshold
-│   ├── statistics.py          stratified paired bootstrap ΔAUC
+│   ├── statistics.py          stratified paired bootstrap ΔAUC, Holm adjustment
 │   ├── generative.py          KID (primary), FID (reference), diversity, intra-set SSIM
 │   ├── aggregate.py           loads all predictions, mean ± std over seeds, comparison with the baseline
+│   ├── subgroups.py           subgroup analysis (e.g. AP / PA view): within-group AUC, attribute-only AUC, attribute share in synthetic images
 │   └── reporting.py           paper tables as .csv (formatted), .json (raw) and .tex (booktabs)
 │
 ├── analysis/                  DIAGNOSTICS — measure and plot only, never modify training images
@@ -304,11 +305,14 @@ per cell.
 |---|---|
 | `dataset` | images per split and class |
 | `classification` | AUC, PR-AUC, F1, sensitivity, specificity, balanced accuracy, G-mean, MCC — mean ± std over seeds |
-| `significance` | paired bootstrap ΔAUC with 95 % CI and p-value: every method vs. Imbalanced Baseline, plus DASS vs. ROS and DASS vs. Unfiltered GAN (column `vs`) |
+| `significance` | paired bootstrap ΔAUC (seed-averaged predictions) with 95 % CI and p-value, Holm-adjusted p within each backbone, and seed-paired ΔAUC (mean ± std): every method vs. Imbalanced Baseline, plus DASS vs. ROS and DASS vs. Unfiltered GAN (column `vs`) |
+| `classification_by_subgroup`, `significance_by_subgroup` | RSNA only: the same within the AP and the PA subgroup (view position is a known shortcut) |
+| `subgroup_reference` | RSNA only: AUC obtained from the view position alone |
+| `subgroup_share` | RSNA only: share of AP-looking images among real positives, the synthetic pool and each method's selection (logistic probe on `E_v`) |
 | `generation_quality` | KID (primary, mean ± std) and FID (reference) on Inception-v3, diversity, intra-set SSIM, real-vs-synthetic AUC |
 
-Raw per-run numbers are in `results_<run_tag>/metrics/`; `run_manifest.json` stores the resolved configuration,
-seeds and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RESULTS_FORMAT.md).
+Raw per-run numbers are in `results_<run_tag>/metrics/`; `run_manifest.json` stores, per stage, the git commit, the
+resolved configuration and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RESULTS_FORMAT.md).
 
 ## Protocol
 
@@ -323,7 +327,9 @@ seeds and library versions. Column definitions: [docs/RESULTS_FORMAT.md](docs/RE
 - Within a dataset, all classifiers share the same online augmentation (ISIC and Brain Tumor: on; RSNA Pneumonia:
   off); the real-data baseline uses class weights, every other variant is balanced 1 : 1 by data.
 - Results are reported as mean ± std over three classifier seeds with paired bootstrap tests against the Imbalanced
-  Baseline, and for DASS against ROS and Unfiltered GAN.
+  Baseline, and for DASS against ROS and Unfiltered GAN; p-values are Holm-adjusted within each backbone.
+- RSNA Pneumonia: a pre-registered subgroup analysis by view position (AP / PA) is reported regardless of outcome,
+  because portable AP radiographs are associated with sicker, more often positive patients.
 
 ## Development
 

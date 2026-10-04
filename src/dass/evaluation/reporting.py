@@ -21,13 +21,18 @@ from .classification import KEY_METRICS, METRIC_LABELS
 
 LOWER_IS_BETTER = {"kid", "fid", "auc_real_vs_synth", "ssim"}
 SET_LABELS = {"real val vs real train": "Real (val vs train)", "all candidates": "All candidates (pool)"}
-TEXT_COLUMNS = {"Model", "Group", "Method", "vs", "Set", "Subset"}     # căn trái trong .tex
+TEXT_COLUMNS = {"Model", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute"}   # căn trái trong .tex
+
+
+def _isnan(x) -> bool:
+    return x is None or (isinstance(x, float) and math.isnan(x))
 
 
 def fmt_mean_std(mean: float, std: float, digits: int = 3) -> str:
-    if mean is None or (isinstance(mean, float) and math.isnan(mean)):
+    """'0.812 ± 0.010'; std không có (chỉ 1 seed) -> chỉ in mean."""
+    if _isnan(mean):
         return "–"
-    return f"{mean:.{digits}f} ± {std:.{digits}f}"
+    return f"{mean:.{digits}f}" if _isnan(std) else f"{mean:.{digits}f} ± {std:.{digits}f}"
 
 
 def _escape_text(text: str) -> str:
@@ -151,18 +156,67 @@ def classification_table(summary: pd.DataFrame, metrics: list[str] = KEY_METRICS
     return out, bold
 
 
+def _subgroup_label(attribute: object, group: object) -> str:
+    return f"{attribute}={group}"
+
+
 def significance_table(cmp: pd.DataFrame, labels: dict[str, str] | None = None) -> pd.DataFrame:
-    """Mỗi model: các phép so sánh với M0 trước, rồi các cặp bổ sung (vs ROS, vs Unfiltered GAN)."""
+    """Mỗi model (và mỗi nhóm con nếu có): các phép so sánh với M0 trước, rồi các cặp bổ sung (vs ROS, vs Unfiltered
+    GAN). ΔAUC (ensemble 3 seed) + CI + p bootstrap; ΔAUC theo từng seed (mean ± std) và p Holm nếu có."""
+    sub = "group" in cmp
     df = cmp.assign(_vs=cmp["vs"].map(lambda m: method_rank(m, labels)),
                     _m=cmp["method"].map(lambda m: method_rank(m, labels)))
-    df = df.sort_values(["model", "_vs", "_m"], kind="stable").reset_index(drop=True)
-    return pd.DataFrame({
-        "Model": df["model"], "Method": [method_label(m, labels) for m in df["method"]],
-        "vs": [method_label(m, labels) for m in df["vs"]], "Seeds": df["n_seeds"],
-        "ΔAUC": [f"{d:+.4f}" for d in df["delta_auc"]],
-        "95% CI": [f"[{lo:+.4f}, {hi:+.4f}]" for lo, hi in zip(df["ci95_low"], df["ci95_high"])],
-        "p": [f"{p:.3f}" for p in df["p_value"]],
-    })
+    keys = ["model", "attribute", "group", "_vs", "_m"] if sub else ["model", "_vs", "_m"]
+    df = df.sort_values(keys, kind="stable").reset_index(drop=True)
+    out = pd.DataFrame({"Model": df["model"]})
+    if sub:
+        out["Subgroup"] = [_subgroup_label(a, g) for a, g in zip(df["attribute"], df["group"])]
+    out["Method"] = [method_label(m, labels) for m in df["method"]]
+    out["vs"] = [method_label(m, labels) for m in df["vs"]]
+    out["Seeds"] = df["n_seeds"]
+    out["ΔAUC"] = [f"{d:+.4f}" for d in df["delta_auc"]]
+    out["95% CI"] = [f"[{lo:+.4f}, {hi:+.4f}]" for lo, hi in zip(df["ci95_low"], df["ci95_high"])]
+    out["p"] = [f"{p:.3f}" for p in df["p_value"]]
+    if "p_holm" in df:
+        out["p (Holm)"] = ["–" if _isnan(p) else f"{p:.3f}" for p in df["p_holm"]]
+    if "delta_auc_seed_mean" in df:
+        out["ΔAUC per seed"] = [("–" if _isnan(m) else f"{m:+.4f}" if _isnan(s) else f"{m:+.4f} ± {s:.4f}")
+                                for m, s in zip(df["delta_auc_seed_mean"], df["delta_auc_seed_std"])]
+    return out
+
+
+def subgroup_table(summary: pd.DataFrame, labels: dict[str, str] | None = None) -> tuple[pd.DataFrame, dict]:
+    """AUC / PR-AUC (mean ± std qua seed) của từng model × nhóm con × phương pháp; in đậm tốt nhất mỗi model × nhóm."""
+    df = summary.assign(_rank=summary["method"].map(lambda m: method_rank(m, labels)))
+    df = df.sort_values(["model", "attribute", "group", "_rank"], kind="stable").reset_index(drop=True)
+    sub = [_subgroup_label(a, g) for a, g in zip(df["attribute"], df["group"])]
+    out = pd.DataFrame({"Model": df["model"], "Subgroup": sub,
+                        "N (pos)": [f"{n} ({p})" for n, p in zip(df["n"], df["n_pos"])],
+                        "Method": [method_label(m, labels) for m in df["method"]], "Seeds": df["n_seeds"]})
+    bold = {}
+    keys = df["model"] + "|" + pd.Series(sub)
+    for m in ("roc_auc", "pr_auc"):
+        out[METRIC_LABELS[m]] = [fmt_mean_std(a, b) for a, b in zip(df[f"{m}_mean"], df[f"{m}_std"])]
+        for i in _best_rows(df[f"{m}_mean"], keys, lower_is_better=False):
+            bold[(i, METRIC_LABELS[m])] = True
+    return out, bold
+
+
+def subgroup_reference_table(ref: pd.DataFrame) -> pd.DataFrame:
+    """Mốc 'chỉ dùng thuộc tính': AUC khi dự đoán nhãn chỉ bằng thuộc tính, tỉ lệ thuộc tính trong lớp dương / âm."""
+    return pd.DataFrame({"Subgroup": [_subgroup_label(a, g) for a, g in zip(ref["attribute"], ref["group"])],
+                         "Share in positives": [f"{v:.3f}" for v in ref["share_in_positive"]],
+                         "Share in negatives": [f"{v:.3f}" for v in ref["share_in_negative"]],
+                         "AUC (attribute only)": [f"{v:.3f}" for v in ref["auc_attribute_only"]]})
+
+
+def subgroup_share_table(share: pd.DataFrame, labels: dict[str, str] | None = None) -> pd.DataFrame:
+    """Tỉ lệ thuộc tính (ví dụ AP) trong ảnh thật và trong ảnh sinh mỗi phương pháp chọn (probe trên E_v)."""
+    names = [SET_LABELS.get(m, method_label(m, labels)) for m in share["method"]]
+    return pd.DataFrame({"Attribute": [_subgroup_label(a, v) for a, v in zip(share["attribute"], share["value"])],
+                         "Set": share["set"], "Method": names, "N": share["n"],
+                         "True share": ["–" if _isnan(v) else f"{v:.3f}" for v in share["true_share"]],
+                         "Predicted share": [f"{v:.3f}" for v in share["predicted_share"]]})
 
 
 def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None) -> tuple[pd.DataFrame, dict]:

@@ -63,6 +63,9 @@ def test_rsna_config_and_augment_profiles():
     # classifier: chỉ khác augmentation (người dùng tắt cho RSNA); class weight M0 và mọi siêu tham số khác giống ISIC
     assert rsna.classifier.augment is False and rsna.classifier.baseline_class_weight is True
     assert dataclasses.replace(rsna.classifier, augment=True) == isic.classifier
+    # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC / Brain không có metadata
+    assert rsna.evaluation.subgroup_columns == ["ViewPosition"] and isic.evaluation.subgroup_columns == []
+    assert dataclasses.replace(rsna.evaluation, subgroup_columns=[]) == isic.evaluation
     # GAN: chỉ khác mirror (X-quang ngực không đối xứng trái / phải), mọi tham số khác giống ISIC
     assert isic.generator.mirror is True and rsna.generator.mirror is False
     assert dataclasses.replace(rsna.generator, mirror=True) == isic.generator

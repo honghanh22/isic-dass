@@ -55,13 +55,16 @@ def build_dataset(data_dir: str | Path, class_names: list[str], image_size: int,
         str(data_dir), labels="inferred", label_mode="binary", class_names=list(class_names),
         color_mode="grayscale" if channels == 1 else "rgb", image_size=(image_size, image_size),
         batch_size=batch_size, shuffle=shuffle, seed=seed, verbose=False)
+    file_paths = list(ds.file_paths)          # thứ tự ảnh (shuffle = False: đúng thứ tự dự đoán)
     if augment:
         aug = make_augmenter(seed, augment_profile)
         # Tuần tự (không num_parallel_calls): trạng thái seed của các lớp ngẫu nhiên là biến dùng chung; gọi song song
         # làm thứ tự rút seed không xác định và hai batch có thể dùng cùng seed. Tiền xử lý phía sau vẫn song song.
         ds = ds.map(lambda x, y: (tf.clip_by_value(aug(x, training=True), 0.0, 255.0), y))
     ds = ds.map(lambda x, y: (preprocess_fn(to_backbone_input(x)), y), num_parallel_calls=tf.data.AUTOTUNE)
-    return ds.prefetch(tf.data.AUTOTUNE)
+    ds = ds.prefetch(tf.data.AUTOTUNE)
+    ds.file_paths = file_paths                # .map() làm mất thuộc tính này của Keras -> gắn lại
+    return ds
 
 
 def paths_dataset(paths: list[str], image_size: int, channels: int, preprocess_fn: Callable,

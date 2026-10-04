@@ -1,4 +1,5 @@
-"""Kiểm định thống kê: paired bootstrap ΔAUC (phân tầng theo lớp) so với baseline."""
+"""Kiểm định thống kê: paired bootstrap ΔAUC (phân tầng theo lớp) so với baseline, hiệu chỉnh Holm cho nhiều phép so
+sánh."""
 
 from __future__ import annotations
 
@@ -19,3 +20,16 @@ def paired_bootstrap_auc(y: np.ndarray, p_a: np.ndarray, p_b: np.ndarray, n_boot
     p_value = min(1.0, 2 * min((diffs <= 0).mean(), (diffs >= 0).mean()))
     lo, hi = np.percentile(diffs, [2.5, 97.5])
     return float(obs), float(lo), float(hi), float(p_value)
+
+
+def holm_adjust(p_values) -> np.ndarray:
+    """Hiệu chỉnh Holm–Bonferroni (kiểm soát xác suất có ít nhất một kết luận sai trong cả họ kiểm định); giữ thứ tự
+    đầu vào. NaN giữ nguyên, không tính vào họ."""
+    p = np.asarray(p_values, dtype=float)
+    out = np.full_like(p, np.nan)
+    valid = np.flatnonzero(~np.isnan(p))
+    m, running = len(valid), 0.0
+    for rank, i in enumerate(valid[np.argsort(p[valid], kind="stable")]):
+        running = max(running, (m - rank) * p[i])
+        out[i] = min(1.0, running)
+    return out

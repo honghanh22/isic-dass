@@ -19,13 +19,14 @@ import numpy as np
 import tensorflow as tf
 from sklearn.metrics import roc_auc_score
 
+from .. import __version__
 from ..config import Config, Layout
 from ..config.schema import ClassifierConfig
 from ..data.loaders import build_dataset
 from ..data.variants import Variant
 from ..evaluation.aggregate import archive_superseded_run, protocol_mismatch
 from ..models.classifiers import build_model, resolve_model_name
-from ..utils import save_npz_atomic
+from ..utils import code_version, save_npz_atomic
 from .metrics import training_metrics
 
 log = logging.getLogger(__name__)
@@ -67,12 +68,17 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
     return best_epoch, history
 
 
-def predict_dir(model, preprocess, data_dir: str | Path, cfg: Config, channels: int) -> tuple[np.ndarray, np.ndarray]:
+def predict_dir(model, preprocess, data_dir: str | Path, cfg: Config,
+                channels: int) -> tuple[np.ndarray, np.ndarray, list[str]]:
+    """(nhãn, xác suất, tên ảnh `lớp/tệp` theo đúng thứ tự dự đoán)."""
     clf = cfg.classifier
     ds = build_dataset(data_dir, cfg.data.class_names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     y_true = np.concatenate([y.numpy().ravel() for _, y in ds]).astype(int)
     y_prob = model.predict(ds, verbose=0).ravel()
-    return y_true, y_prob
+    files = [f"{Path(p).parent.name}/{Path(p).name}" for p in ds.file_paths]
+    if len(files) != len(y_true):
+        raise RuntimeError(f"Số tên ảnh ({len(files)}) khác số dự đoán ({len(y_true)}) ở {data_dir}")
+    return y_true, y_prob, files
 
 
 def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Variant, seed: int, channels: int):
@@ -103,6 +109,10 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
     """`archive_mismatched`: .npz đã có nhưng train theo giao thức khác cấu hình hiện tại -> chuyển nó (và trọng số
     trên Drive) sang `*_superseded/<giao thức>/` rồi train lại; mặc định báo lỗi."""
     model_name = resolve_model_name(model_name)
+    code = code_version()
+    log.info("Giao thức train %s | code %s (dass %s) | augment = %s (%s) | class weight: %s | seeds %s",
+             model_name, code or "?", __version__, cfg.classifier.augment, cfg.data.augment_profile,
+             [v.method for v in variants.values() if v.class_weight] or "không", list(seeds))
     for tag, variant in variants.items():
         for seed in seeds:
             out = prediction_path(layout, model_name, tag, seed)
@@ -122,12 +132,13 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                 log.warning("Giao thức cũ (%s): đã chuyển %s -> %s, train lại", mismatch, out.name, moved)
             log.info("=== %s | %s | seed %d ===", model_name, tag, seed)
             model, preprocess, best_epoch = train_classifier(cfg, layout, model_name, variant, seed, channels)
-            y_val, p_val = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
-            y_test, p_test = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
+            y_val, p_val, _ = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
+            y_test, p_test, test_files = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
             save_npz_atomic(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test,
-                            model=model_name, method=variant.method, k=cfg.selection.pool_mult, seed=seed,
-                            best_epoch=best_epoch, lam=variant.lam, feature_space=variant.feature_space,
-                            augment=cfg.classifier.augment, class_weight=variant.class_weight)
+                            test_files=np.array(test_files), model=model_name, method=variant.method,
+                            k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, lam=variant.lam,
+                            feature_space=variant.feature_space, augment=cfg.classifier.augment,
+                            class_weight=variant.class_weight, code_version=code or "", dass_version=__version__)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model
             gc.collect()

@@ -126,6 +126,20 @@ def save_figure(fig, path: str | Path, dpi: int = 120) -> Path:
     return path
 
 
+def code_version() -> str | None:
+    """Commit git của mã đang chạy (`<hash>`, thêm `-dirty` nếu có sửa chưa commit); None nếu không phải repo git
+    (ví dụ cài bằng `pip install git+…`). Trên Colab: repo clone ở /content/dass-repo, cài editable."""
+    root = Path(__file__).resolve().parents[2]
+    if not (root / ".git").exists():
+        return None
+    try:
+        r = subprocess.run(["git", "-C", str(root), "describe", "--always", "--dirty", "--abbrev=7"],
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return (r.stdout.strip() or None) if r.returncode == 0 else None
+
+
 def package_versions() -> dict[str, str]:
     """Phiên bản các thư viện chính (ghi vào run_manifest để tái lập)."""
     from importlib.metadata import PackageNotFoundError, version

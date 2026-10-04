@@ -290,6 +290,9 @@ def test_monochrome1_is_inverted_and_wide_range_rescaled():
             self.pixel_array, self.PhotometricInterpretation = arr, photometric
     inv = dicom_to_uint8(Fake(np.array([[0, 255]], np.uint8), "MONOCHROME1"))
     assert inv.tolist() == [[255, 0]]
+    dim = Fake(np.array([[10, 100]], np.uint8), "MONOCHROME1")           # ảnh tối: không có điểm 255
+    dim.BitsStored = 8
+    assert dicom_to_uint8(dim).tolist() == [[245, 155]]                  # đảo theo 2^8 − 1, không theo max của ảnh
     wide = dicom_to_uint8(Fake(np.array([[0, 4095]], np.uint16), "MONOCHROME2"))
     assert wide.tolist() == [[0, 255]] and wide.dtype == np.uint8
 

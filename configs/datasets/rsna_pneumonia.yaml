@@ -52,3 +52,8 @@ classifier:
   # augmentation. Khác v10 / bt_v5 (có augmentation) -> nêu trong bài báo. Class weight cho M0 giữ nguyên (bật);
   # E_d vẫn train có augmentation (thành phần của DASS); ADA của GAN giữ nguyên.
   augment: false
+
+evaluation:
+  # Shortcut tư thế chụp (AP gắn với bệnh nặng): AUC trong từng nhóm AP / PA, mốc "chỉ dùng tư thế", tỉ lệ ảnh sinh
+  # "trông giống AP". Phân tích đăng ký trước (2026-10-04, trước khi có kết quả test RSNA), báo cáo dù kết quả thế nào.
+  subgroup_columns: [ViewPosition]

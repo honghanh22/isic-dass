@@ -334,13 +334,23 @@ def stratified_subset(labels: pd.Series, size: int, seed: int) -> pd.Series:
     return labels.loc[sorted(keep)]
 
 
+def _max_pixel_value(ds, raw: np.ndarray) -> float:
+    """Giá trị lớn nhất CÓ THỂ của điểm ảnh: 2^BitsStored − 1, không có thì theo kiểu dữ liệu (uint8 -> 255)."""
+    bits = getattr(ds, "BitsStored", None)
+    if bits:
+        return float(2 ** int(bits) - 1)
+    return float(np.iinfo(raw.dtype).max) if np.issubdtype(raw.dtype, np.integer) else float(raw.max())
+
+
 def dicom_to_uint8(ds) -> np.ndarray:
-    """Mảng điểm ảnh -> uint8 (H, W); MONOCHROME1 (trắng = giá trị thấp) được đảo; ảnh > 8 bit co giãn min-max."""
-    arr = ds.pixel_array.astype(np.float64)
+    """Mảng điểm ảnh -> uint8 (H, W); MONOCHROME1 (trắng = giá trị thấp) được đảo theo giá trị lớn nhất CÓ THỂ (theo số
+    bit), không theo giá trị lớn nhất của từng ảnh -> độ sáng không lệch giữa các ảnh; ảnh > 8 bit co giãn min-max."""
+    raw = ds.pixel_array
+    arr = raw.astype(np.float64)
     if arr.ndim != 2:
         raise ValueError(f"Chỉ hỗ trợ DICOM 2D một kênh, nhận shape {arr.shape}")
     if getattr(ds, "PhotometricInterpretation", "MONOCHROME2") == "MONOCHROME1":
-        arr = arr.max() - arr
+        arr = _max_pixel_value(ds, raw) - arr
     if arr.min() < 0 or arr.max() > 255:
         lo, hi = arr.min(), arr.max()
         arr = (arr - lo) / (hi - lo) * 255 if hi > lo else np.zeros_like(arr)

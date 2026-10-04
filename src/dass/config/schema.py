@@ -201,6 +201,9 @@ class EvaluationConfig:
     method_labels: dict[str, str] = field(default_factory=lambda: dict(METHOD_LABELS))
     method_groups: dict[str, list[str]] = field(default_factory=lambda: {g: list(m) for g, m in METHOD_GROUPS.items()})
     n_bootstrap: int = 2000
+    # Đánh giá theo nhóm con: cột trong CSV metadata (`dicom_metadata.csv`), ví dụ [ViewPosition] cho RSNA -> AUC
+    # trong từng nhóm, mốc "chỉ dùng thuộc tính", tỉ lệ thuộc tính trong ảnh sinh. Rỗng = bỏ qua.
+    subgroup_columns: list[str] = field(default_factory=list)
     kid_subsets: int = 50
     kid_subset_size: int = 1000
     ssim_pairs: int = 200
@@ -246,6 +249,8 @@ def validate(cfg: Config) -> None:
             errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")
     if not all(isinstance(k, str) and isinstance(v, str) for k, v in cfg.evaluation.method_labels.items()):
         errors.append("evaluation.method_labels phải là {mã phương pháp: tên hiển thị}")
+    if not all(isinstance(c, str) and c for c in cfg.evaluation.subgroup_columns):
+        errors.append("evaluation.subgroup_columns phải là danh sách tên cột metadata, ví dụ [ViewPosition]")
     if not all(isinstance(v, list) for v in cfg.evaluation.method_groups.values()):
         errors.append("evaluation.method_groups phải là {tên nhóm: [mã phương pháp, ...]}")
     if cfg.encoder.e_d_from_run == "base" and not cfg.paths.base_run_tag:
