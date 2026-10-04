@@ -255,6 +255,9 @@ xong được khôi phục hoặc bỏ qua).
   - Snapshot được tính là **cải thiện** khi KID < 0,98 × KID tốt nhất trước đó (giảm ít nhất 2 %).
   - Sau 400 kimg, nếu 5 snapshot liên tiếp không cải thiện thì dừng. Tối đa 3.000 kimg.
   - Bước sau dùng **snapshot có KID thấp nhất** (`best.pkl`), không dùng snapshot cuối.
+  - **Không** tính KID dừng sớm trên ảnh val: val khi đó vừa chọn GAN vừa chọn epoch classifier (phá quy tắc "val chỉ
+    để chọn epoch"), và lớp thiểu số của val còn nhỏ hơn train nên KID nhiễu hơn
+    (`tests/regression/test_gan_kid_reference.py`).
 - **Hiện trạng:** ISIC **dùng lại GAN đã train** (`checkpoints_v5`, KID tốt nhất 0,02007 tại 1.800 kimg, dừng sớm ở
   2.300 kimg); khi đó lệnh `gan` chỉ báo cáo (đường KID, ảnh mẫu) và không train lại. RSNA train GAN mới (`checkpoints_rsna`, 1 kênh, `mirror: false`): KID tốt nhất 0,0145
   tại 800 kimg, dừng sớm ở 1.300 kimg (khoảng 5,5 giờ trên A100); xác suất ADA chỉ 0–0,03 (đủ dữ liệu, gần như không
@@ -579,7 +582,9 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (ISIC `v7`, `v9`, `v10`, `v11`; RSNA `rsna_v2`) và nêu lý do loại Brain Tumor; so `v10` với `v11` (cùng k, chỉ khác augmentation + class weight của M0) cho thấy lợi thế của ảnh sinh phụ thuộc giao thức classifier đến mức nào |
 | Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026); M0b cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 / M0b |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
-| Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy | Kiểm tra ảnh sinh cạnh ảnh thật gần nhất (học thuộc) |
+| Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy (thưởng cả việc học thuộc); KID của snapshot tốt nhất vì thế hơi lạc quan | Kiểm tra ảnh sinh cạnh ảnh thật gần nhất (học thuộc); so với hàng tham chiếu "real val vs real train" |
+| Nội tại | KID dao động lớn khi ít ảnh thật (ISIC 148 ảnh): ngưỡng cải thiện 2 % có thể nằm trong nhiễu, snapshot "tốt nhất" có thể do may mắn | Patience 5 + `min_kimg` 400; xem `kid_history.png` — trên đoạn phẳng các snapshot tương đương, không diễn giải số kimg tốt nhất |
+| Cấu trúc | Inception-v3 train trên ImageNet, xa miền ảnh y tế (nhất là X-quang): KID thấp ≠ giống về dấu hiệu bệnh | Nêu trong phần hạn chế; thước đo cuối cùng là kết quả classifier (M1 vs M0, M6 vs M0b) |
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
 | Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
 | Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo |
