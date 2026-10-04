@@ -6,6 +6,9 @@
   hoặc `sample` / `select` lỗi. Có test.
 - `probe_auc`: nhãn dòng val đổi từ "val (khách quan)" thành "val (E_d chỉ dùng để chọn epoch)" — E_d dùng val để
   early stopping nên số này vẫn hơi lạc quan.
+- Chỉ số học thuộc trong `generation_quality` (`evaluation.generative.memorization_stats`): `nn_dist_median`,
+  `nn_dist_ratio`, `near_copy_rate` — khoảng cách tới ảnh train gần nhất của ảnh sinh so với ảnh val thật. Bảng báo cáo
+  thêm cột "NN ratio", "Near-copy" (file cũ không có cột -> "–"). Có test.
 
 ## 1.11.0 — classifier không can thiệp dữ liệu cho mọi bộ dữ liệu; ISIC `v11`
 - Người dùng quyết định: cả hai bộ dữ liệu train classifier **không augmentation** và **M0 không class weight** (M0 =

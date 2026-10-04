@@ -5,7 +5,8 @@
 - Nhóm con (`evaluation.subgroup_columns`, ví dụ tư thế AP / PA của RSNA): AUC trong từng nhóm, mốc "chỉ dùng thuộc
   tính", tỉ lệ thuộc tính trong ảnh sinh (xem `evaluation.subgroups`).
 - Sinh ảnh (Inception-v3): KID (chính, mean ± std), FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh
-  cho từng tập ảnh được chọn; kèm hai hàng tham chiếu:
+  cho từng tập ảnh được chọn, chỉ số học thuộc (khoảng cách tới ảnh train gần nhất so với ảnh thật val); kèm hai
+  hàng tham chiếu:
     * `reference / real val vs real train` — mức nền của metric (hai tập ảnh THẬT cùng lớp),
     * `pool / all candidates` — toàn bộ pool chưa lọc (phân phối của generator).
 """
@@ -27,7 +28,7 @@ from ...evaluation.aggregate import (
     load_all_runs,
     summary_stats,
 )
-from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std
+from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std, memorization_stats
 from ...utils import read_json
 from ..context import Context, record_stage
 from ..pool import load_selections, resolve_candidate_pool
@@ -152,15 +153,17 @@ def evaluate_generation(cfg: Config) -> pd.DataFrame:
     shortcut = load_metrics(layout, "shortcut_check")
     auc_by_method = dict(zip(shortcut["method"], shortcut["auc_5fold"])) if shortcut is not None else {}
 
+    val_paths = ctx.val_paths[minority]
+    val_feats = feats(val_paths)   # ảnh thật chưa thấy: mốc của chỉ số học thuộc
+
     def row(set_name: str, method: str, paths: list[str], fake: np.ndarray, auc: float | None) -> dict:
         kid, kid_std = kid_with_std(real, fake, ev.kid_subsets, ev.kid_subset_size, cfg.seed)
         return {"set": set_name, "method": method, "n": len(paths), "n_real": len(real), "kid": kid, "kid_std": kid_std,
                 "fid": compute_fid(real, fake), "diversity": compute_diversity(fake),
                 "ssim": compute_ssim(paths, ch, ev.ssim_pairs, cfg.seed),
-                "auc_real_vs_synth": np.nan if auc is None else auc}
+                "auc_real_vs_synth": np.nan if auc is None else auc, **memorization_stats(fake, real, val_feats)}
 
-    val_paths = ctx.val_paths[minority]
-    rows = [row("reference", "real val vs real train", val_paths, feats(val_paths), None),
+    rows = [row("reference", "real val vs real train", val_paths, val_feats, None),
             row("pool", "all candidates", pool, pool_feats, None)]
     for method, paths in selections.items():
         if paths:

@@ -220,7 +220,8 @@ def subgroup_share_table(share: pd.DataFrame, labels: dict[str, str] | None = No
 
 
 def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None) -> tuple[pd.DataFrame, dict]:
-    """KID ×10³ (mean ± std), FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh."""
+    """KID ×10³ (mean ± std), FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh, chỉ số học thuộc (không tô đậm:
+    tốt nhất là ≈ mốc ảnh thật, không phải nhỏ / lớn nhất; `generation_quality` cũ không có cột này -> "–")."""
     df = quality.reset_index(drop=True)
     names = [SET_LABELS.get(m, method_label(m, labels)) for m in df["method"]]
     out = pd.DataFrame({"Set": df["set"], "Method": names, "N": df["n"],
@@ -229,6 +230,8 @@ def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None
                         "Diversity": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["diversity"]],
                         "SSIM": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["ssim"]],
                         "AUC real/synth": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["auc_real_vs_synth"]]})
+    for col, label in [("nn_dist_ratio", "NN ratio"), ("near_copy_rate", "Near-copy")]:
+        out[label] = [f"{v:.3f}" if pd.notna(v) else "–" for v in df.get(col, pd.Series(np.nan, index=df.index))]
     bold = {}
     groups = df["set"]
     for col, label in [("kid", "KID×1e3"), ("fid", "FID (ref.)"), ("diversity", "Diversity"), ("ssim", "SSIM"),

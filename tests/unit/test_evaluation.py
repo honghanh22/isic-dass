@@ -212,3 +212,23 @@ def test_dataset_table():
             "counts": {"train": {"neg": 7, "pos": 2}, "val": {"neg": 1, "pos": 1}, "test": {"neg": 2, "pos": 1}}}
     t = reporting.dataset_table(card)
     assert list(t["Total"]) == [9, 2, 3]
+
+
+def test_memorization_stats_flags_copies():
+    from dass.evaluation.generative import memorization_stats
+
+    rng = np.random.default_rng(0)
+    train, holdout = rng.normal(size=(200, 16)), rng.normal(size=(60, 16))
+    fresh = memorization_stats(rng.normal(size=(100, 16)), train, holdout)
+    copies = memorization_stats(train[:100] + 1e-3 * rng.normal(size=(100, 16)), train, holdout)
+    assert 0.8 < fresh["nn_dist_ratio"] < 1.2 and fresh["near_copy_rate"] < 0.2
+    assert copies["nn_dist_ratio"] < 0.05 and copies["near_copy_rate"] == 1.0
+
+
+def test_generation_table_memorization_columns_optional():
+    q = pd.DataFrame([{"set": "pool", "method": "all candidates", "n": 10, "kid": 0.02, "kid_std": 0.001, "fid": 30.0,
+                       "diversity": 0.3, "ssim": 0.2, "auc_real_vs_synth": np.nan}])
+    assert reporting.generation_table(q)[0]["NN ratio"].iloc[0] == "–"
+    q["nn_dist_ratio"], q["near_copy_rate"] = 0.95, 0.04
+    t = reporting.generation_table(q)[0]
+    assert t["NN ratio"].iloc[0] == "0.950" and t["Near-copy"].iloc[0] == "0.040"

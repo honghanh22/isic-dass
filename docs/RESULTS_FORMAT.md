@@ -14,7 +14,7 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 | `significance_by_subgroup` | (model, phương pháp, đối chứng, nhóm con) | như `significance_vs_baseline`, `p_holm` trong mỗi model × nhóm |
 | `subgroup_reference` | (thuộc tính, giá trị) trên test | `share_in_positive, share_in_negative, auc_attribute_only` (AUC khi CHỈ dùng thuộc tính) |
 | `subgroup_share` | tập ảnh (thật / pool / ảnh mỗi phương pháp chọn) | `true_share` (theo metadata), `predicted_share` (probe logistic trên E_v), `probe_auc` |
-| `generation_quality` | một tập ảnh | `set` (`reference` / `pool` / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth` |
+| `generation_quality` | một tập ảnh | `set` (`reference` / `pool` / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth, nn_dist_median, nn_dist_ratio, near_copy_rate` |
 | `probe_auc` | không gian đặc trưng × tập | `space, subset, auc_probe` (dòng `val` sát thực tế hơn; vẫn hơi lạc quan vì E_d dùng val để chọn epoch) |
 | `shortcut_check` | phương pháp | `auc_5fold` = AUC tách ảnh thật / sinh lớp thiểu số (E_v); dòng `reference` = hai lớp bệnh thật |
 | `selection_jaccard` | phương pháp | Jaccard giữa tập ảnh được chọn của các phương pháp |

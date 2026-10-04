@@ -3,6 +3,8 @@
 - KID (chỉ số CHÍNH): MMD² không chệch với kernel đa thức bậc 3, trung bình ± độ lệch chuẩn qua các tập con.
   Không chệch theo số mẫu -> phù hợp tập thật nhỏ (vài trăm ảnh).
 - FID (THAM KHẢO): chệch mạnh khi số mẫu < 2048 chiều đặc trưng -> chỉ báo cáo kèm cảnh báo.
+- Học thuộc (`memorization_stats`): khoảng cách tới ảnh train gần nhất của ảnh sinh, so với cùng khoảng cách của ảnh
+  THẬT chưa thấy (val) -> KID thấp vì GAN chép lại ảnh train sẽ lộ ra ở đây.
 Các hàm ở đây là numpy thuần (test được không cần GPU); trích đặc trưng nằm ở `models.generator.inception`.
 """
 
@@ -75,3 +77,25 @@ def compute_ssim(image_paths: list[str], channels: int, n_pairs: int = 200, seed
                                             channel_axis=None if channels == 1 else 2, gaussian_weights=True,
                                             sigma=1.5, use_sample_covariance=False))
     return float(np.mean(scores))
+
+
+def nn_distance(query: np.ndarray, reference: np.ndarray) -> np.ndarray:
+    """Khoảng cách cosine (1 − cos) từ mỗi dòng của `query` tới dòng gần nhất của `reference`."""
+    return 1.0 - cosine_similarity_matrix(query, reference).max(axis=1)
+
+
+def memorization_stats(fake: np.ndarray, train: np.ndarray, holdout: np.ndarray,
+                       quantile: float = 0.05) -> dict[str, float]:
+    """Ảnh sinh có gần ảnh train hơn mức ảnh thật chưa thấy (`holdout`, ví dụ val) gần ảnh train không.
+
+    - `nn_dist_median`: trung vị khoảng cách tới ảnh train gần nhất của ảnh sinh.
+    - `nn_dist_ratio`  = trung vị của ảnh sinh / trung vị của `holdout`: ≈ 1 như ảnh thật mới; < 1 rõ rệt -> ảnh sinh
+      bám sát ảnh train (dấu hiệu học thuộc); > 1 -> ảnh sinh xa phân phối train.
+    - `near_copy_rate`: tỉ lệ ảnh sinh gần ảnh train hơn phân vị `quantile` của `holdout`; ảnh thật mới cho ≈ `quantile`,
+      cao hơn nhiều -> có nhiều ảnh gần như bản sao.
+    """
+    d_fake, d_ref = nn_distance(fake, train), nn_distance(holdout, train)
+    ref_median = float(np.median(d_ref))
+    return {"nn_dist_median": float(np.median(d_fake)),
+            "nn_dist_ratio": float(np.median(d_fake) / ref_median) if ref_median > 0 else float("nan"),
+            "near_copy_rate": float(np.mean(d_fake < np.quantile(d_ref, quantile)))}
