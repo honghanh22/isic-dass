@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.10.2 — README viết lại, thêm requirements
+- `README.md` viết lại theo cấu trúc chuẩn của repo nghiên cứu (tiếng Anh, cho reviewer): tổng quan + sơ đồ pipeline
+  (mermaid), phương pháp, các phương pháp so sánh, bộ dữ liệu (ISIC 2016, RSNA Pneumonia), giao thức đánh giá, cài đặt,
+  chuẩn bị dữ liệu, cách chạy, kết quả đầu ra, cấu trúc repo, tái lập, phát triển, trích dẫn, tài liệu tham khảo.
+- `requirements.txt` (chạy pipeline trên Colab; không có torch / tensorflow vì Colab cài sẵn đúng bản CUDA) và
+  `requirements-dev.txt` (máy cục bộ, test). `pyproject.toml` ghi phiên bản tối thiểu cho các thư viện lõi.
+  `tests/regression/test_requirements.py` giữ ba file khớp nhau.
+
 ## 1.10.1 — thêm bộ dữ liệu mới không "dính" bộ cũ
 Rà soát việc thêm bộ dữ liệu: code không có nhánh riêng cho bộ dữ liệu nào, nhưng có ba chỗ dễ dính dữ liệu cũ khi copy
 config rồi quên đổi tên. Thêm cơ chế chặn, không đổi kết quả của ISIC / RSNA:

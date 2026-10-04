@@ -1,0 +1,23 @@
+# DASS — local development (no GPU, no PyTorch / TensorFlow needed): config, data, selection, evaluation, tests.
+# Mirrors [project.dependencies] and the `dev` extra of pyproject.toml.
+#
+#   pip install -r requirements-dev.txt
+#   pip install -e . --no-deps
+#   pytest && ruff check src tests scripts
+
+# --- core ---
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+scikit-image>=0.21
+pillow>=10.0
+matplotlib>=3.7
+tqdm>=4.65
+pyyaml>=6.0
+pydicom>=3.0
+
+# --- tests, lint, git without a git binary ---
+pytest>=8
+ruff
+dulwich

@@ -4,21 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dass"
-version = "1.10.1"
+version = "1.10.2"
 description = "Conditional StyleGAN2-ADA + DASS synthetic-sample selection for imbalanced medical image classification"
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = [
-    "numpy",
-    "pandas",
-    "scipy",
-    "scikit-learn",
-    "scikit-image",
-    "pillow",
-    "matplotlib",
-    "tqdm",
-    "pyyaml",
-    "pydicom",          # nguồn DICOM (RSNA Pneumonia)
+dependencies = [       # giữ khớp requirements.txt / requirements-dev.txt (tests/regression/test_requirements.py)
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    "scikit-image>=0.21",
+    "pillow>=10.0",
+    "matplotlib>=3.7",
+    "tqdm>=4.65",
+    "pyyaml>=6.0",
+    "pydicom>=3.0",     # nguồn DICOM (RSNA Pneumonia)
 ]
 
 [project.optional-dependencies]

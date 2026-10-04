@@ -1,0 +1,32 @@
+# DASS — runtime dependencies for running the full pipeline (Google Colab with a GPU).
+# Mirrors [project.dependencies] and the `gan` / `tf` extras of pyproject.toml (kept in sync by
+# tests/regression/test_requirements.py).
+#
+#   pip install -r requirements.txt
+#   pip install -e . --no-deps
+#
+# PyTorch and TensorFlow are NOT listed: Colab ships them pre-built for its CUDA version, and reinstalling them breaks
+# the CUDA setup. On another GPU machine install them first (PyTorch >= 2.0 with CUDA, TensorFlow >= 2.16).
+#
+# Tested with Python 3.11-3.12; Colab (2026-10): torch 2.11 + CUDA 13.0 on A100 / L4.
+
+# --- core: config, data, selection, evaluation (numpy / scikit-learn / PIL) ---
+numpy>=1.24
+pandas>=2.0
+scipy>=1.10
+scikit-learn>=1.3
+scikit-image>=0.21
+pillow>=10.0
+matplotlib>=3.7
+tqdm>=4.65
+pyyaml>=6.0
+pydicom>=3.0            # DICOM source (RSNA Pneumonia)
+
+# --- generator: NVlabs StyleGAN2-ADA (cloned and patched at runtime by `dass gan-setup`) ---
+ninja                   # builds the custom CUDA plugins
+click
+requests
+psutil
+
+# --- classifiers (TensorFlow / Keras) ---
+keras-hub               # ViT-B16 and Swin-T backbones
