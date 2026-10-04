@@ -16,5 +16,5 @@ data:
     train_images: /data/honghanh/datasets/RSNA   # tìm *.dcm + CSV / JSON nhãn đệ quy
 
 classifier:
-  # Server: bỏ DenseNet121 (cùng kiến trúc với E_d) và ViT-B16 (cần nhiều dữ liệu, nặng nhất). Thứ tự = thứ tự chạy.
-  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny, SwinT]
+  # Server: 3 CNN (bỏ DenseNet121 — cùng kiến trúc với E_d; ViT-B16, SwinT — transformer, nặng). Thứ tự = thứ tự chạy.
+  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]
