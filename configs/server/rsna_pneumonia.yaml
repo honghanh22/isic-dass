@@ -1,0 +1,18 @@
+# RSNA Pneumonia trên dsserver (UTEHY AI Lab) — kế thừa thực nghiệm chính, chỉ đổi đường dẫn Colab -> HDD của server.
+#   dass -c configs/server/rsna_pneumonia.yaml show-config
+# Trên server train GAN mới (gan_tag: srv, bỏ split.expected). Muốn dùng lại GAN `rsna` (split rsna_v2): xoá 2 dòng đó, chép checkpoints_rsna/ và checkpoints_rsna_v2/data/ từ Drive vào
+# /data/honghanh/results/RSNA/ nếu muốn dùng lại.
+_base_:
+  - ../experiments/rsna_pneumonia_dass.yaml
+
+paths:
+  drive_root: /data/honghanh/results/RSNA
+  local_root: /data/honghanh/local_data
+  external_root: /data/honghanh/external
+  gan_tag: srv           # GAN MỚI train trên server (không dùng lại rsna của Colab) -> checkpoints_srv/
+
+data:
+  source:
+    train_images: /data/honghanh/datasets/RSNA   # tìm *.dcm + CSV / JSON nhãn đệ quy
+  split:
+    expected: null       # GAN srv mới -> không buộc khớp split rsna_v2 của GAN cũ

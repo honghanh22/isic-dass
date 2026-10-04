@@ -49,14 +49,14 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     z_d_real = {c: ed.embed(train_paths[c]) for c in classes}
     z_d_pool = ed.embed(pool)
 
-    # AUC probe: chỉ dòng 'val' là khách quan (E_d đã học chính các ảnh train)
+    # AUC probe: dòng "val" sát thực tế hơn (E_d đã học ảnh train; val chỉ dùng chọn epoch nên vẫn hơi lạc quan)
     c2i = cfg.data.classes
     probe = pd.DataFrame([
         {"space": "E_v (ImageNet)", "subset": "train (E_d đã thấy)", "auc_probe": probe_auc(z_v_real, c2i, cfg.seed)},
         {"space": "E_d (supervised)", "subset": "train (E_d đã thấy)", "auc_probe": probe_auc(z_d_real, c2i, cfg.seed)},
-        {"space": "E_v (ImageNet)", "subset": "val (khách quan)",
+        {"space": "E_v (ImageNet)", "subset": "val (E_d chỉ dùng để chọn epoch)",
          "auc_probe": probe_auc({c: ev.embed(val_paths[c]) for c in classes}, c2i, cfg.seed)},
-        {"space": "E_d (supervised)", "subset": "val (khách quan)",
+        {"space": "E_d (supervised)", "subset": "val (E_d chỉ dùng để chọn epoch)",
          "auc_probe": probe_auc({c: ed.embed(val_paths[c]) for c in classes}, c2i, cfg.seed)},
     ])
     save_metrics(layout, "probe_auc", probe)

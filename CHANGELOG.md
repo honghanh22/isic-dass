@@ -1,5 +1,12 @@
 # Changelog
 
+## Chưa phát hành — chạy trên dsserver (bị ngắt theo giờ GPU)
+- `utils.copy_atomic`: chép ra file tạm rồi `os.replace`. Dùng cho `best.pkl` / `latest.pkl` của GAN và trọng số E_d:
+  bị ngắt giữa lúc chép (Ctrl+C khi hết giới hạn 2 giờ của server) không còn để lại checkpoint ghi dở, làm resume GAN
+  hoặc `sample` / `select` lỗi. Có test.
+- `probe_auc`: nhãn dòng val đổi từ "val (khách quan)" thành "val (E_d chỉ dùng để chọn epoch)" — E_d dùng val để
+  early stopping nên số này vẫn hơi lạc quan.
+
 ## 1.11.0 — classifier không can thiệp dữ liệu cho mọi bộ dữ liệu; ISIC `v11`
 - Người dùng quyết định: cả hai bộ dữ liệu train classifier **không augmentation** và **M0 không class weight** (M0 =
   baseline mất cân bằng thật; ROS là baseline cân bằng bằng ảnh thật). Trước đây chỉ RSNA như vậy (1.8.2, 1.9.1),

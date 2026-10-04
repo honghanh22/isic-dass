@@ -48,3 +48,27 @@ def test_separability_and_shortcut_table(rng):
     t = shortcut_table(real, pool, {"M0_real_only": [], "M6_dass": list(range(20))}, "pos", "neg", seed=0)
     assert list(t["method"]) == ["reference", "M6_dass"]
     assert t["auc_5fold"].iloc[0] > 0.9 > t["auc_5fold"].iloc[1]     # thật/sinh cùng phân phối -> khó tách
+
+
+def test_copy_atomic_keeps_old_file_when_interrupted(tmp_path, monkeypatch):
+    """Bị ngắt giữa lúc chép (hết giờ GPU) -> file đích cũ còn nguyên, không bị ghi dở."""
+    import shutil
+
+    import pytest
+
+    from dass.utils import copy_atomic
+
+    src, dst = tmp_path / "new.pkl", tmp_path / "out" / "latest.pkl"
+    src.write_bytes(b"new" * 1000)
+    copy_atomic(src, dst)
+    assert dst.read_bytes() == src.read_bytes()
+
+    def interrupted(s, d):
+        open(d, "wb").write(b"par")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(shutil, "copy2", interrupted)
+    src.write_bytes(b"newer")
+    with pytest.raises(KeyboardInterrupt):
+        copy_atomic(src, dst)
+    assert dst.read_bytes() == b"new" * 1000

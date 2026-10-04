@@ -11,7 +11,6 @@
 from __future__ import annotations
 
 import logging
-import shutil
 from pathlib import Path
 
 import numpy as np
@@ -20,7 +19,7 @@ import tensorflow as tf
 from ...config import Config
 from ...data.loaders import build_dataset, paths_dataset
 from ...engine.trainer import compute_class_weight_from_dir, fit_two_stage
-from ...utils import l2_normalize
+from ...utils import copy_atomic, l2_normalize
 from ..classifiers import build_model
 
 log = logging.getLogger(__name__)
@@ -72,8 +71,7 @@ def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path,
         local_ckpt = local_ckpt_dir / ckpt.name
         fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight, ckpt_path=local_ckpt,
                       head_epochs=enc.e_d_head_epochs, ft_epochs=enc.e_d_ft_epochs, with_pr_auc=False)
-        ckpt.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(local_ckpt, ckpt)
+        copy_atomic(local_ckpt, ckpt)
         log.info("Đã lưu E_d -> %s", ckpt)
 
     feat = tf.keras.Model(base.input, base.output, name=f"E_d_{enc.e_d_model}")

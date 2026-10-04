@@ -1,0 +1,19 @@
+# ISIC 2016 trên dsserver (UTEHY AI Lab) — kế thừa thực nghiệm chính, chỉ đổi đường dẫn Colab -> HDD của server.
+#   dass -c configs/server/isic2016.yaml show-config
+# Artefact (checkpoints_<tag>, results_<tag>) ghi vào drive_root; muốn dùng lại GAN v5 thì chép
+# checkpoints_v5/stylegan2ada từ Google Drive vào /data/honghanh/results/ISIC2016/.
+_base_:
+  - ../experiments/isic2016_dass.yaml
+
+paths:
+  drive_root: /data/honghanh/results/ISIC2016
+  local_root: /data/honghanh/local_data       # thay /content/local_data (không mất khi tắt máy)
+  external_root: /data/honghanh/external      # StyleGAN2-ADA, GANDCTAnalysis được clone vào đây
+  gan_tag: srv           # GAN MỚI train trên server (không dùng lại v5 của Colab) -> checkpoints_srv/
+
+data:
+  source:   # dữ liệu gốc tách khỏi drive_root (đường dẫn tuyệt đối)
+    train_images: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Training_Data
+    train_labels: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Training_GroundTruth.csv
+    test_images: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Test_Data
+    test_labels: /data/honghanh/datasets/ISIC2016/ISBI2016_ISIC_Part3_Test_GroundTruth.csv

@@ -20,7 +20,7 @@ import numpy as np
 from ...config import Layout
 from ...config.schema import GeneratorConfig
 from ...evaluation.generative import kid_from_features
-from ...utils import read_json, write_json_atomic
+from ...utils import copy_atomic, read_json, write_json_atomic
 from .inception import generate_class_images, inception_features, load_generator
 
 log = logging.getLogger(__name__)
@@ -237,11 +237,11 @@ class StyleGanTrainer:
             kid = self.evaluate_snapshot(pkl)
             improved = state["best_kid"] is None or kid < state["best_kid"] * (1 - g.min_rel_delta)
             if improved:
-                shutil.copy2(pkl, self.layout.gan_best_pkl)
+                copy_atomic(pkl, self.layout.gan_best_pkl)
                 state.update(best_kid=kid, best_cum_kimg=cum, bad_count=0)
             elif cum >= g.min_kimg:
                 state["bad_count"] += 1
-            shutil.copy2(pkl, self.layout.gan_latest_pkl)
+            copy_atomic(pkl, self.layout.gan_latest_pkl)
             state["cum_kimg"] = cum
             state["history"].append({"cum_kimg": cum, "kid": kid, "improved": bool(improved)})
             self._save(state)

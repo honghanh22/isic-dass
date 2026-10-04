@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -83,6 +84,16 @@ def save_npz_atomic(path: str | Path, **arrays: Any) -> None:
     with open(tmp, "wb") as f:                      # truyền file object -> np.savez không tự thêm đuôi .npz
         np.savez(f, **arrays)
     os.replace(tmp, path)
+
+
+def copy_atomic(src: str | Path, dst: str | Path) -> None:
+    """shutil.copy2 ra file tạm rồi đổi tên -> bị ngắt (Ctrl+C, hết giờ GPU) giữa chừng không để lại file hỏng ở `dst`
+    (checkpoint .pkl / .h5 hỏng mà vẫn "tồn tại" sẽ làm resume hoặc stage sau lỗi)."""
+    dst = Path(dst)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    tmp = dst.with_name(dst.name + ".tmp")
+    shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
 
 
 def _json_default(o: Any) -> Any:
