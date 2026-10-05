@@ -43,5 +43,6 @@ def run(cfg: Config, model_name: str, seeds: list[int] | None = None, archive_mi
                                 class_weight_methods=class_weight_methods,
                                 majority=ctx.budget.majority, majority_synth=majority_synth, extra_real=extra_real)
     assert_clean_eval_sets(variants, ctx.layout.test_pp, cfg.data.class_names)
+    ros = next((v.dir for v in variants.values() if v.method == OVERSAMPLE), None)   # giai đoạn B (nếu bật)
     run_experiments(cfg, ctx.layout, model_name, variants, seeds or cfg.classifier.seeds, ctx.channels,
-                    archive_mismatched)
+                    archive_mismatched, real_balanced_dir=ros)

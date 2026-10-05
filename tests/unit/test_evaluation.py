@@ -242,3 +242,13 @@ def test_protocol_records_monitor(tmp_path):
     runs = pd.DataFrame({"augment": [False, False], "monitor": ["val_auc", "val_macro_recall"]})
     with pytest.raises(ValueError, match="chọn epoch"):
         check_single_protocol(runs)
+
+
+def test_finetune_methods_label_order_and_group():
+    labels = {"M0_real_only": "Base", "M0b_real_oversample": "ROS", "M6_dass": "DASS (Ours)"}
+    assert reporting.method_label("M6_dass+FT", labels) == "DASS (Ours) + real fine-tune"
+    order = sorted(["M6_dass+FT", "M0b_real_oversample+FT", "M6_dass", "M0_real_only", "M0b_real_oversample"],
+                   key=lambda m: reporting.method_rank(m, labels))
+    assert order == ["M0_real_only", "M0b_real_oversample", "M6_dass", "M0b_real_oversample+FT", "M6_dass+FT"]
+    assert reporting.method_group("M6_dass+FT", {"G": ["M6_dass"]}) == reporting.FINETUNE_GROUP
+    assert reporting.method_group("M6_dass", {"G": ["M6_dass"]}) == "G"

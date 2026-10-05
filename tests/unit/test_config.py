@@ -187,3 +187,13 @@ def test_layout_paths_relative_and_absolute():
     layout = Layout(cfg)
     assert layout.drive_train_images == Path("/abs/imgs")
     assert layout.drive_test_images.parent == Path(cfg.paths.drive_root)
+
+
+def test_finetune_real_is_off_by_default_and_needs_ros():
+    cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
+    assert cfg.classifier.finetune_real_epochs == 0
+    assert load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
+                       ["classifier.finetune_real_epochs=5"]).classifier.finetune_real_epochs == 5
+    with pytest.raises(ValueError, match="oversample_variant"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
+                    ["classifier.finetune_real_epochs=5", "selection.oversample_variant=false"])

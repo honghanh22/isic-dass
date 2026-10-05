@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.13.0 — tuỳ chọn train 2 giai đoạn (fine-tune chỉ trên ảnh thật)
+- `classifier.finetune_real_epochs` (mặc định 0 = tắt), `classifier.finetune_real_lr` (5e-6): sau khi train một biến
+  thể (giai đoạn A, không đổi), train tiếp từ CHÍNH model A, chỉ trên ảnh thật cân bằng bằng ROS (tập train của M0b,
+  giống nhau cho mọi biến thể), lr nhỏ; chọn epoch theo `monitor` và chỉ nhận epoch tốt hơn model A trên val (không có
+  -> giữ A). Lưu thêm `<phương pháp>+FT` (`.npz` ghi `finetune_real_epochs`, `finetune_real_lr`). M0 không có giai
+  đoạn B; `M0b+FT` (ROS -> ROS, cùng số epoch) là đối chứng. A đã có (`.npz` + trọng số) -> chỉ chạy giai đoạn B.
+- Mục đích: làm yếu shortcut "dấu vết GAN = lớp thiểu số" (AUC thật-vs-sinh ≈ 0,99) mà vẫn giữ phần có ích của ảnh
+  sinh. Thêm sau khi đã xem test ISIC `v11` -> nêu trong bài; tham số (5 epoch, 5e-6) đặt trước, không dò trên test.
+- Bảng: `+FT` có tên "<tên gốc> + real fine-tune", nhóm "Two-stage: + real fine-tune", xếp sau các phương pháp gốc.
+
 ## 1.12.0 — chọn epoch theo `val_auc`; ISIC `v12`, RSNA `rsna_v3`
 - Người dùng quyết định: `classifier.monitor` `val_macro_recall` -> **`val_auc`** (classifier và E_d). Lý do: khớp chỉ
   số chính (ROC-AUC), không phụ thuộc ngưỡng 0,5 (không thiên vị giữa M0 mất cân bằng và biến thể cân bằng), ít nhiễu
