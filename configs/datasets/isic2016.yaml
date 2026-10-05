@@ -2,7 +2,8 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
   gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
-  run_tag: v11           # k = 1,5, KHÔNG augmentation, M0 KHÔNG class weight (giống RSNA rsna_v2) -> *_v11/.
+  run_tag: v12           # như v11 (k = 1,5, không augmentation, M0 không class weight) nhưng chọn epoch theo val_auc.
+                         # v11: chọn epoch theo val_macro_recall (giữ nguyên, báo cáo riêng).
                          # Giữ nguyên: v10 (k = 1,5, có augmentation, M0 có class weight), v9 (k = 2, không
                          # augmentation, M0 không class weight), v7 (notebook v5, k = 4); v8 (k = 3) chưa từng chạy.
 

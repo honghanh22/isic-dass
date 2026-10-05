@@ -47,7 +47,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - **Giữ số kênh gốc:** mọi đọc / ghi ảnh đi qua `data/image_io.py`. Ảnh xám lưu PNG "L" và được giữ 1 kênh. Chỉ nhân bản 1 → 3 kênh trên bộ nhớ, ngay trước mạng pretrain (`data/loaders.to_backbone_input`, `models/generator/inception`). Không bước nào được biến đổi ảnh theo từng kênh. GAN 3 kênh dùng cho dữ liệu 1 kênh chỉ được gộp kênh khi 3 kênh giống hệt nhau (`generator.channel_tolerance`).
 - Tuỳ chọn chung `force_grayscale` (hiện không bộ dữ liệu nào dùng): ảnh xám lưu RGB được chuyển về luminance rồi lưu 3 kênh bằng nhau, cho cả ảnh thật và ảnh sinh (tránh nhiễu màu JPEG gắn với một lớp). Mọi phép chuyển xám phải dùng đúng luminance của PIL (`convert("L")`), giống nhau cho ảnh thật và ảnh sinh.
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
-- Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_macro_recall`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
+- Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_auc` từ 1.12.0; `val_macro_recall` tới ISIC `v11` / RSNA `rsna_v2`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải giữ **đúng** thuật toán đã khoá trong `tests/regression/test_split_reproduction.py` (ISIC: split của notebook v5, GAN `v5`; RSNA: split `rsna_v2`, GAN `rsna` gắn qua `split.expected`). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
 - Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
   (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
@@ -59,8 +59,9 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - **Classifier không can thiệp dữ liệu, cho MỌI bộ dữ liệu** (người dùng quyết định, 1.11.0):
   `classifier.augment: false` và `classifier.baseline_class_weight: false` trong `configs/_base_/classifier.yaml`
   (M0 = baseline mất cân bằng thật; ROS là baseline cân bằng bằng ảnh thật). Không ghi đè trong `configs/datasets/`
-  (có test: classifier của ISIC và RSNA giống hệt). Lần chạy hiện tại: ISIC `v11`, RSNA `rsna_v2`. Cấu hình cũ giữ
-  nguyên trên Drive, báo cáo riêng: ISIC `v10` / `v7` (có augmentation, M0 có class weight), ISIC `v9` (cả hai tắt,
+  (có test: classifier của ISIC và RSNA giống hệt). Lần chạy hiện tại: ISIC `v12`, RSNA `rsna_v3` (như `v11` / `rsna_v2`
+  nhưng chọn epoch theo `val_auc`, người dùng quyết định 1.12.0). Cấu hình cũ giữ nguyên trên Drive, báo cáo riêng: ISIC
+  `v11` / RSNA `rsna_v2` (chọn epoch theo `val_macro_recall`), ISIC `v10` / `v7` (có augmentation, M0 có class weight), ISIC `v9` (cả hai tắt,
   k = 2). E_d luôn train có augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA
   của GAN giữ nguyên. RSNA còn `generator.mirror: false` (X-quang không đối xứng trái / phải; có test). Khi người
   dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.

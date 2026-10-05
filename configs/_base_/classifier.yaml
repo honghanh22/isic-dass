@@ -12,7 +12,10 @@ classifier:
   weight_decay: 0.0001
   dropout: 0.3
   early_stop_patience: 8
-  monitor: val_macro_recall     # (sensitivity + specificity) / 2 ở ngưỡng 0.5
+  # Chọn epoch (classifier + E_d) theo ROC-AUC trên val (1.12.0, người dùng quyết định): khớp chỉ số chính của bài,
+  # không phụ thuộc ngưỡng (công bằng giữa M0 mất cân bằng và biến thể cân bằng), ít nhiễu hơn val_macro_recall
+  # (ISIC val chỉ 25 ca dương). val_macro_recall ((sens + spec) / 2 ở ngưỡng 0,5) dùng tới ISIC v11 / RSNA rsna_v2.
+  monitor: val_auc
   # Người dùng quyết định (1.11.0): KHÔNG can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào, cho MỌI bộ dữ
   # liệu (ISIC v11, RSNA rsna_v2): không augmentation, M0 không class weight (baseline mất cân bằng thật; ROS là
   # baseline cân bằng bằng ảnh thật). Kết quả có augmentation + M0 class weight (ISIC v7 / v10) giữ nguyên trên Drive.

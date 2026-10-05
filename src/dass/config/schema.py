@@ -180,7 +180,7 @@ class ClassifierConfig:
     dropout: float = 0.3
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
-    monitor: str = "val_macro_recall"
+    monitor: str = "val_auc"
     augment: bool = False            # augmentation khi train classifier (mọi biến thể, chỉ tập train); 1.11.0: tắt
     baseline_class_weight: bool = False  # M0 có class weight; 1.11.0: tắt (baseline mất cân bằng thật, ROS cân bằng)
     mixed_precision: bool = False

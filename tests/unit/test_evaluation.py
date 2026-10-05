@@ -232,3 +232,13 @@ def test_generation_table_memorization_columns_optional():
     q["nn_dist_ratio"], q["near_copy_rate"] = 0.95, 0.04
     t = reporting.generation_table(q)[0]
     assert t["NN ratio"].iloc[0] == "0.950" and t["Near-copy"].iloc[0] == "0.040"
+
+
+def test_protocol_records_monitor(tmp_path):
+    out = tmp_path / "m.npz"
+    save_npz_atomic(out, y=np.arange(3), augment=False, class_weight=False, monitor="val_auc")
+    assert protocol_mismatch(out, {"augment": False, "class_weight": False, "monitor": "val_auc"}) is None
+    assert "monitor" in protocol_mismatch(out, {"augment": False, "class_weight": False, "monitor": "val_macro_recall"})
+    runs = pd.DataFrame({"augment": [False, False], "monitor": ["val_auc", "val_macro_recall"]})
+    with pytest.raises(ValueError, match="chọn epoch"):
+        check_single_protocol(runs)

@@ -116,7 +116,7 @@ image per patient prevents patient overlap between train, validation and test. V
 - **No leakage.** The generator, DASS and `E_d` see the training split only. Validation and test sets contain real images
   only and are checked before training. A generator may only be reused with the split it was trained on (RSNA: checked
   automatically at every stage; ISIC: the split algorithm is locked by a regression test).
-- **Model selection.** Validation is used only to pick the epoch (`val_macro_recall`). The test set is predicted once,
+- **Model selection.** Validation is used only to pick the epoch (validation ROC-AUC, `val_auc`; runs up to ISIC `v11` / RSNA `rsna_v2` used `val_macro_recall`). The test set is predicted once,
   after reloading the best checkpoint, with a **fixed threshold of 0.5**.
 - **Same recipe for every method and both datasets**: data, split, generator, pool, `n`, hyper-parameters and seeds
   (paired design). The classifier receives **no other data- or loss-level intervention**: no augmentation and no class
@@ -321,8 +321,8 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Dataset | `gan_tag` | Main `run_tag` | Other runs kept for reporting |
 |---|---|---|---|
-| ISIC 2016 | `v5` | `v11` (k = 1.5, no augmentation, unweighted baseline) | `v10` (k = 1.5, augmentation, class-weighted baseline), `v9` (k = 2, no augmentation, unweighted), `v7` (k = 4) |
-| RSNA Pneumonia | `rsna` | `rsna_v2` (k = 1.5, no augmentation, unweighted baseline) | `rsna_v1` (6,000-image subset, data preparation only) |
+| ISIC 2016 | `v5` | `v12` (k = 1.5, no augmentation, unweighted baseline, epoch by `val_auc`) | `v11` (as `v12`, epoch by `val_macro_recall`), `v10` (k = 1.5, augmentation, class-weighted baseline), `v9` (k = 2, no augmentation, unweighted), `v7` (k = 4) |
+| RSNA Pneumonia | `rsna` | `rsna_v3` (k = 1.5, no augmentation, unweighted baseline, epoch by `val_auc`; split of `rsna_v2`) | `rsna_v2` (as `rsna_v3`, epoch by `val_macro_recall`), `rsna_v1` (6,000-image subset, data preparation only) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

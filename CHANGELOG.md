@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.12.0 — chọn epoch theo `val_auc`; ISIC `v12`, RSNA `rsna_v3`
+- Người dùng quyết định: `classifier.monitor` `val_macro_recall` -> **`val_auc`** (classifier và E_d). Lý do: khớp chỉ
+  số chính (ROC-AUC), không phụ thuộc ngưỡng 0,5 (không thiên vị giữa M0 mất cân bằng và biến thể cân bằng), ít nhiễu
+  với val nhỏ. Ở ISIC `v11` (server): 65 % lần chạy chọn epoch ≤ 3, tương quan val AUC – test AUC = −0,12. Quyết định
+  sau khi đã xem test của `v11` -> nêu trong bài; `v11` / `rsna_v2` giữ nguyên, báo cáo như phân tích độ nhạy.
+- `run_tag`: ISIC `v11` -> `v12`, RSNA `rsna_v2` -> `rsna_v3` (cùng GAN, cùng split: `split.expected` vẫn trỏ tới
+  `checkpoints_rsna_v2/data/real_val_split.json`). E_d đổi theo tiêu chí mới -> `select` chạy lại.
+- `.npz` ghi thêm `monitor`; `protocol_mismatch` / `check_single_protocol` chặn trộn hai tiêu chí. Thư mục
+  `*_superseded/` bỏ trường chưa ghi (`.npz` cũ giữ nhãn cũ). Có test.
+
 ## Chưa phát hành — chạy trên dsserver (bị ngắt theo giờ GPU)
 - `utils.copy_atomic`: chép ra file tạm rồi `os.replace`. Dùng cho `best.pkl` / `latest.pkl` của GAN và trọng số E_d:
   bị ngắt giữa lúc chép (Ctrl+C khi hết giới hạn 2 giờ của server) không còn để lại checkpoint ghi dở, làm resume GAN

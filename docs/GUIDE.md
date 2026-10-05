@@ -14,8 +14,10 @@ trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
 | ISIC `v7` | 4 | có | có | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
 | ISIC `v9` | 2 | **không** | **không** | EfficientNetV2B0, ResNet50 |
 | ISIC `v10` | 1,5 | có | có | cấu hình chính của ISIC trước 1.11.0 |
-| **ISIC `v11`** | **1,5** | **không** | **không** | cấu hình chính của ISIC (từ 1.11.0) |
-| **RSNA `rsna_v2`** | **1,5** | **không** | **không** | cấu hình chính của RSNA (mục 2.5) |
+| ISIC `v11` | 1,5 | không | không | như `v12` nhưng chọn epoch theo `val_macro_recall` (1.11.0) |
+| RSNA `rsna_v2` | 1,5 | không | không | như `rsna_v3` nhưng chọn epoch theo `val_macro_recall`; split của GAN `rsna` |
+| **ISIC `v12`** | **1,5** | **không** | **không** | cấu hình chính của ISIC (từ 1.12.0): chọn epoch theo `val_auc` |
+| **RSNA `rsna_v3`** | **1,5** | **không** | **không** | cấu hình chính của RSNA (từ 1.12.0): chọn epoch theo `val_auc`, cùng split `rsna_v2` |
 
 **Giao thức chung (1.11.0, người dùng quyết định):** classifier **không can thiệp dữ liệu** ở bất kỳ phương pháp nào,
 cho cả hai bộ dữ liệu — không augmentation và M0 không class weight. RSNA chạy như vậy từ đầu (augmentation tắt ở
@@ -405,8 +407,13 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
    inference.
 
 **Chọn epoch và dự đoán:**
-- Theo dõi `val_macro_recall` = (sensitivity + specificity) / 2 tại ngưỡng 0,5. Lưu checkpoint tốt nhất; dừng sớm sau
-  8 epoch không cải thiện.
+- Theo dõi **`val_auc`** (ROC-AUC trên val; từ 1.12.0, người dùng quyết định). Lưu checkpoint tốt nhất; dừng sớm sau
+  8 epoch không cải thiện. Áp dụng cho cả classifier lẫn E_d. Lý do đổi từ `val_macro_recall` ((sens + spec) / 2 ở
+  ngưỡng 0,5, dùng tới ISIC `v11` / RSNA `rsna_v2`): khớp chỉ số chính (AUC); không phụ thuộc ngưỡng nên không thiên
+  vị giữa M0 mất cân bằng và biến thể cân bằng; ít nhiễu hơn với val nhỏ (ISIC 25 ca dương — ở `v11`, 65 % lần chạy
+  chọn epoch ≤ 3 và val AUC gần như không tương quan với test AUC). Quyết định sau khi đã xem kết quả test của `v11`
+  -> phải nêu trong bài; `v11` / `rsna_v2` báo cáo như phân tích độ nhạy. Tiêu chí được ghi vào `.npz` (`monitor`);
+  trộn hai tiêu chí trong cùng thư mục dự đoán -> báo lỗi.
 - Nạp lại checkpoint tốt nhất, rồi **dự đoán test đúng một lần**. Xác suất val và test được lưu vào
   `predictions/<model>__<biến thể>__s<seed>.npz`. Mọi bảng phân loại đều tính từ các file này.
 
@@ -661,8 +668,8 @@ EXTRA = ""                                                     # ghi đè, ví d
 | Thư mục | `checkpoints_smoke/`, `results_smoke/` | `checkpoints_<run_tag>/`, `results_<run_tag>/` |
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
-1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v2"`,
-   ISIC `"run_tag": "v11"`; cả hai `"augment": false`, `"baseline_class_weight": false`, `"pool_mult": 1.5`.
+1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v3"`,
+   ISIC `"run_tag": "v12"`, `"monitor": "val_auc"`; cả hai `"augment": false`, `"baseline_class_weight": false`, `"pool_mult": 1.5`.
 2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
    đọc thư mục của smoke.
 3. Chạy tiếp từ `prepare` trở xuống.
@@ -749,10 +756,10 @@ Kết quả nằm trong thư mục của từng bộ dữ liệu. Không bao gi�
 | | RSNA (`…/RSNA Pneumonia/Result_Pneumonia/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
 | GAN | `checkpoints_rsna/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v2/` | `checkpoints_v11/` |
-| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v2/` | `results_v11/` |
+| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v3/` (split tham chiếu: `checkpoints_rsna_v2/data/real_val_split.json`) | `checkpoints_v12/` |
+| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v3/` | `results_v12/` |
 | Kết quả giao thức cũ (chuyển ra, không dùng trong bảng) | `results_rsna_v2/predictions_superseded/`, `checkpoints_rsna_v2/classifiers_superseded/` | — |
-| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v1/` (chỉ `prepare`) | `results_v10/` (k = 1,5, có augmentation, M0 có class weight); `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
+| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v2/` (chọn epoch theo `val_macro_recall`), `results_rsna_v1/` (chỉ `prepare`) | `results_v11/` (chọn epoch theo `val_macro_recall`), `results_v10/` (k = 1,5, có augmentation, M0 có class weight); `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
 
 Kết quả Brain Tumor cũ (`…/BrainTumor_GAN/`) vẫn nằm trên Drive, không xoá, nhưng không còn thuộc dự án.
@@ -811,7 +818,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | Classifier | backbone | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny, ViT-B16, SwinT | `configs/_base_/classifier.yaml` |
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |
-| Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_macro_recall` | |
+| Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_auc` | |
 | Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | tắt / tắt (mọi bộ dữ liệu) | |
 | Đánh giá | ngưỡng / bootstrap / KID (tập con, kích thước tối đa) / cặp SSIM | 0.5 / 2000 / 50, 1000 / 200 | `configs/_base_/evaluation.yaml` |
 | Đánh giá | đối chứng chính / cặp bổ sung (`comparisons`) | M0 / M6 vs M0b, M6 vs M1 | |

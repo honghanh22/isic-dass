@@ -21,7 +21,7 @@ def test_experiments_load_and_validate(name):
     cfg = load_config([CONFIGS / "experiments" / name])
     assert cfg.data.name and cfg.paths.drive_root
     # công thức chuẩn hoá (ISIC v5), giống nhau cho mọi bộ dữ liệu
-    assert (cfg.selection.lambda_v, cfg.selection.gamma, cfg.classifier.monitor) == (1.0, 0.5, "val_macro_recall")
+    assert (cfg.selection.lambda_v, cfg.selection.gamma, cfg.classifier.monitor) == (1.0, 0.5, "val_auc")
     assert cfg.selection.both_classes_variant is False and cfg.evaluation.threshold == 0.5
 
 
@@ -121,8 +121,8 @@ def test_k_is_identical_across_datasets():
 def test_e_d_reuse_from_main_run():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"], tag="x")
     lay = Layout(cfg)
-    assert lay.e_d_run == "rsna_v2" and lay.results_dir.name == "results_rsna_v2_x"
-    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_rsna_v2" / "classifiers" / \
+    assert lay.e_d_run == "rsna_v3" and lay.results_dir.name == "results_rsna_v3_x"
+    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_rsna_v3" / "classifiers" / \
         "Ed_DenseNet121_s4242.weights.h5"
     with pytest.raises(ValueError, match="--tag"):          # "base" mà không có --tag -> lỗi
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"])
@@ -130,7 +130,7 @@ def test_e_d_reuse_from_main_run():
 
 def test_main_run_trains_its_own_e_d():
     lay = Layout(load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]))
-    assert lay.e_d_run == "rsna_v2" and lay.e_d_ckpt.parent == lay.clf_dir
+    assert lay.e_d_run == "rsna_v3" and lay.e_d_ckpt.parent == lay.clf_dir
 
 
 def test_smoke_profile_composes_with_any_dataset():
@@ -143,7 +143,7 @@ def test_overrides_and_tag():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                       ["generator.batch=32", "classifier.ft_lr=1e-5", "classifier.seeds=[1, 2]"], tag="abl")
     assert cfg.generator.batch == 32 and isinstance(cfg.classifier.ft_lr, float)
-    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v11_abl"
+    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v12_abl"
 
 
 def test_unknown_key_and_bad_override():

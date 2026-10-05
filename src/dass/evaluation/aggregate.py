@@ -17,15 +17,16 @@ from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight")   # thiết lập train ghi trong .npz (từ 1.4.0; .npz cũ không có)
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor")   # thiết lập train ghi trong .npz (augment / class_weight từ
+                                                            # 1.4.0, monitor từ 1.12.0; .npz cũ không có)
 
 
-def read_protocol(d) -> dict[str, bool | None]:
-    """{augment, class_weight} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
-    return {f: (bool(d[f]) if f in d.files else None) for f in PROTOCOL_FIELDS}
+def read_protocol(d) -> dict[str, bool | str | None]:
+    """{augment, class_weight, monitor} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
+    return {f: ((str(d[f]) if f == "monitor" else bool(d[f])) if f in d.files else None) for f in PROTOCOL_FIELDS}
 
 
-def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool]) -> str | None:
+def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool | str]) -> str | None:
     """Mô tả chỗ lệch giữa thiết lập train lưu trong `npz_path` và `expected`; None nếu khớp (hoặc .npz cũ không ghi)."""
     with np.load(npz_path, allow_pickle=True) as d:
         stored = read_protocol(d)
@@ -41,7 +42,7 @@ def archive_superseded_run(npz_path: str | Path, weights_path: str | Path, pred_
     cấu hình hiện tại mà không trộn hai giao thức trong thư mục dự đoán. Trùng tên thì thêm hậu tố, không ghi đè."""
     npz_path, weights_path = Path(npz_path), Path(weights_path)
     with np.load(npz_path, allow_pickle=True) as d:
-        label = "__".join(f"{k}-{v}" for k, v in read_protocol(d).items())
+        label = "__".join(f"{k}-{v}" for k, v in read_protocol(d).items() if v is not None)
 
     def move(src: Path, root: str | Path) -> Path:
         dst = Path(root) / label / src.name
@@ -59,11 +60,11 @@ def archive_superseded_run(npz_path: str | Path, weights_path: str | Path, pred_
 
 
 def check_single_protocol(runs: pd.DataFrame) -> None:
-    """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation) — trộn thì mean ± std và bootstrap sai."""
-    if "augment" in runs:
-        values = set(runs["augment"].dropna())
-        if len(values) > 1:
-            raise ValueError("Thư mục dự đoán trộn lần chạy có và không có augmentation -> tách bằng --tag / run_tag mới")
+    """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation, tiêu chí chọn epoch) — trộn thì mean ± std
+    và bootstrap sai."""
+    for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau")):
+        if col in runs and len(set(runs[col].dropna())) > 1:
+            raise ValueError(f"Thư mục dự đoán trộn lần chạy {what} -> tách bằng --tag / run_tag mới")
 
 
 def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
