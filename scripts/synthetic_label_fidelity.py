@@ -46,7 +46,7 @@ def main() -> None:
     from dass.data.loaders import configure_gpu, paths_dataset
     from dass.models.classifiers import build_model
     from dass.pipeline.context import Context
-    from dass.pipeline.pool import _resolve_pool, load_selections, resolve_candidate_pool
+    from dass.pipeline.pool import load_selections, resolve_candidate_pool, resolve_pool
     from dass.pipeline.stages import save_metrics
 
     cfg = load_config([Path(c) for c in args.configs], tag=args.tag)
@@ -54,7 +54,7 @@ def main() -> None:
     ctx = Context.create(cfg, "label_fidelity")
     lay, b = ctx.layout, ctx.budget
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    maj_pool = _resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + 1, True).final
+    maj_pool = resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + 1, True).final
     selections = load_selections(ctx, pool)
 
     test_dir = Path(lay.test_pp)

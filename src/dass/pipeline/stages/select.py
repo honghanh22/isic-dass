@@ -30,7 +30,7 @@ from . import init_tensorflow, save_metrics
 log = logging.getLogger(__name__)
 
 
-def _crossfit_md(cfg: Config, ctx: Context, pool: list[str], ckpt_dir: Path,
+def crossfit_md_scores(cfg: Config, ctx: Context, pool: list[str], ckpt_dir: Path,
                  train_if_missing: bool) -> dict[str, np.ndarray]:
     """M_d cross-fitted (`encoder.e_d_crossfit_folds` = K): E_d thứ k train trên ảnh thật trừ fold k (val giữ nguyên),
     nhúng pool + ảnh của fold k; margin so với fold k (ảnh E_d đó KHÔNG học), rồi lấy trung bình qua K.
@@ -73,7 +73,7 @@ def _select_balanced(cfg: Config, scores: dict[str, np.ndarray], z_v_pool: np.nd
                            f"nhưng pool chỉ có {len(z_v_pool)} -> giảm selection.balanced_synth_ratio")
     base = sel.alpha * minmax(scores["M_v"][:n_pool]) + sel.beta * minmax(scores["M_d"][:n_pool])
     rand = np.random.default_rng(cfg.seed).choice(n_pool, size=s, replace=False).tolist()
-    return [int(i) for i in rand], greedy_dass_select(z_v_pool[:n_pool], base, s, sel.gamma, sel.div_normalization)
+    return [int(i) for i in rand], greedy_dass_select(z_v_pool[:n_pool], base, s, sel.gamma)
 
 
 def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
@@ -125,10 +125,9 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     scores = compute_pool_scores(z_v_pool, z_v_real, z_d_pool, z_d_real, budget.minority, budget.majority,
                                  sel.lambda_v, sel.lambda_d, sel.sim_topk)
     if cfg.encoder.e_d_crossfit_folds >= 2:
-        scores.update(_crossfit_md(cfg, ctx, pool, layout.e_d_ckpt.parent, train_if_missing=not shared))
+        scores.update(crossfit_md_scores(cfg, ctx, pool, layout.e_d_ckpt.parent, train_if_missing=not shared))
     selections = select_all_methods(scores, z_v_pool, n_synth, sel.alpha, sel.beta, sel.gamma, cfg.seed,
-                                    both_classes=sel.both_classes_variant, div_normalization=sel.div_normalization,
-                                    diversity_start=sel.diversity_start)
+                                    both_classes=sel.both_classes_variant)
     if sel.balanced_synth_ratio > 0:
         selections[BALANCED_RANDOM], selections[BALANCED] = _select_balanced(cfg, scores, z_v_pool,
                                                                              budget.n_real[budget.majority])

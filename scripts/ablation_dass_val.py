@@ -71,7 +71,7 @@ def main() -> None:
     from dass.pipeline.context import Context
     from dass.pipeline.pool import resolve_candidate_pool
     from dass.pipeline.stages import init_tensorflow
-    from dass.pipeline.stages.select import _crossfit_md
+    from dass.pipeline.stages.select import crossfit_md_scores
 
     cfg = load_config([Path(c) for c in args.configs], tag=args.tag,
                       overrides=["classifier.save_weights_to_drive=false"])
@@ -91,7 +91,7 @@ def main() -> None:
     cf_npz = out_dir / "crossfit_scores.npz"
     if not cf_npz.exists():
         cfg.encoder.e_d_crossfit_folds = args.folds
-        cf = _crossfit_md(cfg, ctx, pool, lay.clf_dir, train_if_missing=True)
+        cf = crossfit_md_scores(cfg, ctx, pool, lay.clf_dir, train_if_missing=True)
         np.savez(cf_npz, S_d_pos=cf["S_d_pos"], S_d_neg=cf["S_d_neg"], folds=args.folds)
     with np.load(cf_npz) as c:
         scores.update(cf_S_d_pos=c["S_d_pos"], cf_S_d_neg=c["S_d_neg"])

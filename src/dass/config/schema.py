@@ -153,8 +153,6 @@ class SelectionConfig:
     alpha: float = 1.0
     beta: float = 1.0
     gamma: float = 0.5
-    div_normalization: str = "per_round"   # per_round | fixed (1.14.0)
-    diversity_start: str = "first"         # first | medoid (1.14.0)
     synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
     balanced_synth_ratio: float = 0.0  # q > 0: thêm M8 (ROS + ảnh sinh cân bằng hai lớp), 1.17.0
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
@@ -254,11 +252,6 @@ def validate(cfg: Config) -> None:
             errors.append(str(e).strip("'\""))
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
-    from ..selection.strategies import DIV_NORMALIZATIONS, DIVERSITY_STARTS
-    if cfg.selection.div_normalization not in DIV_NORMALIZATIONS:
-        errors.append(f"selection.div_normalization phải thuộc {DIV_NORMALIZATIONS}")
-    if cfg.selection.diversity_start not in DIVERSITY_STARTS:
-        errors.append(f"selection.diversity_start phải thuộc {DIVERSITY_STARTS}")
     if cfg.encoder.e_d_crossfit_folds == 1 or cfg.encoder.e_d_crossfit_folds < 0:
         errors.append("encoder.e_d_crossfit_folds phải là 0 (tắt) hoặc >= 2")
     if not 0 < cfg.selection.synth_fraction <= 1:

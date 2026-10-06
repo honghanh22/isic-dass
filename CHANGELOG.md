@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.17.3 — dọn code
+- Bỏ `selection.div_normalization` và `selection.diversity_start` (1.14.0): chưa từng bật ở lần chạy nào (chỉ chạy thử
+  một lần với tag tạm đã xoá). `greedy_dass_select`, `diversity_only_select`, `select_all_methods` trở về đúng bản
+  1.13 — đã kiểm tra tái tạo y hệt `selections.json` của ISIC `v12` và RSNA `rsna_v3` (M0–M6).
+- `pipeline.pool.resolve_pool`, `pipeline.stages.select.crossfit_md_scores`: đổi từ tên nội bộ (`_…`) sang công khai
+  vì các script dùng trực tiếp.
+- `configs/_base_/selection.yaml`: ghi chú M0b đặt lại cạnh `oversample_variant`; ghi chú M8 nêu M8r / M0c.
+- CLAUDE.md: liệt kê các tuỳ chọn khám phá (synth_fraction, balanced_synth_ratio -> M8 / M8r / M0c, cross-fitting).
+
 ## 1.17.2 — đối chứng cùng kích thước M0c
 - M8 / M8r có nhiều ảnh train hơn M0b (RSNA q = 0,5: 22.566 so với 15.044) -> so M8 với M0b lẫn "nội dung ảnh sinh"
   với "train nhiều hơn". Thêm **M0c_real_oversample_matched** (khi `balanced_synth_ratio` > 0): cùng kích thước với

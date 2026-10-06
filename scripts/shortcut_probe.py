@@ -46,7 +46,7 @@ def main() -> None:
     from dass.data.loaders import configure_gpu, paths_dataset
     from dass.models.classifiers import build_model
     from dass.pipeline.context import Context
-    from dass.pipeline.pool import _resolve_pool, load_selections, resolve_candidate_pool
+    from dass.pipeline.pool import load_selections, resolve_candidate_pool, resolve_pool
     from dass.pipeline.stages import save_metrics
 
     cfg = load_config([Path(c) for c in args.configs], args.overrides, tag=args.tag)
@@ -58,7 +58,7 @@ def main() -> None:
     chosen = {p for m in ("M6_dass", "M8r_ros_balanced_random", "M8_ros_balanced_synth") for p in selections.get(m, [])}
     sets = {
         "real_majority": ctx.val_paths[b.majority],
-        "synth_majority": _resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + args.seed_offset,
+        "synth_majority": resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + args.seed_offset,
                                         True, label="_probe").final,
         "real_minority": ctx.val_paths[b.minority],
         "synth_minority_unseen": [p for p in pool if p not in chosen],

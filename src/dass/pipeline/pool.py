@@ -34,7 +34,7 @@ def best_kimg(ctx: Context) -> int:
     return state["best_cum_kimg"]
 
 
-def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_missing: bool,
+def resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_missing: bool,
                   label: str = "") -> CandidatePool:
     """`label` (vd "_probe"): thư mục / zip riêng -> hai pool cùng lớp không ghi đè nhau. Mặc định "" = tên gốc."""
     from ..models.generator.sampler import archive_pool, generate_images, match_resize_chain, pool_tag, restore_pool
@@ -78,7 +78,7 @@ def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_
 
 def resolve_candidate_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool:
     """`pool_size` ảnh sinh của lớp thiểu số để DASS chọn ra `n_select`."""
-    return _resolve_pool(ctx, ctx.budget.minority, ctx.budget.pool_size, ctx.cfg.generator.gen_seed,
+    return resolve_pool(ctx, ctx.budget.minority, ctx.budget.pool_size, ctx.cfg.generator.gen_seed,
                          generate_if_missing)
 
 
@@ -91,14 +91,14 @@ def resolve_balanced_majority_pool(ctx: Context, generate_if_missing: bool = Tru
     if q <= 0:
         return None
     n = balanced_synth_count(q, ctx.budget.n_real[ctx.budget.majority])
-    return _resolve_pool(ctx, ctx.budget.majority, n, ctx.cfg.generator.gen_seed + 1, generate_if_missing)
+    return resolve_pool(ctx, ctx.budget.majority, n, ctx.cfg.generator.gen_seed + 1, generate_if_missing)
 
 
 def resolve_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:
     """`n_select` ảnh sinh của lớp đa số cho M7 (None nếu không bật `selection.both_classes_variant`)."""
     if not ctx.cfg.selection.both_classes_variant:
         return None
-    return _resolve_pool(ctx, ctx.budget.majority, ctx.budget.n_select, ctx.cfg.generator.gen_seed + 1,
+    return resolve_pool(ctx, ctx.budget.majority, ctx.budget.n_select, ctx.cfg.generator.gen_seed + 1,
                          generate_if_missing)
 
 

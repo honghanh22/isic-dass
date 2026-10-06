@@ -600,9 +600,8 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
 | Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
 | Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo. Mỗi tập con KID dùng TOÀN BỘ 148 ảnh thật -> `kid_std` chỉ phản ánh dao động của ảnh sinh, đánh giá thấp độ bất định thật |
-| Thiết kế | Trọng số thật của đa dạng trong S_DASS: nền α·M̃_v + β·M̃_d ∈ [0, 2], γ·S̃_div ∈ [0, 0,5] -> đa dạng ≈ 1/5 biên độ (không phải 50 %); S̃_div min-max lại mỗi vòng nên ở vòng cuối khác biệt rất nhỏ bị kéo giãn | Nêu rõ trong bài; tuỳ chọn `selection.div_normalization: fixed` (thang cố định, 1.14.0) cho ablation |
+| Thiết kế | Trọng số thật của đa dạng trong S_DASS: nền α·M̃_v + β·M̃_d ∈ [0, 2], γ·S̃_div ∈ [0, 0,5] -> đa dạng ≈ 1/5 biên độ (không phải 50 %); S̃_div min-max lại mỗi vòng nên ở vòng cuối khác biệt rất nhỏ bị kéo giãn | Nêu rõ trong bài |
 | Thiết kế | M_d tính với ảnh train mà E_d đã học (probe E_d: train ≈ 0,9, val ≈ 0,78) -> tham chiếu bị học thuộc | Tuỳ chọn `encoder.e_d_crossfit_folds` (K ≥ 2, 1.14.0): mỗi E_d so với ảnh nó không học |
-| Thiết kế | M5 bắt đầu từ ảnh số 0 của pool (điểm nền hằng) — tất định nhưng tuỳ ý | Tuỳ chọn `selection.diversity_start: medoid` (1.14.0) |
 | Thống kê | Chỉ 3 seed; test ISIC nhỏ (75 ca dương; RSNA 226); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; p Holm trong từng backbone |
 | Ngoại tại | Hai bộ dữ liệu, chỉ bài toán nhị phân, một họ GAN, ảnh 256 px | Nêu trong phần hạn chế |
 | Ngoại tại | RSNA: nhãn "Lung Opacity" là nhận định trên ảnh (không phải chẩn đoán viêm phổi xác nhận lâm sàng), có bất đồng giữa bác sĩ khoảng 11–12 % | Dùng nhãn cuối cùng sau hội chẩn; nêu trong phần hạn chế |

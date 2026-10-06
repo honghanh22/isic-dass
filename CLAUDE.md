@@ -51,7 +51,10 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - `data/splits/stratified.py` phải giữ **đúng** thuật toán đã khoá trong `tests/regression/test_split_reproduction.py` (ISIC: split của notebook v5, GAN `v5`; RSNA: split `rsna_v2`, GAN `rsna` gắn qua `split.expected`). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
 - Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
   (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
-  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Không đổi **mã** các biến thể đã có (mã nằm trong `.npz` trên
+  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Tuỳ chọn khám phá (mặc định tắt, kết quả chuẩn không đổi):
+  `selection.synth_fraction` (< 1: ít ảnh sinh hơn, bù bằng ROS), `selection.balanced_synth_ratio` (q > 0: thêm M8 =
+  ROS + cùng số ảnh sinh mỗi lớp, M8r = như M8 nhưng chọn ngẫu nhiên, M0c = cùng kích thước nhưng toàn ảnh thật nhân
+  bản), `encoder.e_d_crossfit_folds`. Chi tiết và kết quả val ở CHANGELOG 1.14.0–1.17. Không đổi **mã** các biến thể đã có (mã nằm trong `.npz` trên
   Drive); tên trong bài báo là **tên hiển thị** `evaluation.method_labels` (Imbalanced Baseline, Random Oversampling
   (ROS), Unfiltered GAN (Random Selection), Visual-only / Disease-only / Diversity-only Filter, Dual-Margin Filter,
   DASS (Ours)), chỉ áp dụng khi xuất bảng. Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b,
