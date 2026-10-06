@@ -28,8 +28,8 @@ from dass.config import load_config
 from dass.utils import setup_logging
 
 log = logging.getLogger("shortcut_probe")
-METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass", "M8r_ros_balanced_random",
-           "M8_ros_balanced_synth")
+METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass", "M7_dass_both_classes",
+           "M8r_ros_balanced_random", "M8_ros_balanced_synth")
 
 
 def main() -> None:
