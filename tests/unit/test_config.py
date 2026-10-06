@@ -234,3 +234,9 @@ def test_design_b_server_config():
     assert ["M6_dass", "M0c_real_oversample_matched"] in cfg.evaluation.primary_comparisons
     with pytest.raises(ValueError, match="source_balanced"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["selection.design=source_balanced"])
+
+
+def test_filter_majority_requires_design_b():
+    assert load_config([CONFIGS / "server" / "rsna_pneumonia_designB.yaml"], tag="srv").selection.filter_majority
+    with pytest.raises(ValueError, match="filter_majority"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["selection.filter_majority=true"])

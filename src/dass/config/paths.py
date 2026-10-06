@@ -55,6 +55,7 @@ class Layout:
         self.split_json = self.data_dir / "real_val_split.json"
         self.dataset_card = self.data_dir / "dataset_card.json"
         self.selections_json = self.data_dir / "selections.json"
+        self.selections_majority_json = self.data_dir / "selections_majority.json"   # thiết kế B + filter_majority
         self.embeddings_npz = self.data_dir / "embeddings.npz"
         self.dicom_metadata_csv = self.data_dir / "dicom_metadata.csv"   # nguồn DICOM: tư thế chụp, giới tính, tuổi
 

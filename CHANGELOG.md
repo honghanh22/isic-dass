@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.19.0 — thiết kế B lọc CẢ HAI lớp (`selection.filter_majority`)
+- Người dùng chọn lọc đối xứng: `selection.filter_majority: true` (chỉ dùng với `design: source_balanced`; mặc định
+  false). Pool ảnh sinh lớp đa số ⌈k·s⌉ ảnh (seed gen_seed + 1); mỗi biến thể chọn s ảnh bằng CÙNG tiêu chí với lớp
+  thiểu số, margin ĐẢO CHIỀU (S⁺ = giống lớp đa số, S⁻ = giống lớp thiểu số, trong E_v / E_d); M1 ngẫu nhiên (seed
+  + 1), M5 đa dạng trong lớp đa số, M6 S_DASS. Lưu `checkpoints_<run>/data/selections_majority.json`. Phần ROS và
+  ảnh nhân bản của M0c giữ nguyên, dùng chung. `.npz` ghi `filter_majority`; trộn hai kiểu -> báo lỗi.
+- Bật trong `configs/server/{rsna_pneumonia,isic2016}_designB.yaml`. CHƯA kiểm chứng trên val trước lần chạy chính
+  (val 1.17 dùng lớp đa số không lọc) -> lần chạy RSNA `rsna_v4` là lần đầu đánh giá kiểu lọc này; nêu trong bài.
+- Giữ nguyên giả thuyết H1–H3 của 1.18.0.
+- Đối chiếu khi chạy (1.18.0): M1 thiết kế B trùng tuyệt đối M8r; M6 trùng M8 99,5 % (9 / 3.761 ảnh khác) do tính
+  lại embedding trên GPU không tất định (chênh tối đa E_v 1,7e-3, E_d 2,4e-2) -> điều kiện kiểm tra: M1 trùng tuyệt
+  đối, M6 trùng ≥ 99 %.
+
 ## 1.18.0 — thiết kế B (`selection.design: source_balanced`), AUC train / val / test
 - `selection.design` (mặc định `minority_only` = công thức gốc, kết quả cũ không đổi). `source_balanced` (thiết kế B):
   MỌI biến thể M1–M6 = ảnh thật cân bằng bằng ROS (đúng tập nhân bản của M0b) + s = q × (ảnh thật lớp đa số) ảnh sinh

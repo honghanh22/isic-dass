@@ -10,6 +10,8 @@ paths:
 
 selection:
   design: source_balanced
+  filter_majority: true         # lọc CẢ HAI lớp (người dùng chọn, 1.19.0): lớp đa số chọn s / ⌈1,5·s⌉ bằng cùng
+                                #   tiêu chí, margin đảo chiều — chưa kiểm chứng trên val trước lần chạy chính
   balanced_synth_ratio: 0.5     # s = 0,5 × 7.522 = 3.761 ảnh sinh mỗi lớp
 
 encoder:

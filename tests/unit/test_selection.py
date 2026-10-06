@@ -96,3 +96,15 @@ def test_crossfit_folds_and_margin(rng):
     zp, pos, neg = (l2_normalize(rng.normal(size=(n, 6))) for n in (10, 7, 9))
     m, sp, sn = crossfit_margin([(zp, pos, neg), (zp, pos, neg)], 1.0, 3)
     assert np.allclose(m, margin_score(zp, pos, neg, 1.0, 3)[0])      # hai phần giống nhau -> bằng margin thường
+
+
+def test_reversed_margin_ranks_majority_like_candidates_first(rng):
+    """Thiết kế B, lọc đối xứng: gọi compute_pool_scores với (minority, majority) đảo chỗ -> margin ưu tiên ảnh giống
+    lớp ĐA SỐ hơn lớp thiểu số."""
+    from dass.selection import compute_pool_scores
+
+    pos, neg = rng.normal(size=(20, 8)) + 3.0, rng.normal(size=(20, 8)) - 3.0
+    cand = np.r_[neg[:5] + 0.1, pos[:5] + 0.1]                         # 5 ảnh giống lớp đa số, 5 giống lớp thiểu số
+    z = {"pos": pos, "neg": neg}
+    s = compute_pool_scores(cand, z, cand, z, "neg", "pos", 1.0, 1.0, 3)  # minority := "neg" (đảo chiều)
+    assert set(np.argsort(-s["M_v"])[:5]) == set(range(5))

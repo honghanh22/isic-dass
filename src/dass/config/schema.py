@@ -156,6 +156,7 @@ class SelectionConfig:
     synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
     balanced_synth_ratio: float = 0.0  # q > 0: thêm M8 (ROS + ảnh sinh cân bằng hai lớp), 1.17.0
     design: str = "minority_only"      # minority_only | source_balanced (thiết kế B, 1.18.0)
+    filter_majority: bool = False      # thiết kế B: lọc cả ảnh sinh lớp đa số (margin đảo chiều), 1.19.0
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
@@ -266,6 +267,10 @@ def validate(cfg: Config) -> None:
             and cfg.selection.synth_fraction == 1 and not cfg.selection.both_classes_variant):
         errors.append("selection.design = source_balanced cần balanced_synth_ratio > 0, oversample_variant = true, "
                       "synth_fraction = 1, both_classes_variant = false")
+    if cfg.selection.filter_majority and cfg.selection.design != "source_balanced":
+        errors.append("selection.filter_majority cần selection.design = source_balanced")
+    if cfg.selection.filter_majority and cfg.encoder.e_d_crossfit_folds >= 2:
+        errors.append("selection.filter_majority chưa hỗ trợ encoder.e_d_crossfit_folds")
     if cfg.selection.balanced_synth_ratio < 0:
         errors.append("selection.balanced_synth_ratio phải >= 0")
     if cfg.selection.balanced_synth_ratio > 0 and cfg.selection.synth_fraction < 1:

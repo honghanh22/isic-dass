@@ -24,7 +24,7 @@ from ...selection import (
 )
 from ...utils import write_json_atomic
 from ..context import Context
-from ..pool import resolve_candidate_pool, resolve_majority_pool
+from ..pool import resolve_balanced_majority_pool, resolve_candidate_pool, resolve_majority_pool
 from . import init_tensorflow, save_metrics
 
 log = logging.getLogger(__name__)
@@ -142,6 +142,19 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
         log.info("%s: chọn %d / %d ảnh sinh", m, len(idx), len(pool))
 
     write_json_atomic(layout.selections_json, {m: [Path(pool[i]).name for i in idx] for m, idx in selections.items()})
+    if sel.filter_majority:
+        # Thiết kế B, lọc đối xứng: ảnh sinh lớp ĐA SỐ chọn bằng cùng tiêu chí của từng biến thể, margin ĐẢO CHIỀU
+        # (giống lớp đa số hơn lớp thiểu số), trong E_v / E_d như lớp thiểu số; seed riêng cho chọn ngẫu nhiên (M1).
+        maj_pool = resolve_balanced_majority_pool(ctx, generate_if_missing=False).final
+        z_v_maj, z_d_maj = ev.embed(maj_pool), ed.embed(maj_pool)
+        scores_maj = compute_pool_scores(z_v_maj, z_v_real, z_d_maj, z_d_real, budget.majority, budget.minority,
+                                         sel.lambda_v, sel.lambda_d, sel.sim_topk)
+        sel_maj = select_all_methods(scores_maj, z_v_maj, n_synth, sel.alpha, sel.beta, sel.gamma, cfg.seed + 1)
+        sel_maj = {m: idx for m, idx in sel_maj.items() if selections.get(m)}
+        for m, idx in sel_maj.items():
+            log.info("%s (lớp %s): chọn %d / %d ảnh sinh", m, budget.majority, len(idx), len(maj_pool))
+        write_json_atomic(layout.selections_majority_json,
+                          {m: [Path(maj_pool[i]).name for i in idx] for m, idx in sel_maj.items()})
     np.savez(layout.embeddings_npz, pool_names=np.array([Path(p).name for p in pool]), z_v_pool=z_v_pool,
              z_d_pool=z_d_pool, **{f"z_v_real__{c}": z_v_real[c] for c in classes},
              **{f"z_d_real__{c}": z_d_real[c] for c in classes}, **{f"score__{k}": v for k, v in scores.items()})

@@ -17,7 +17,7 @@ from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction", "design")   # thiết lập train ghi trong .npz (augment /
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction", "design", "filter_majority")   # thiết lập train ghi trong .npz (augment /
 # class_weight từ 1.4.0, monitor từ 1.12.0, synth_fraction từ 1.16.0, design từ 1.18.0; .npz cũ không có -> None)
 _PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float, "design": str}
 

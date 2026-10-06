@@ -6,6 +6,8 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
+
 from ..utils import read_json
 from .context import Context
 
@@ -83,14 +85,16 @@ def resolve_candidate_pool(ctx: Context, generate_if_missing: bool = True) -> Ca
 
 
 def resolve_balanced_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:
-    """Ảnh sinh lớp đa số cho M8 (`selection.balanced_synth_ratio` > 0): đúng số ảnh sinh mỗi lớp, cùng seed với M7
-    (gen_seed + 1), không lọc. None nếu tắt."""
+    """Ảnh sinh lớp đa số cho M8 / thiết kế B (`selection.balanced_synth_ratio` > 0), seed gen_seed + 1 (như M7):
+    đúng s ảnh (không lọc), hoặc ⌈k·s⌉ ảnh để chọn khi `selection.filter_majority`. None nếu tắt."""
     from ..data.variants import balanced_synth_count
 
     q = ctx.cfg.selection.balanced_synth_ratio
     if q <= 0:
         return None
     n = balanced_synth_count(q, ctx.budget.n_real[ctx.budget.majority])
+    if ctx.cfg.selection.filter_majority:
+        n = int(np.ceil(ctx.cfg.selection.pool_mult * n))
     return resolve_pool(ctx, ctx.budget.majority, n, ctx.cfg.generator.gen_seed + 1, generate_if_missing)
 
 
@@ -102,11 +106,12 @@ def resolve_majority_pool(ctx: Context, generate_if_missing: bool = True) -> Can
                          generate_if_missing)
 
 
-def load_selections(ctx: Context, pool: list[str]) -> dict[str, list[str]]:
-    """selections.json lưu tên file -> ánh xạ về đường dẫn trong pool hiện tại."""
-    names = read_json(ctx.layout.selections_json)
+def load_selections(ctx: Context, pool: list[str], path: Path | None = None) -> dict[str, list[str]]:
+    """selections.json (hoặc `path`, vd selections_majority.json) lưu tên file -> ánh xạ về đường dẫn trong `pool`."""
+    path = path or ctx.layout.selections_json
+    names = read_json(path)
     if names is None:
-        raise RuntimeError(f"Chưa có {ctx.layout.selections_json}. Chạy `dass select` trước.")
+        raise RuntimeError(f"Chưa có {path}. Chạy `dass select` trước.")
     by_name = {Path(p).name: p for p in pool}
     missing = [n for files in names.values() for n in files if n not in by_name]
     if missing:

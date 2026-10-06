@@ -136,7 +136,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                                                    "class_weight": variant.class_weight,
                                                    "monitor": cfg.classifier.monitor,
                                                    "synth_fraction": cfg.selection.synth_fraction,
-                                                   "design": cfg.selection.design})
+                                                   "design": cfg.selection.design,
+                                                   "filter_majority": cfg.selection.filter_majority})
                 if not mismatch:
                     log.info("[bỏ qua, đã có] %s", out.name)
                     continue
@@ -161,6 +162,7 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                             feature_space=variant.feature_space, augment=cfg.classifier.augment,
                             class_weight=variant.class_weight, monitor=cfg.classifier.monitor,
                             synth_fraction=cfg.selection.synth_fraction, design=cfg.selection.design,
+                            filter_majority=cfg.selection.filter_majority,
                             code_version=code or "",
                             dass_version=__version__)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)

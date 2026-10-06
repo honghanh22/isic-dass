@@ -41,14 +41,17 @@ def variant_inputs(cfg: Config, ctx: Context) -> tuple[dict[str, list[str]], dic
         if majority_pool is None:
             raise RuntimeError(f"selections.json có {balanced} nhưng selection.balanced_synth_ratio = 0. Bật lại tuỳ "
                                "chọn hoặc chạy lại `dass select`.")
+        majority_sel = (load_selections(ctx, majority_pool.final, ctx.layout.selections_majority_json)
+                        if sel.filter_majority else {})
         for m in balanced:
-            if len(majority_pool.final) != len(selections[m]):
-                raise RuntimeError(f"{m}: {len(selections[m])} ảnh sinh lớp thiểu số nhưng {len(majority_pool.final)} "
-                                   "ảnh sinh lớp đa số -> chạy lại `sample` / `select`")
-            majority_synth[m] = majority_pool.final
+            maj = majority_sel[m] if sel.filter_majority else majority_pool.final   # lọc đối xứng / dùng chung
+            if len(maj) != len(selections[m]):
+                raise RuntimeError(f"{m}: {len(selections[m])} ảnh sinh lớp thiểu số nhưng {len(maj)} ảnh sinh lớp "
+                                   "đa số -> chạy lại `sample` / `select`")
+            majority_synth[m] = maj
             extra_real[m] = ros
         if sel.oversample_variant:   # M0c: cùng kích thước với M8, nhưng s ảnh thêm mỗi lớp là ảnh THẬT nhân bản
-            s = len(majority_pool.final)
+            s = len(selections[balanced[0]])
             real_majority = ctx.train_paths[b.majority]
             extra_real[OVERSAMPLE_MATCHED] = [real_minority[i] for i in
                                               oversample_indices(len(real_minority), b.n_select + s, cfg.seed)]

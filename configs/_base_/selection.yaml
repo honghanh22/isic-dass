@@ -29,6 +29,10 @@ selection:
   # sinh lớp thiểu số chọn theo tiêu chí của từng biến thể trong ⌈k·s⌉ ảnh đầu pool, ảnh sinh lớp đa số dùng chung,
   # không lọc; thêm M0c cùng kích thước). source_balanced thay cho M8 / M8r (M6 = M8, M1 = M8r).
   design: minority_only
+  # Lọc cả ảnh sinh lớp ĐA SỐ (1.19.0, thiết kế B): true -> pool lớp đa số ⌈k·s⌉ ảnh, mỗi biến thể chọn s ảnh bằng
+  # CÙNG tiêu chí, margin ĐẢO CHIỀU (giống lớp đa số hơn lớp thiểu số), M1 ngẫu nhiên, M5 đa dạng trong lớp đa số.
+  # false -> lớp đa số dùng đúng s ảnh, không lọc, chung cho mọi biến thể (như M8 / M8r 1.17).
+  filter_majority: false
   # M0b: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, không class weight) — cùng số ảnh, cùng số
   # bước train, cùng cách cân bằng với M1–M6 -> M6 vs M0b đo đúng đóng góp của nội dung ảnh sinh
   oversample_variant: true
