@@ -26,6 +26,7 @@ from ...evaluation.aggregate import (
     compare_pairs,
     compare_to_baseline,
     load_all_runs,
+    mark_family,
     summary_stats,
 )
 from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std, memorization_stats
@@ -52,7 +53,7 @@ def evaluate_classification(cfg: Config, layout: Layout) -> tuple[pd.DataFrame, 
     cmp = pd.concat([compare_to_baseline(probs, ev.baseline_method, ev.n_bootstrap, cfg.seed),
                      compare_pairs(probs, ev.comparisons, ev.n_bootstrap, cfg.seed)], ignore_index=True)
     if len(cmp):
-        save_metrics(layout, "significance_vs_baseline", add_holm(cmp))
+        save_metrics(layout, "significance_vs_baseline", add_holm(mark_family(cmp, ev.primary_comparisons)))
     log.info("Phân loại: %d lần chạy, %d nhóm (model × phương pháp)", len(runs), len(summary))
     return runs, probs
 
@@ -85,7 +86,7 @@ def evaluate_subgroups(cfg: Config, layout: Layout, probs: dict) -> None:
             runs_all.append(runs)
             summ_all.append(sg.subgroup_summary(runs))
             cmp_all.append(sg.subgroup_comparisons(probs, files, attr, col, ev.baseline_method, ev.comparisons,
-                                                   ev.n_bootstrap, cfg.seed))
+                                                   ev.n_bootstrap, cfg.seed, ev.primary_comparisons))
             key = next(iter(files))
             ref_all.append(sg.attribute_only_auc(probs[key][0], files[key], attr, col))
         share = _attribute_share(cfg, layout, split, attr, col)

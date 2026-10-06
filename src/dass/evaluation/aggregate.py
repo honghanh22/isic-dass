@@ -129,11 +129,20 @@ def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple],
             "delta_auc_seed_std": float(np.std(per_seed, ddof=1)) if len(per_seed) > 1 else float("nan")}
 
 
-def add_holm(cmp: pd.DataFrame, family: list[str] | tuple[str, ...] = ("model", "k")) -> pd.DataFrame:
-    """Cột `p_holm`: p hiệu chỉnh Holm trong mỗi họ kiểm định (mặc định mỗi model × k: mọi phương pháp vs M0 + các
-    cặp bổ sung)."""
+def mark_family(cmp: pd.DataFrame, primary: list[list[str]] | None) -> pd.DataFrame:
+    """Cột `family`: "primary" nếu (method, vs) là giả thuyết chính khai báo trước, ngược lại "exploratory"."""
     if cmp.empty:
         return cmp
+    keys = {tuple(p) for p in (primary or [])}
+    return cmp.assign(family=["primary" if (m, v) in keys else "exploratory" for m, v in zip(cmp["method"], cmp["vs"])])
+
+
+def add_holm(cmp: pd.DataFrame, family: list[str] | tuple[str, ...] = ("model", "k")) -> pd.DataFrame:
+    """Cột `p_holm`: p hiệu chỉnh Holm trong mỗi họ kiểm định (mặc định mỗi model × k). Có cột `family`
+    (`mark_family`) -> họ chính và họ khám phá được hiệu chỉnh RIÊNG."""
+    if cmp.empty:
+        return cmp
+    family = [*family, "family"] if "family" in cmp and "family" not in family else list(family)
     out = cmp.copy()
     out["p_holm"] = np.nan
     for _, idx in out.groupby(list(family)).groups.items():

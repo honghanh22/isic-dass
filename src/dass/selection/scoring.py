@@ -42,3 +42,18 @@ def compute_pool_scores(z_v_pool: np.ndarray, z_v_real: dict[str, np.ndarray], z
     log.info("Tương quan M_v–M_d = %+.3f (gần 1 -> hai không gian đo cùng một thứ, M_d không thêm thông tin)",
              np.corrcoef(M_v, M_d)[0, 1])
     return {"M_v": M_v, "S_v_pos": s_v_pos, "S_v_neg": s_v_neg, "M_d": M_d, "S_d_pos": s_d_pos, "S_d_neg": s_d_neg}
+
+
+def crossfit_folds(n: int, k: int, seed: int) -> np.ndarray:
+    """Gán `n` ảnh vào `k` fold cân bằng (hoán vị ngẫu nhiên theo `seed`): fold[i] ∈ {0, …, k−1}."""
+    fold = np.empty(n, dtype=int)
+    fold[np.random.default_rng(seed).permutation(n)] = np.arange(n) % k
+    return fold
+
+
+def crossfit_margin(parts: list[tuple[np.ndarray, np.ndarray, np.ndarray]], lam: float,
+                    topk: int) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """M_d cross-fitted: `parts` = [(z_pool_k, z_pos_heldout_k, z_neg_heldout_k)] — mỗi phần trong không gian của E_d
+    thứ k, tham chiếu là ảnh thật mà E_d đó KHÔNG học. Trả về trung bình (M, S⁺, S⁻) qua k."""
+    res = [margin_score(zp, pos, neg, lam, topk) for zp, pos, neg in parts]
+    return tuple(np.mean([r[i] for r in res], axis=0) for i in range(3))

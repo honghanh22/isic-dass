@@ -13,6 +13,12 @@ selection:
   alpha: 1.0
   beta: 1.0
   gamma: 0.5
+  # Trọng số THẬT của đa dạng: nền α·M̃_v + β·M̃_d nằm trong [0, 2], γ·S̃_div trong [0, γ] -> với γ = 0,5 đa dạng chiếm
+  # khoảng 1/5 biên độ điểm (không phải "50 %").
+  # Chuẩn hoá S_div: per_round (công thức gốc, min-max lại mỗi vòng) | fixed (thang của vòng đầu, giữ cố định). 1.14.0
+  div_normalization: per_round
+  # Ảnh đầu tiên của M5 (điểm nền hằng): first (chỉ số 0 của pool, công thức gốc) | medoid (ảnh "trung tâm" nhất). 1.14.0
+  diversity_start: first
   # M0b: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, không class weight) — cùng số ảnh, cùng số
   # bước train, cùng cách cân bằng với M1–M6 -> M6 vs M0b đo đúng đóng góp của nội dung ảnh sinh
   oversample_variant: true
@@ -24,4 +30,8 @@ encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = 
   e_d_head_epochs: 5
   e_d_ft_epochs: 20
   embed_batch_size: 32
+  # Cross-fitting E_d (1.14.0, tuỳ chọn): K >= 2 -> train K E_d, mỗi cái bỏ ra 1/K ảnh train; margin M_d của pool
+  # = trung bình qua K không gian, mỗi không gian so với đúng phần ảnh thật mà E_d đó KHÔNG học (tránh tham chiếu bị
+  # học thuộc: E_d tách train AUC ≈ 0,9 nhưng val ≈ 0,78). 0 = tắt (công thức gốc). Tốn K lần train E_d.
+  e_d_crossfit_folds: 0
   e_d_from_run: ""       # "" = E_d của lần chạy này | <run_tag> hoặc "base" (cùng --tag) = dùng lại E_d đã train

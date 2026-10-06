@@ -21,7 +21,7 @@ from .classification import KEY_METRICS, METRIC_LABELS
 
 LOWER_IS_BETTER = {"kid", "fid", "auc_real_vs_synth", "ssim"}
 SET_LABELS = {"real val vs real train": "Real (val vs train)", "all candidates": "All candidates (pool)"}
-TEXT_COLUMNS = {"Model", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute"}   # căn trái trong .tex
+TEXT_COLUMNS = {"Model", "Family", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute"}   # căn trái trong .tex
 
 
 def _isnan(x) -> bool:
@@ -179,12 +179,15 @@ def significance_table(cmp: pd.DataFrame, labels: dict[str, str] | None = None) 
     GAN). ΔAUC (ensemble 3 seed) + CI + p bootstrap; ΔAUC theo từng seed (mean ± std) và p Holm nếu có."""
     sub = "group" in cmp
     df = cmp.assign(_vs=cmp["vs"].map(lambda m: method_rank(m, labels)),
-                    _m=cmp["method"].map(lambda m: method_rank(m, labels)))
-    keys = ["model", "attribute", "group", "_vs", "_m"] if sub else ["model", "_vs", "_m"]
+                    _m=cmp["method"].map(lambda m: method_rank(m, labels)),
+                    _f=cmp["family"].map({"primary": 0}).fillna(1) if "family" in cmp else 0)
+    keys = ["model", "attribute", "group", "_f", "_vs", "_m"] if sub else ["model", "_f", "_vs", "_m"]
     df = df.sort_values(keys, kind="stable").reset_index(drop=True)
     out = pd.DataFrame({"Model": df["model"]})
     if sub:
         out["Subgroup"] = [_subgroup_label(a, g) for a, g in zip(df["attribute"], df["group"])]
+    if "family" in df:   # giả thuyết chính (Holm riêng) trước, khám phá sau
+        out["Family"] = ["Primary" if f == "primary" else "Exploratory" for f in df["family"]]
     out["Method"] = [method_label(m, labels) for m in df["method"]]
     out["vs"] = [method_label(m, labels) for m in df["vs"]]
     out["Seeds"] = df["n_seeds"]

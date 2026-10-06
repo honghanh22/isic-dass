@@ -83,3 +83,36 @@ def test_jaccard_matrix(scored_pool):
     J = jaccard_matrix(select_all_methods(scores, z_v, 15, 1, 1, 0.5, seed=0))
     assert "M0_real_only" not in J.index
     np.testing.assert_allclose(np.diag(J.values.astype(float)), 1.0)
+
+
+def test_default_options_keep_original_selection(rng):
+    z = l2_normalize(rng.normal(size=(60, 8)))
+    base = rng.random(60)
+    assert greedy_dass_select(z, base, 20, 0.5) == greedy_dass_select(z, base, 20, 0.5, "per_round", "first")
+
+
+def test_fixed_div_normalization_keeps_one_scale(rng):
+    z = l2_normalize(rng.normal(size=(80, 8)))
+    base = rng.random(80)
+    fixed = greedy_dass_select(z, base, 40, 0.5, div_normalization="fixed")
+    assert len(set(fixed)) == 40 and fixed[0] == int(np.argmax(base))
+    assert greedy_dass_select(z, base, 40, 0.0, div_normalization="fixed") == greedy_dass_select(z, base, 40, 0.0)
+    with pytest.raises(ValueError):
+        greedy_dass_select(z, base, 5, 0.5, div_normalization="bad")
+
+
+def test_medoid_start_for_diversity_only(rng):
+    z = l2_normalize(np.r_[rng.normal(size=(30, 8)) + 3.0, rng.normal(size=(1, 8)) - 3.0])
+    medoid = int(np.argmax(z @ z.mean(axis=0)))
+    assert diversity_only_select(z, 5, start="medoid")[0] == medoid
+    assert diversity_only_select(z, 5)[0] == 0
+
+
+def test_crossfit_folds_and_margin(rng):
+    from dass.selection import crossfit_folds, crossfit_margin, margin_score
+
+    f = crossfit_folds(11, 3, 0)
+    assert sorted(np.bincount(f)) == [3, 4, 4] and set(f) == {0, 1, 2}
+    zp, pos, neg = (l2_normalize(rng.normal(size=(n, 6))) for n in (10, 7, 9))
+    m, sp, sn = crossfit_margin([(zp, pos, neg), (zp, pos, neg)], 1.0, 3)
+    assert np.allclose(m, margin_score(zp, pos, neg, 1.0, 3)[0])      # hai phần giống nhau -> bằng margin thường

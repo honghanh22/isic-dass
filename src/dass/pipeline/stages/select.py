@@ -12,13 +12,48 @@ from ...analysis import figures
 from ...analysis.shortcut import probe_auc, separability_auc, shortcut_table
 from ...config import Config
 from ...data.variants import assemble_variant
-from ...selection import BOTH_CLASSES, compute_pool_scores, jaccard_matrix, select_all_methods
+from ...selection import (
+    BOTH_CLASSES,
+    compute_pool_scores,
+    crossfit_folds,
+    crossfit_margin,
+    jaccard_matrix,
+    select_all_methods,
+)
 from ...utils import write_json_atomic
 from ..context import Context
 from ..pool import resolve_candidate_pool, resolve_majority_pool
 from . import init_tensorflow, save_metrics
 
 log = logging.getLogger(__name__)
+
+
+def _crossfit_md(cfg: Config, ctx: Context, pool: list[str], ckpt_dir: Path,
+                 train_if_missing: bool) -> dict[str, np.ndarray]:
+    """M_d cross-fitted (`encoder.e_d_crossfit_folds` = K): E_d thứ k train trên ảnh thật trừ fold k (val giữ nguyên),
+    nhúng pool + ảnh của fold k; margin so với fold k (ảnh E_d đó KHÔNG học), rồi lấy trung bình qua K.
+    Các chẩn đoán khác (probe, hình, embeddings.npz) vẫn dùng E_d đầy đủ."""
+    from ...models.encoders import disease_encoder
+
+    K, enc, sel, b, layout = cfg.encoder.e_d_crossfit_folds, cfg.encoder, cfg.selection, ctx.budget, ctx.layout
+    names = {c: list(parts["train"]) for c, parts in ctx.split.items()}
+    paths = ctx.train_paths
+    folds = {c: crossfit_folds(len(names[c]), K, enc.e_d_seed + i) for i, c in enumerate(sorted(names))}
+    parts = []
+    for k in range(K):
+        split_k = {c: {**p, "train": [f for f, fd in zip(names[c], folds[c]) if fd != k]} for c, p in ctx.split.items()}
+        fit_dir = layout.variants / f"Ed_crossfit_{k}of{K}"
+        assemble_variant(fit_dir, layout.train_pp, split_k, b.minority, [])
+        ed = disease_encoder(cfg, ctx.channels, fit_dir,
+                             ckpt_dir / f"Ed_{enc.e_d_model}_s{enc.e_d_seed}_cf{k}of{K}.weights.h5",
+                             layout.clf_ckpt, train_if_missing=train_if_missing)
+        held = {c: [p for p, fd in zip(paths[c], folds[c]) if fd == k] for c in names}
+        parts.append((ed.embed(pool), ed.embed(held[b.minority]), ed.embed(held[b.majority])))
+        log.info("Cross-fit E_d %d/%d: tham chiếu %d / %d ảnh không học", k + 1, K, len(held[b.minority]),
+                 len(held[b.majority]))
+    m, s_pos, s_neg = crossfit_margin(parts, sel.lambda_d, sel.sim_topk)
+    log.info("M_d cross-fitted (K = %d): TB %+.4f (std %.4f)", K, m.mean(), m.std())
+    return {"M_d": m, "S_d_pos": s_pos, "S_d_neg": s_neg}
 
 
 def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
@@ -64,8 +99,11 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
 
     scores = compute_pool_scores(z_v_pool, z_v_real, z_d_pool, z_d_real, budget.minority, budget.majority,
                                  sel.lambda_v, sel.lambda_d, sel.sim_topk)
+    if cfg.encoder.e_d_crossfit_folds >= 2:
+        scores.update(_crossfit_md(cfg, ctx, pool, layout.e_d_ckpt.parent, train_if_missing=not shared))
     selections = select_all_methods(scores, z_v_pool, budget.n_select, sel.alpha, sel.beta, sel.gamma, cfg.seed,
-                                    both_classes=sel.both_classes_variant)
+                                    both_classes=sel.both_classes_variant, div_normalization=sel.div_normalization,
+                                    diversity_start=sel.diversity_start)
     for m, idx in selections.items():
         log.info("%s: chọn %d / %d ảnh sinh", m, len(idx), len(pool))
 

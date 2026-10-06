@@ -149,6 +149,8 @@ class SelectionConfig:
     alpha: float = 1.0
     beta: float = 1.0
     gamma: float = 0.5
+    div_normalization: str = "per_round"   # per_round | fixed (1.14.0)
+    diversity_start: str = "first"         # first | medoid (1.14.0)
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
@@ -156,6 +158,7 @@ class SelectionConfig:
 @dataclass
 class EncoderConfig:
     e_d_model: str = "DenseNet121"   # nên KHÁC model báo cáo downstream
+    e_d_crossfit_folds: int = 0      # K >= 2: cross-fitting E_d cho M_d (1.14.0); 0 = tắt
     e_d_seed: int = 4242
     e_d_head_epochs: int = 5
     e_d_ft_epochs: int = 20
@@ -201,6 +204,10 @@ class EvaluationConfig:
     # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
     comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
                                                                   ["M6_dass", "M1_random"]])
+    # giả thuyết chính (khai báo trước): Holm riêng cho họ này; còn lại là khám phá (Holm trong họ khám phá)
+    primary_comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
+                                                                          ["M6_dass", "M1_random"],
+                                                                          ["M6_dass", "M0_real_only"]])
     # Tên hiển thị trong bảng bài báo (mã nội bộ giữ nguyên trong file .npz / selections.json); thứ tự = thứ tự
     # hàng. `$...$` được giữ làm công thức trong .tex, bỏ ký hiệu LaTeX trong .csv.
     method_labels: dict[str, str] = field(default_factory=lambda: dict(METHOD_LABELS))
@@ -251,10 +258,17 @@ def validate(cfg: Config) -> None:
                       "tập train của M0b)")
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
+    from ..selection.strategies import DIV_NORMALIZATIONS, DIVERSITY_STARTS
+    if cfg.selection.div_normalization not in DIV_NORMALIZATIONS:
+        errors.append(f"selection.div_normalization phải thuộc {DIV_NORMALIZATIONS}")
+    if cfg.selection.diversity_start not in DIVERSITY_STARTS:
+        errors.append(f"selection.diversity_start phải thuộc {DIVERSITY_STARTS}")
+    if cfg.encoder.e_d_crossfit_folds == 1 or cfg.encoder.e_d_crossfit_folds < 0:
+        errors.append("encoder.e_d_crossfit_folds phải là 0 (tắt) hoặc >= 2")
     if not cfg.selection.pool_mult >= 1:
         errors.append(f"selection.pool_mult (k) phải >= 1 (pool không được nhỏ hơn số ảnh cần chọn), nhận "
                       f"{cfg.selection.pool_mult}")
-    for pair in cfg.evaluation.comparisons:
+    for pair in [*cfg.evaluation.comparisons, *cfg.evaluation.primary_comparisons]:
         if not (isinstance(pair, (list, tuple)) and len(pair) == 2 and all(isinstance(m, str) for m in pair)):
             errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")
     if not all(isinstance(k, str) and isinstance(v, str) for k, v in cfg.evaluation.method_labels.items()):

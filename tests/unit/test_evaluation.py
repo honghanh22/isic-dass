@@ -252,3 +252,17 @@ def test_finetune_methods_label_order_and_group():
     assert order == ["M0_real_only", "M0b_real_oversample", "M6_dass", "M0b_real_oversample+FT", "M6_dass+FT"]
     assert reporting.method_group("M6_dass+FT", {"G": ["M6_dass"]}) == reporting.FINETUNE_GROUP
     assert reporting.method_group("M6_dass", {"G": ["M6_dass"]}) == "G"
+
+
+def test_holm_is_computed_separately_for_primary_and_exploratory():
+    from dass.evaluation.aggregate import add_holm, mark_family
+
+    cmp = pd.DataFrame({"model": "E", "k": 1.5, "method": ["M6_dass", "M6_dass", "M2_visual", "M3_disease"],
+                        "vs": ["M0b_real_oversample", "M1_random", "M0_real_only", "M0_real_only"],
+                        "p_value": [0.02, 0.04, 0.01, 0.5], "n_seeds": 3, "delta_auc": 0.01, "ci95_low": -0.01,
+                        "ci95_high": 0.03})
+    out = add_holm(mark_family(cmp, [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"]]))
+    assert list(out["family"]) == ["primary", "primary", "exploratory", "exploratory"]
+    assert out["p_holm"].round(3).tolist() == [0.04, 0.04, 0.02, 0.5]     # m = 2 trong mỗi họ, không phải 4
+    table = reporting.significance_table(out)
+    assert list(table["Family"])[:2] == ["Primary", "Primary"]

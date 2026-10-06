@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import numpy as np
 import tensorflow as tf
 
 
@@ -10,7 +11,10 @@ class MacroRecall(tf.keras.metrics.Metric):
 
     def __init__(self, threshold: float = 0.5, name: str = "macro_recall", **kwargs):
         super().__init__(name=name, **kwargs)
-        self.pos = tf.keras.metrics.Recall(thresholds=threshold, name="rec_pos")
+        # Keras Recall coi p > ngưỡng là dương; hạ ngưỡng một bước float32 -> p >= 0,5 là dương, khớp
+        # evaluation.classification.binary_metrics (lớp âm: 1 − p > 0,5 <=> p < 0,5)
+        self.pos = tf.keras.metrics.Recall(thresholds=float(np.nextafter(np.float32(threshold), np.float32(0))),
+                                           name="rec_pos")
         self.neg = tf.keras.metrics.Recall(thresholds=threshold, name="rec_neg")
 
     def update_state(self, y_true, y_pred, sample_weight=None):

@@ -21,7 +21,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from .aggregate import GROUP_COLS, RunKey, add_holm, compare_pairs, compare_to_baseline, summary_stats
+from .aggregate import GROUP_COLS, RunKey, add_holm, compare_pairs, compare_to_baseline, mark_family, summary_stats
 from .classification import binary_metrics
 
 SUBGROUP_METRICS = ["roc_auc", "pr_auc"]
@@ -96,7 +96,8 @@ def subgroup_summary(runs: pd.DataFrame) -> pd.DataFrame:
 
 
 def subgroup_comparisons(probs: dict[RunKey, tuple], files: dict[RunKey, list[str]], attr: dict[str, str],
-                         column: str, baseline: str, pairs: list[list[str]], n_boot: int, seed: int) -> pd.DataFrame:
+                         column: str, baseline: str, pairs: list[list[str]], n_boot: int, seed: int,
+                         primary: list[list[str]] | None = None) -> pd.DataFrame:
     """ΔAUC (vs baseline + các cặp bổ sung) trong từng nhóm; `p_holm` hiệu chỉnh trong mỗi model × k × nhóm."""
     parts = []
     for value in subgroup_values(files, attr):
@@ -109,7 +110,8 @@ def subgroup_comparisons(probs: dict[RunKey, tuple], files: dict[RunKey, list[st
             parts.append(cmp.assign(attribute=column, group=value))
     if not parts:
         return pd.DataFrame()
-    return add_holm(pd.concat(parts, ignore_index=True), family=("model", "k", "attribute", "group"))
+    return add_holm(mark_family(pd.concat(parts, ignore_index=True), primary),
+                    family=("model", "k", "attribute", "group"))
 
 
 def attribute_only_auc(y: np.ndarray, test_files: list[str], attr: dict[str, str], column: str) -> pd.DataFrame:

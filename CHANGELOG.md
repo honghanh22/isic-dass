@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.14.0 — rà soát công thức: họ kiểm định, chuẩn hoá đa dạng, cross-fitting E_d
+Rà lại mọi công thức (margin, DASS, KID, bootstrap, Holm, class weight, ngân sách, học thuộc): không có lỗi tính
+toán. Sửa / bổ sung:
+- **Holm theo họ** (có hiệu lực ngay): `evaluation.primary_comparisons` (mặc định M6 vs M0b, M6 vs M1, M6 vs M0) là
+  họ chính khai báo trước; còn lại là họ khám phá. `significance_vs_baseline` có cột `family`; `p_holm` hiệu chỉnh
+  riêng trong mỗi họ của từng backbone (trước: một họ chung ~22 phép, gồm cả cặp `+FT` trùng hệt bản gốc -> quá bảo
+  thủ). Bảng thêm cột "Family", họ chính xếp trước. Chạy lại `evaluate` (không cần train lại). Kết luận ISIC `v12` /
+  RSNA `rsna_v3` không đổi (không so sánh nào có ý nghĩa sau Holm, kể cả trong họ chính).
+- `MacroRecall`: p = 0,5 tính là dương (như `binary_metrics`); trước khác ở đúng biên. Không còn dùng để chọn epoch.
+- Tuỳ chọn mới, MẶC ĐỊNH GIỮ CÔNG THỨC GỐC (bật -> run_tag mới, chọn trên val):
+  - `selection.div_normalization: per_round | fixed` — `fixed`: min / max của S_div lấy ở vòng đầu rồi giữ cố định
+    (trọng số thật của đa dạng không đổi theo vòng).
+  - `selection.diversity_start: first | medoid` — ảnh đầu tiên của M5.
+  - `encoder.e_d_crossfit_folds: K` (K >= 2) — M_d cross-fitted: K E_d, mỗi cái bỏ ra 1/K ảnh train, margin so với
+    đúng phần ảnh nó không học, lấy trung bình qua K. Tốn K lần train E_d. Đã chạy thử trên GPU (ISIC, K = 2).
+- Tài liệu: trọng số thật của đa dạng (≈ 1/5 biên độ với γ = 0,5), bootstrap chỉ đo dao động do test, `kid_std`
+  đánh giá thấp với ISIC, các hạn chế thiết kế ở trên.
+
 ## 1.13.1 — train từng seed một
 - `dass run`: stage `train` gọi MỘT tiến trình cho mỗi (model, seed), lần lượt (trước: một tiến trình cho mọi seed của
   một model). Lần chạy ngắn hơn (vừa giới hạn giờ GPU), RAM / VRAM giải phóng giữa các seed, bị ngắt chỉ mất seed đang

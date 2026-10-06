@@ -510,10 +510,14 @@ dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ 
   - Bootstrap đo **độ bất định do mẫu test**, với điều kiện mô hình đã train cố định. Độ bất định do train được phản
     ánh qua std giữa các seed (và cột `ΔAUC per seed`). Báo cáo cả hai.
   - Với 2.000 lần lấy mẫu, p nhỏ nhất khác 0 là 0,001. p = 0 nên ghi là **p < 0,001**.
-  - **Đa so sánh:** mỗi backbone có 7 phép so sánh với M0 và 2 cặp bổ sung. Cột **`p (Holm)`** hiệu chỉnh
-    Holm–Bonferroni trong cả họ 9 phép của từng backbone (kiểm soát xác suất có ít nhất một kết luận sai). Kết luận
-    chính (H1–H3: M6 vs M0, M6 vs M0b, M6 vs M1) nên dựa vào `p (Holm)`; nêu trong bài rằng hiệu chỉnh làm theo từng
-    backbone, không gộp 6 backbone.
+  - **Đa so sánh (từ 1.14.0):** giả thuyết chính khai báo trước trong `evaluation.primary_comparisons` (H1–H3: M6
+    vs M0b, M6 vs M1, M6 vs M0) là **họ chính**; mọi so sánh khác (mọi biến thể vs M0, các cặp `+FT`…) là **họ khám
+    phá**. Cột `family` / **Family**; **`p (Holm)`** hiệu chỉnh Holm–Bonferroni **riêng trong từng họ** của từng
+    backbone. Kết luận chính dựa vào `p (Holm)` của họ chính; kết quả khám phá chỉ để gợi ý. Trước 1.14.0 mọi so sánh
+    chung một họ (gồm cả cặp `+FT` trùng hệt bản gốc) nên quá bảo thủ. Nêu trong bài: hiệu chỉnh theo từng backbone,
+    tách họ chính / khám phá, họ chính khai báo trước khi có kết quả RSNA `rsna_v3`.
+  - Bootstrap dùng xác suất **trung bình qua seed** -> chỉ đo dao động do tập test; dao động do train chỉ có ở cột
+    ΔAUC theo seed (3 seed: yếu).
   - So sánh M6 với M2–M5 (RQ5) **chưa có kiểm định chính thức** (chỉ đọc từ mean ± std). Có thể thêm bằng cách bổ
     sung cặp vào `evaluation.comparisons`, không cần train lại.
 
@@ -595,7 +599,10 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | Cấu trúc | Inception-v3 train trên ImageNet, xa miền ảnh y tế (nhất là X-quang): KID thấp ≠ giống về dấu hiệu bệnh | Nêu trong phần hạn chế; thước đo cuối cùng là kết quả classifier (M1 vs M0, M6 vs M0b) |
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
 | Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
-| Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo |
+| Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo. Mỗi tập con KID dùng TOÀN BỘ 148 ảnh thật -> `kid_std` chỉ phản ánh dao động của ảnh sinh, đánh giá thấp độ bất định thật |
+| Thiết kế | Trọng số thật của đa dạng trong S_DASS: nền α·M̃_v + β·M̃_d ∈ [0, 2], γ·S̃_div ∈ [0, 0,5] -> đa dạng ≈ 1/5 biên độ (không phải 50 %); S̃_div min-max lại mỗi vòng nên ở vòng cuối khác biệt rất nhỏ bị kéo giãn | Nêu rõ trong bài; tuỳ chọn `selection.div_normalization: fixed` (thang cố định, 1.14.0) cho ablation |
+| Thiết kế | M_d tính với ảnh train mà E_d đã học (probe E_d: train ≈ 0,9, val ≈ 0,78) -> tham chiếu bị học thuộc | Tuỳ chọn `encoder.e_d_crossfit_folds` (K ≥ 2, 1.14.0): mỗi E_d so với ảnh nó không học |
+| Thiết kế | M5 bắt đầu từ ảnh số 0 của pool (điểm nền hằng) — tất định nhưng tuỳ ý | Tuỳ chọn `selection.diversity_start: medoid` (1.14.0) |
 | Thống kê | Chỉ 3 seed; test ISIC nhỏ (75 ca dương; RSNA 226); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; p Holm trong từng backbone |
 | Ngoại tại | Hai bộ dữ liệu, chỉ bài toán nhị phân, một họ GAN, ảnh 256 px | Nêu trong phần hạn chế |
 | Ngoại tại | RSNA: nhãn "Lung Opacity" là nhận định trên ảnh (không phải chẩn đoán viêm phổi xác nhận lâm sàng), có bất đồng giữa bác sĩ khoảng 11–12 % | Dùng nhãn cuối cùng sau hội chẩn; nêu trong phần hạn chế |
