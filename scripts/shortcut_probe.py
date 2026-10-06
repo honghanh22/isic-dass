@@ -34,6 +34,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("-c", dest="configs", action="append", required=True)
     ap.add_argument("--tag", default=None)
+    ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--model", default="EfficientNetV2B0")
     ap.add_argument("--n-majority", type=int, default=1000)
     args = ap.parse_args()
@@ -45,7 +46,7 @@ def main() -> None:
     from dass.pipeline.pool import _resolve_pool, load_selections, resolve_candidate_pool
     from dass.pipeline.stages import save_metrics
 
-    cfg = load_config([Path(c) for c in args.configs], tag=args.tag)
+    cfg = load_config([Path(c) for c in args.configs], args.overrides, tag=args.tag)
     configure_gpu()
     ctx = Context.create(cfg, "shortcut_probe")
     lay, b = ctx.layout, ctx.budget
