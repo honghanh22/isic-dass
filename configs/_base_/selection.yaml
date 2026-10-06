@@ -25,6 +25,10 @@ selection:
   # f < 1: M1–M6 chọn round(f × n) ảnh sinh từ ⌈k × f × n⌉ ảnh ĐẦU của pool (giữ đúng k), phần còn lại bù bằng ảnh
   # thật nhân bản (như ROS) -> mọi biến thể vẫn cùng tổng số ảnh, cân bằng 1 : 1. M0, M0b không đổi.
   synth_fraction: 1.0
+  # M8 (1.17.0): q > 0 -> thêm biến thể "ROS + ảnh sinh cân bằng hai lớp": ảnh thật cân bằng bằng ROS (như M0b),
+  # rồi thêm CÙNG số ảnh sinh s = q × (ảnh thật lớp đa số) vào mỗi lớp (thiểu số: DASS chọn từ ⌈k·s⌉ ảnh đầu của
+  # pool; đa số: không lọc). Cân bằng lớp và nguồn ảnh độc lập với nhãn. 0 = tắt.
+  balanced_synth_ratio: 0.0
   oversample_variant: true
   both_classes_variant: false   # M7 (ảnh sinh ở cả hai lớp) — ngoài bộ M0–M6 chuẩn
 

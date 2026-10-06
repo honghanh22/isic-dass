@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.17.0 — M8: ROS + ảnh sinh cân bằng hai lớp
+- `selection.balanced_synth_ratio` q (mặc định 0 = tắt, kết quả cũ không đổi). q > 0 thêm biến thể
+  **M8_ros_balanced_synth**: ảnh thật lớp thiểu số cân bằng bằng ROS (đúng tập nhân bản của M0b), rồi thêm CÙNG số ảnh
+  sinh s = q × (ảnh thật lớp đa số) vào MỖI lớp — lớp thiểu số: chọn bằng công thức M6 trong ⌈k·s⌉ ảnh đầu của pool;
+  lớp đa số: không lọc, seed gen_seed + 1. Đây là cách DUY NHẤT vừa cân bằng lớp vừa làm nguồn ảnh (thật / sinh) độc
+  lập với nhãn (giải hai điều kiện: R₁ + d = R₀ và s₁ = s₀). So trực tiếp với M0b: khác biệt chỉ là ảnh sinh thêm.
+- `pipeline.pool._resolve_pool(label=...)`: pool cùng lớp có thư mục / zip riêng (không ghi đè nhau); tên mặc định giữ
+  nguyên. `scripts/shortcut_probe.py`: ảnh sinh lớp đa số để chấm dùng pool riêng `_probe`, seed gen_seed + 2 (khác
+  seed + 1 mà M7 / M8 train), chấm thêm M8.
+- Bảng: M8 xếp cuối, nhóm "Class-balanced Synthetic (no source shortcut)". Có test.
+
 ## 1.16.0 — tỉ lệ ảnh sinh (`selection.synth_fraction`)
 - `selection.synth_fraction` f ∈ (0, 1], mặc định 1 (công thức gốc, kết quả cũ không đổi). f < 1: M1–M6 chọn
   round(f × n) ảnh sinh từ ⌈k × f × n⌉ ảnh ĐẦU của pool (giữ đúng k = 1,5; pool sinh tuần tự cùng seed nên không

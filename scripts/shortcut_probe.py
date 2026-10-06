@@ -2,11 +2,12 @@
 
     python scripts/shortcut_probe.py -c configs/server/rsna_pneumonia.yaml --tag srv
 
-- Classifier: M0, M0b (chưa từng thấy ảnh sinh -> đối chứng), M1, M6 của lần chạy (`--model`, mọi seed có trọng số;
+- Classifier: M0, M0b (chưa từng thấy ảnh sinh -> đối chứng), M1, M6, M8 (nếu có) của lần chạy (`--model`, mọi seed có trọng số;
   xác suất trung bình qua seed). Không train gì.
 - Ảnh được chấm: ảnh THẬT lớp đa số / thiểu số của tập VAL (không dùng test: test chỉ được dự đoán một lần); ảnh SINH
-  lớp đa số (pool `--n-majority` ảnh, cùng GAN, seed gen_seed + 1 — không có trong tập train của biến thể nào); ảnh sinh
-  lớp thiểu số KHÔNG được M6 chọn (M6 chưa train trên chúng).
+  lớp đa số (pool riêng `pool_<lớp>_probe`, `--n-majority` ảnh, cùng GAN, seed gen_seed + `--seed-offset` = 2 — KHÁC
+  seed + 1 mà M7 / M8 dùng để train, nên không biến thể nào đã thấy; trước 1.17.0 dùng seed + 1); ảnh sinh lớp thiểu
+  số không được M6 lẫn M8 chọn.
 - Dấu hiệu đường tắt: với M6 (và M1), ảnh sinh lớp ĐA SỐ có xác suất lớp thiểu số cao hơn hẳn ảnh thật lớp đa số
   (`shift` = TB p(sinh đa số) − TB p(thật đa số); `auc_synth_vs_real_majority` > 0,5 rõ), và mức này lớn hơn nhiều so
   với M0 / M0b (không thấy ảnh sinh khi train -> chỉ phản ánh khác biệt ảnh, không phải điều đã học).
@@ -27,7 +28,7 @@ from dass.config import load_config
 from dass.utils import setup_logging
 
 log = logging.getLogger("shortcut_probe")
-METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass")
+METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass", "M8_ros_balanced_synth")
 
 
 def main() -> None:
@@ -37,6 +38,7 @@ def main() -> None:
     ap.add_argument("--set", dest="overrides", action="append", default=[])
     ap.add_argument("--model", default="EfficientNetV2B0")
     ap.add_argument("--n-majority", type=int, default=1000)
+    ap.add_argument("--seed-offset", type=int, default=2, help="seed ảnh sinh lớp đa số = gen_seed + offset")
     args = ap.parse_args()
     setup_logging()
 
@@ -51,10 +53,12 @@ def main() -> None:
     ctx = Context.create(cfg, "shortcut_probe")
     lay, b = ctx.layout, ctx.budget
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    chosen = set(load_selections(ctx, pool)["M6_dass"])
+    selections = load_selections(ctx, pool)
+    chosen = {p for m in ("M6_dass", "M8_ros_balanced_synth") for p in selections.get(m, [])}
     sets = {
         "real_majority": ctx.val_paths[b.majority],
-        "synth_majority": _resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + 1, True).final,
+        "synth_majority": _resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + args.seed_offset,
+                                        True, label="_probe").final,
         "real_minority": ctx.val_paths[b.minority],
         "synth_minority_unseen": [p for p in pool if p not in chosen],
     }

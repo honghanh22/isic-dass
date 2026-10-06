@@ -34,13 +34,15 @@ def best_kimg(ctx: Context) -> int:
     return state["best_cum_kimg"]
 
 
-def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_missing: bool) -> CandidatePool:
+def _resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_missing: bool,
+                  label: str = "") -> CandidatePool:
+    """`label` (vd "_probe"): thư mục / zip riêng -> hai pool cùng lớp không ghi đè nhau. Mặc định "" = tên gốc."""
     from ..models.generator.sampler import archive_pool, generate_images, match_resize_chain, pool_tag, restore_pool
 
     cfg, layout, g = ctx.cfg, ctx.layout, ctx.cfg.generator
     force_gray = cfg.data.force_grayscale
     tag = pool_tag(best_kimg(ctx), n_images, ctx.channels, force_gray)
-    pool_name = f"pool_{cls}"
+    pool_name = f"pool_{cls}{label}"
     raw_zip = layout.data_dir / f"{pool_name}_{tag}.zip"
     raw_dir = layout.candidates / pool_name
     raw = restore_pool(raw_zip, raw_dir)
@@ -78,6 +80,18 @@ def resolve_candidate_pool(ctx: Context, generate_if_missing: bool = True) -> Ca
     """`pool_size` ảnh sinh của lớp thiểu số để DASS chọn ra `n_select`."""
     return _resolve_pool(ctx, ctx.budget.minority, ctx.budget.pool_size, ctx.cfg.generator.gen_seed,
                          generate_if_missing)
+
+
+def resolve_balanced_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:
+    """Ảnh sinh lớp đa số cho M8 (`selection.balanced_synth_ratio` > 0): đúng số ảnh sinh mỗi lớp, cùng seed với M7
+    (gen_seed + 1), không lọc. None nếu tắt."""
+    from ..data.variants import balanced_synth_count
+
+    q = ctx.cfg.selection.balanced_synth_ratio
+    if q <= 0:
+        return None
+    n = balanced_synth_count(q, ctx.budget.n_real[ctx.budget.majority])
+    return _resolve_pool(ctx, ctx.budget.majority, n, ctx.cfg.generator.gen_seed + 1, generate_if_missing)
 
 
 def resolve_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:

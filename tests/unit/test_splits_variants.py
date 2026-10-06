@@ -181,3 +181,10 @@ def test_ros_fill_tops_up_to_same_total_with_shared_duplicates():
     assert set(fill) == {"M1_random", "M6_dass"}                      # M0 (không ảnh sinh) và biến thể đã đủ: bỏ qua
     assert all(len(sel[m]) + len(fill[m]) == 7 for m in fill)
     assert fill["M1_random"] == fill["M6_dass"]                       # cùng ảnh nhân bản -> chỉ khác ở ảnh sinh
+
+
+def test_balanced_synth_count():
+    from dass.data.variants import balanced_synth_count
+
+    assert balanced_synth_count(0.5, 618) == 309 and balanced_synth_count(0.5, 7522) == 3761
+    assert balanced_synth_count(1.0, 618) == 618

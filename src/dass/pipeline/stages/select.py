@@ -11,8 +11,9 @@ import pandas as pd
 from ...analysis import figures
 from ...analysis.shortcut import probe_auc, separability_auc, shortcut_table
 from ...config import Config
-from ...data.variants import assemble_variant, synth_budget
+from ...data.variants import assemble_variant, balanced_synth_count, synth_budget
 from ...selection import (
+    BALANCED,
     BOTH_CLASSES,
     compute_pool_scores,
     crossfit_folds,
@@ -54,6 +55,22 @@ def _crossfit_md(cfg: Config, ctx: Context, pool: list[str], ckpt_dir: Path,
     m, s_pos, s_neg = crossfit_margin(parts, sel.lambda_d, sel.sim_topk)
     log.info("M_d cross-fitted (K = %d): TB %+.4f (std %.4f)", K, m.mean(), m.std())
     return {"M_d": m, "S_d_pos": s_pos, "S_d_neg": s_neg}
+
+
+def _select_balanced(cfg: Config, scores: dict[str, np.ndarray], z_v_pool: np.ndarray, n_majority_real: int) -> list[int]:
+    """Ảnh sinh lớp thiểu số của M8: s = q × ảnh thật lớp đa số ảnh, chọn bằng đúng công thức M6 (S_DASS) trong
+    ⌈k·s⌉ ảnh ĐẦU của pool (giữ đúng k). Chỉ số trả về là chỉ số trong pool đầy đủ."""
+    from ...selection.strategies import greedy_dass_select
+    from ...utils import minmax
+
+    sel = cfg.selection
+    s = balanced_synth_count(sel.balanced_synth_ratio, n_majority_real)
+    n_pool = int(np.ceil(sel.pool_mult * s))
+    if n_pool > len(z_v_pool):
+        raise RuntimeError(f"M8 cần {n_pool} ảnh trong pool (q = {sel.balanced_synth_ratio:g}, k = {sel.pool_mult:g}) "
+                           f"nhưng pool chỉ có {len(z_v_pool)} -> giảm selection.balanced_synth_ratio")
+    base = sel.alpha * minmax(scores["M_v"][:n_pool]) + sel.beta * minmax(scores["M_d"][:n_pool])
+    return greedy_dass_select(z_v_pool[:n_pool], base, s, sel.gamma, sel.div_normalization)
 
 
 def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
@@ -109,6 +126,8 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     selections = select_all_methods(scores, z_v_pool, n_synth, sel.alpha, sel.beta, sel.gamma, cfg.seed,
                                     both_classes=sel.both_classes_variant, div_normalization=sel.div_normalization,
                                     diversity_start=sel.diversity_start)
+    if sel.balanced_synth_ratio > 0:
+        selections[BALANCED] = _select_balanced(cfg, scores, z_v_pool, budget.n_real[budget.majority])
     for m, idx in selections.items():
         log.info("%s: chọn %d / %d ảnh sinh", m, len(idx), len(pool))
 

@@ -19,11 +19,13 @@ METHOD_LABELS = {
     "M5_diversity": r"Diversity-only Filter ($S_{\text{div}}$)",
     "M4_visual_disease": "Dual-Margin Filter ($M_v + M_d$)",
     "M6_dass": "DASS (Ours)",
+    "M8_ros_balanced_synth": "ROS + Class-balanced Synthetic (DASS)",   # chỉ có khi balanced_synth_ratio > 0
 }
 METHOD_GROUPS = {
     "Real Data Baselines": ("M0_real_only", "M0b_real_oversample"),
     "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
                                                 "M4_visual_disease", "M6_dass"),
+    "Class-balanced Synthetic (no source shortcut)": ("M8_ros_balanced_synth",),
 }
 SOURCE_TYPES = ("csv", "folders", "dicom_csv")
 AUGMENT_PROFILES = ("rotation_invariant", "upright")
@@ -152,6 +154,7 @@ class SelectionConfig:
     div_normalization: str = "per_round"   # per_round | fixed (1.14.0)
     diversity_start: str = "first"         # first | medoid (1.14.0)
     synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
+    balanced_synth_ratio: float = 0.0  # q > 0: thêm M8 (ROS + ảnh sinh cân bằng hai lớp), 1.17.0
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
@@ -260,6 +263,10 @@ def validate(cfg: Config) -> None:
         errors.append("selection.synth_fraction phải trong (0, 1]")
     if cfg.selection.synth_fraction < 1 and cfg.selection.both_classes_variant:
         errors.append("selection.synth_fraction < 1 chưa hỗ trợ M7 (both_classes_variant)")
+    if cfg.selection.balanced_synth_ratio < 0:
+        errors.append("selection.balanced_synth_ratio phải >= 0")
+    if cfg.selection.balanced_synth_ratio > 0 and cfg.selection.synth_fraction < 1:
+        errors.append("selection.balanced_synth_ratio > 0 không dùng cùng synth_fraction < 1")
     if not cfg.selection.pool_mult >= 1:
         errors.append(f"selection.pool_mult (k) phải >= 1 (pool không được nhỏ hơn số ảnh cần chọn), nhận "
                       f"{cfg.selection.pool_mult}")

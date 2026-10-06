@@ -43,6 +43,11 @@ def synth_budget(n_select: int, fraction: float, pool_mult: float) -> tuple[int,
     return n_synth, int(np.ceil(pool_mult * n_synth))
 
 
+def balanced_synth_count(ratio: float, n_majority_real: int) -> int:
+    """M8: số ảnh sinh thêm vào MỖI lớp = q × số ảnh thật lớp đa số."""
+    return int(round(ratio * n_majority_real))
+
+
 def ros_fill(selections: dict[str, list[str]], real_minority: list[str], n_select: int, seed: int,
              skip: set[str] | tuple[str, ...] = ()) -> dict[str, list[str]]:
     """Ảnh THẬT lớp thiểu số nhân bản bù cho các biến thể có ít hơn `n_select` ảnh sinh (`selection.synth_fraction`

@@ -46,7 +46,7 @@ def test_display_names_and_groups():
     assert list(ev.method_labels.values()) == [
         "Imbalanced Baseline", "Random Oversampling (ROS)", "Unfiltered GAN (Random Selection)",
         "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
-        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)"]
+        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)", "ROS + Class-balanced Synthetic (DASS)"]
     assert ev.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample"]
     grouped = [m for members in ev.method_groups.values() for m in members]
     assert sorted(grouped) == sorted(ev.method_labels)           # mỗi phương pháp thuộc đúng một nhóm
@@ -208,3 +208,15 @@ def test_synth_fraction_default_and_validation():
     with pytest.raises(ValueError, match="M7"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                     ["selection.synth_fraction=0.5", "selection.both_classes_variant=true"])
+
+
+def test_balanced_synth_ratio_default_and_validation():
+    cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
+    assert cfg.selection.balanced_synth_ratio == 0.0
+    assert load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
+                       ["selection.balanced_synth_ratio=0.5"]).selection.balanced_synth_ratio == 0.5
+    with pytest.raises(ValueError, match="balanced_synth_ratio"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["selection.balanced_synth_ratio=-1"])
+    with pytest.raises(ValueError, match="synth_fraction"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
+                    ["selection.balanced_synth_ratio=0.5", "selection.synth_fraction=0.5"])
