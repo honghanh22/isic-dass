@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ...config import Config
 from ...data.variants import assert_clean_eval_sets, oversample_indices, prepare_variants, ros_fill
-from ...selection import BALANCED, BASELINE, BOTH_CLASSES, OVERSAMPLE
+from ...selection import BALANCED, BALANCED_RANDOM, BASELINE, BOTH_CLASSES, OVERSAMPLE
 from ..context import Context
 from ..pool import load_selections, resolve_balanced_majority_pool, resolve_candidate_pool, resolve_majority_pool
 from . import init_tensorflow
@@ -27,17 +27,19 @@ def variant_inputs(cfg: Config, ctx: Context) -> tuple[dict[str, list[str]], dic
     real_minority = ctx.train_paths[b.minority]
     ros = [real_minority[i] for i in oversample_indices(len(real_minority), b.n_select, cfg.seed)]   # = tập của M0b
     # synth_fraction < 1: M1–M6 có ít ảnh sinh hơn số cần bù -> bù phần thiếu bằng ảnh thật nhân bản (cùng seed)
-    extra_real = ros_fill(selections, real_minority, b.n_select, cfg.seed, skip={BALANCED})
-    if BALANCED in selections:   # M8: ảnh thật cân bằng bằng ROS (đúng tập của M0b) + cùng số ảnh sinh ở mỗi lớp
+    balanced = [m for m in (BALANCED_RANDOM, BALANCED) if m in selections]
+    extra_real = ros_fill(selections, real_minority, b.n_select, cfg.seed, skip=set(balanced))
+    if balanced:   # M8r / M8: ảnh thật cân bằng bằng ROS (đúng tập của M0b) + cùng số ảnh sinh ở mỗi lớp
         majority_pool = resolve_balanced_majority_pool(ctx, generate_if_missing=False)
         if majority_pool is None:
-            raise RuntimeError(f"selections.json có {BALANCED} nhưng selection.balanced_synth_ratio = 0. Bật lại tuỳ "
+            raise RuntimeError(f"selections.json có {balanced} nhưng selection.balanced_synth_ratio = 0. Bật lại tuỳ "
                                "chọn hoặc chạy lại `dass select`.")
-        if len(majority_pool.final) != len(selections[BALANCED]):
-            raise RuntimeError(f"{BALANCED}: {len(selections[BALANCED])} ảnh sinh lớp thiểu số nhưng "
-                               f"{len(majority_pool.final)} ảnh sinh lớp đa số -> chạy lại `sample` / `select`")
-        majority_synth[BALANCED] = majority_pool.final
-        extra_real[BALANCED] = ros
+        for m in balanced:   # cùng ảnh sinh lớp đa số, cùng ảnh nhân bản -> M8r và M8 chỉ khác cách chọn ảnh thiểu số
+            if len(majority_pool.final) != len(selections[m]):
+                raise RuntimeError(f"{m}: {len(selections[m])} ảnh sinh lớp thiểu số nhưng {len(majority_pool.final)} "
+                                   "ảnh sinh lớp đa số -> chạy lại `sample` / `select`")
+            majority_synth[m] = majority_pool.final
+            extra_real[m] = ros
     if sel.oversample_variant:
         # M0b không chọn gì từ pool (không nằm trong selections.json): nhân bản ảnh thật lớp thiểu số lên 1 : 1.
         # Đặt ngay sau M0 để thứ tự train / bảng giữ nguyên với các biến thể còn lại.

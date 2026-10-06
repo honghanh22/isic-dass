@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.17.1 — đối chứng M8r
+- Khi `selection.balanced_synth_ratio` > 0, thêm **M8r_ros_balanced_random**: như M8 (ROS + cùng số ảnh sinh mỗi lớp,
+  cùng ảnh nhân bản, cùng ảnh sinh lớp đa số) nhưng ảnh sinh lớp thiểu số chọn NGẪU NHIÊN (seed như M1) trong cùng
+  ⌈k·s⌉ ảnh đầu của pool -> M8 vs M8r đo riêng đóng góp của DASS khi đã không còn đường tắt.
+
 ## 1.17.0 — M8: ROS + ảnh sinh cân bằng hai lớp
 - `selection.balanced_synth_ratio` q (mặc định 0 = tắt, kết quả cũ không đổi). q > 0 thêm biến thể
   **M8_ros_balanced_synth**: ảnh thật lớp thiểu số cân bằng bằng ROS (đúng tập nhân bản của M0b), rồi thêm CÙNG số ảnh

@@ -19,13 +19,14 @@ METHOD_LABELS = {
     "M5_diversity": r"Diversity-only Filter ($S_{\text{div}}$)",
     "M4_visual_disease": "Dual-Margin Filter ($M_v + M_d$)",
     "M6_dass": "DASS (Ours)",
+    "M8r_ros_balanced_random": "ROS + Class-balanced Synthetic (Random)",   # chỉ có khi balanced_synth_ratio > 0
     "M8_ros_balanced_synth": "ROS + Class-balanced Synthetic (DASS)",   # chỉ có khi balanced_synth_ratio > 0
 }
 METHOD_GROUPS = {
     "Real Data Baselines": ("M0_real_only", "M0b_real_oversample"),
     "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
                                                 "M4_visual_disease", "M6_dass"),
-    "Class-balanced Synthetic (no source shortcut)": ("M8_ros_balanced_synth",),
+    "Class-balanced Synthetic (no source shortcut)": ("M8r_ros_balanced_random", "M8_ros_balanced_synth"),
 }
 SOURCE_TYPES = ("csv", "folders", "dicom_csv")
 AUGMENT_PROFILES = ("rotation_invariant", "upright")

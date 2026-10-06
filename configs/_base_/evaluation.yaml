@@ -22,11 +22,12 @@ evaluation:
     M5_diversity: 'Diversity-only Filter ($S_{\text{div}}$)'
     M4_visual_disease: Dual-Margin Filter ($M_v + M_d$)
     M6_dass: DASS (Ours)
+    M8r_ros_balanced_random: ROS + Class-balanced Synthetic (Random)   # chỉ có khi selection.balanced_synth_ratio > 0
     M8_ros_balanced_synth: ROS + Class-balanced Synthetic (DASS)   # chỉ có khi selection.balanced_synth_ratio > 0
   method_groups:
     Real Data Baselines: [M0_real_only, M0b_real_oversample]
     Generative Augmentation (StyleGAN2-ADA): [M1_random, M2_visual, M3_disease, M5_diversity, M4_visual_disease, M6_dass]
-    Class-balanced Synthetic (no source shortcut): [M8_ros_balanced_synth]
+    Class-balanced Synthetic (no source shortcut): [M8r_ros_balanced_random, M8_ros_balanced_synth]
   n_bootstrap: 2000
   # Đánh giá theo nhóm con (cột metadata, ví dụ [ViewPosition] của RSNA): AUC trong từng nhóm + ΔAUC (Holm), mốc
   # "chỉ dùng thuộc tính", tỉ lệ thuộc tính trong ảnh sinh. Rỗng = bỏ qua (ISIC không có metadata).

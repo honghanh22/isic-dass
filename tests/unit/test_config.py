@@ -46,7 +46,8 @@ def test_display_names_and_groups():
     assert list(ev.method_labels.values()) == [
         "Imbalanced Baseline", "Random Oversampling (ROS)", "Unfiltered GAN (Random Selection)",
         "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
-        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)", "ROS + Class-balanced Synthetic (DASS)"]
+        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)", "ROS + Class-balanced Synthetic (Random)",
+        "ROS + Class-balanced Synthetic (DASS)"]
     assert ev.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample"]
     grouped = [m for members in ev.method_groups.values() for m in members]
     assert sorted(grouped) == sorted(ev.method_labels)           # mỗi phương pháp thuộc đúng một nhóm

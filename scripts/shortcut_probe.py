@@ -28,7 +28,8 @@ from dass.config import load_config
 from dass.utils import setup_logging
 
 log = logging.getLogger("shortcut_probe")
-METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass", "M8_ros_balanced_synth")
+METHODS = ("M0_real_only", "M0b_real_oversample", "M1_random", "M6_dass", "M8r_ros_balanced_random",
+           "M8_ros_balanced_synth")
 
 
 def main() -> None:
@@ -54,7 +55,7 @@ def main() -> None:
     lay, b = ctx.layout, ctx.budget
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
     selections = load_selections(ctx, pool)
-    chosen = {p for m in ("M6_dass", "M8_ros_balanced_synth") for p in selections.get(m, [])}
+    chosen = {p for m in ("M6_dass", "M8r_ros_balanced_random", "M8_ros_balanced_synth") for p in selections.get(m, [])}
     sets = {
         "real_majority": ctx.val_paths[b.majority],
         "synth_majority": _resolve_pool(ctx, b.majority, args.n_majority, cfg.generator.gen_seed + args.seed_offset,
