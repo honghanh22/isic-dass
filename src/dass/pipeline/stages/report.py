@@ -38,6 +38,13 @@ def run(cfg: Config) -> list:
                                          f"{name}: test-set classification results (mean ± std over seeds, fixed "
                                          f"threshold {cfg.evaluation.threshold})", latex, bold)
 
+    runs = load_metrics(layout, "classification_runs")
+    if runs is not None:
+        t = reporting.split_auc_table(runs, labels, groups)
+        written += reporting.write_table(out, "auc_by_split", t, t,
+                                         f"{name}: ROC-AUC on real train / val / test images (mean ± std over seeds); "
+                                         "Train − Test: generalisation gap", latex)
+
     sig_caption = ("paired bootstrap ΔAUC on the seed-averaged (ensemble) predictions with 95% CI and p-value; "
                    "p (Holm): Holm-adjusted within each model; ΔAUC per seed: mean ± std of seed-paired differences")
     cmp = load_metrics(layout, "significance_vs_baseline")

@@ -17,9 +17,9 @@ from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction")   # thiết lập train ghi trong .npz (augment /
-# class_weight từ 1.4.0, monitor từ 1.12.0, synth_fraction từ 1.16.0; .npz cũ không có -> None, không kiểm tra)
-_PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float}
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction", "design")   # thiết lập train ghi trong .npz (augment /
+# class_weight từ 1.4.0, monitor từ 1.12.0, synth_fraction từ 1.16.0, design từ 1.18.0; .npz cũ không có -> None)
+_PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float, "design": str}
 
 
 def read_protocol(d) -> dict[str, bool | str | float | None]:
@@ -64,7 +64,7 @@ def check_single_protocol(runs: pd.DataFrame) -> None:
     """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation, tiêu chí chọn epoch) — trộn thì mean ± std
     và bootstrap sai."""
     for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau"),
-                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau")):
+                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau"), ("design", "thiết kế tập train khác nhau")):
         if col in runs and len(set(runs[col].dropna())) > 1:
             raise ValueError(f"Thư mục dự đoán trộn lần chạy {what} -> tách bằng --tag / run_tag mới")
 
@@ -81,7 +81,9 @@ def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.Data
             test_files = [str(f) for f in d["test_files"]] if "test_files" in d.files else None
             row = {"model": model, "method": method, "lam": lam, "k": k, "seed": seed,
                    "best_epoch": int(d["best_epoch"]), "n_test": len(y_test),
-                   "val_roc_auc": float(roc_auc_score(y_val, p_val)), **read_protocol(d)}
+                   "val_roc_auc": float(roc_auc_score(y_val, p_val)),
+                   "train_roc_auc": (float(roc_auc_score(d["y_train"], d["p_train"])) if "p_train" in d.files
+                                     else float("nan")), **read_protocol(d)}
         row.update(binary_metrics(y_test, p_test, threshold))
         rows.append(row)
         probs[(model, method, lam, k, seed)] = (y_test, p_test, test_files)

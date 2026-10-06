@@ -105,10 +105,24 @@ def prediction_path(layout: Layout, model_name: str, variant_tag: str, seed: int
     return layout.pred_dir / f"{model_name}__{variant_tag}__s{seed}.npz"
 
 
+def predict_paths(model, preprocess, paths_by_class: dict[str, list[str]], cfg: Config,
+                  channels: int) -> tuple[np.ndarray, np.ndarray]:
+    """(nhãn, xác suất) trên danh sách ảnh theo lớp — cùng cách đọc / resize như `build_dataset` (bilinear)."""
+    from ..data.loaders import paths_dataset
+
+    labels = [cfg.data.classes[c] for c, ps in paths_by_class.items() for _ in ps]
+    paths = [p for ps in paths_by_class.values() for p in ps]
+    ds = paths_dataset(paths, cfg.classifier.size, channels, preprocess, cfg.classifier.batch_size)
+    return np.asarray(labels, dtype=int), model.predict(ds, verbose=0).ravel()
+
+
 def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict[str, Variant], seeds: list[int],
-                    channels: int, archive_mismatched: bool = False) -> None:
+                    channels: int, archive_mismatched: bool = False,
+                    train_real: dict[str, list[str]] | None = None) -> None:
     """`archive_mismatched`: .npz đã có nhưng train theo giao thức khác cấu hình hiện tại -> chuyển nó (và trọng số
-    trên Drive) sang `*_superseded/<giao thức>/` rồi train lại; mặc định báo lỗi."""
+    trên Drive) sang `*_superseded/<giao thức>/` rồi train lại; mặc định báo lỗi.
+    `train_real` ({lớp: ảnh THẬT của tập train}, không gồm ảnh nhân bản / ảnh sinh): có -> dự đoán thêm trên tập này
+    (y_train / p_train trong .npz) để so AUC train với val / test."""
     model_name = resolve_model_name(model_name)
     code = code_version()
     log.info("Giao thức train %s | code %s (dass %s) | augment = %s (%s) | class weight: %s | seeds %s",
@@ -121,7 +135,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                 mismatch = protocol_mismatch(out, {"augment": cfg.classifier.augment,
                                                    "class_weight": variant.class_weight,
                                                    "monitor": cfg.classifier.monitor,
-                                                   "synth_fraction": cfg.selection.synth_fraction})
+                                                   "synth_fraction": cfg.selection.synth_fraction,
+                                                   "design": cfg.selection.design})
                 if not mismatch:
                     log.info("[bỏ qua, đã có] %s", out.name)
                     continue
@@ -137,12 +152,16 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
             model, preprocess, best_epoch = train_classifier(cfg, layout, model_name, variant, seed, channels)
             y_val, p_val, _ = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
             y_test, p_test, test_files = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
-            save_npz_atomic(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test,
+            extra = {}
+            if train_real:
+                extra["y_train"], extra["p_train"] = predict_paths(model, preprocess, train_real, cfg, channels)
+            save_npz_atomic(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test, **extra,
                             test_files=np.array(test_files), model=model_name, method=variant.method,
                             k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, lam=variant.lam,
                             feature_space=variant.feature_space, augment=cfg.classifier.augment,
                             class_weight=variant.class_weight, monitor=cfg.classifier.monitor,
-                            synth_fraction=cfg.selection.synth_fraction, code_version=code or "",
+                            synth_fraction=cfg.selection.synth_fraction, design=cfg.selection.design,
+                            code_version=code or "",
                             dass_version=__version__)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model

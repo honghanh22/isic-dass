@@ -24,6 +24,11 @@ selection:
   # không lọc). Cân bằng lớp và nguồn ảnh độc lập với nhãn. Kèm hai đối chứng: M8r (ảnh sinh lớp thiểu số chọn ngẫu
   # nhiên) và M0c (cùng kích thước, toàn ảnh thật nhân bản). 0 = tắt.
   balanced_synth_ratio: 0.0
+  # Thiết kế tập train (1.18.0): minority_only (công thức gốc: ảnh sinh chỉ ở lớp thiểu số) | source_balanced (thiết
+  # kế B: MỌI biến thể M1–M6 = ROS + s = q × (ảnh thật lớp đa số) ảnh sinh MỖI lớp, q = balanced_synth_ratio; ảnh
+  # sinh lớp thiểu số chọn theo tiêu chí của từng biến thể trong ⌈k·s⌉ ảnh đầu pool, ảnh sinh lớp đa số dùng chung,
+  # không lọc; thêm M0c cùng kích thước). source_balanced thay cho M8 / M8r (M6 = M8, M1 = M8r).
+  design: minority_only
   # M0b: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, không class weight) — cùng số ảnh, cùng số
   # bước train, cùng cách cân bằng với M1–M6 -> M6 vs M0b đo đúng đóng góp của nội dung ảnh sinh
   oversample_variant: true

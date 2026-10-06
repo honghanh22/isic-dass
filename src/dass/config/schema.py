@@ -13,7 +13,7 @@ from typing import Any
 METHOD_LABELS = {
     "M0_real_only": "Imbalanced Baseline",          # report tự thêm " (class-weighted)" nếu đã train có class weight
     "M0b_real_oversample": "Random Oversampling (ROS)",
-    "M0c_real_oversample_matched": "ROS (size-matched to M8)",   # chỉ có khi balanced_synth_ratio > 0
+    "M0c_real_oversample_matched": "ROS (size-matched)",   # chỉ có khi balanced_synth_ratio > 0
     "M1_random": "Unfiltered GAN (Random Selection)",
     "M2_visual": "Visual-only Filter ($M_v$)",
     "M3_disease": "Disease-only Filter ($M_d$)",
@@ -155,6 +155,7 @@ class SelectionConfig:
     gamma: float = 0.5
     synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
     balanced_synth_ratio: float = 0.0  # q > 0: thêm M8 (ROS + ảnh sinh cân bằng hai lớp), 1.17.0
+    design: str = "minority_only"      # minority_only | source_balanced (thiết kế B, 1.18.0)
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
@@ -258,6 +259,13 @@ def validate(cfg: Config) -> None:
         errors.append("selection.synth_fraction phải trong (0, 1]")
     if cfg.selection.synth_fraction < 1 and cfg.selection.both_classes_variant:
         errors.append("selection.synth_fraction < 1 chưa hỗ trợ M7 (both_classes_variant)")
+    if cfg.selection.design not in ("minority_only", "source_balanced"):
+        errors.append("selection.design phải là minority_only | source_balanced")
+    if cfg.selection.design == "source_balanced" and not (
+            cfg.selection.balanced_synth_ratio > 0 and cfg.selection.oversample_variant
+            and cfg.selection.synth_fraction == 1 and not cfg.selection.both_classes_variant):
+        errors.append("selection.design = source_balanced cần balanced_synth_ratio > 0, oversample_variant = true, "
+                      "synth_fraction = 1, both_classes_variant = false")
     if cfg.selection.balanced_synth_ratio < 0:
         errors.append("selection.balanced_synth_ratio phải >= 0")
     if cfg.selection.balanced_synth_ratio > 0 and cfg.selection.synth_fraction < 1:

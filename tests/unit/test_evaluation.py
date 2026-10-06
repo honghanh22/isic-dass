@@ -257,3 +257,15 @@ def test_holm_is_computed_separately_for_primary_and_exploratory():
     assert out["p_holm"].round(3).tolist() == [0.04, 0.04, 0.02, 0.5]     # m = 2 trong mỗi họ, không phải 4
     table = reporting.significance_table(out)
     assert list(table["Family"])[:2] == ["Primary", "Primary"]
+
+
+def test_split_auc_table_side_by_side():
+    runs = pd.DataFrame({"model": "E", "method": ["M0_real_only"] * 2 + ["M6_dass"] * 2, "seed": [1, 2, 1, 2],
+                         "train_roc_auc": [0.95, 0.97, 0.99, 0.99], "val_roc_auc": [0.80, 0.82, 0.83, 0.83],
+                         "roc_auc": [0.78, 0.80, 0.81, 0.83]})
+    t = reporting.split_auc_table(runs, {"M0_real_only": "Base", "M6_dass": "DASS"})
+    assert list(t["Method"]) == ["Base", "DASS"]
+    assert t["Train AUC"].iloc[0].startswith("0.960") and t["Test AUC"].iloc[1].startswith("0.820")
+    assert t["Train − Test"].iloc[0] == "+0.170"
+    old = runs.assign(train_roc_auc=float("nan"))                       # .npz cũ không có p_train
+    assert reporting.split_auc_table(old)["Train − Test"].iloc[0] == "–"

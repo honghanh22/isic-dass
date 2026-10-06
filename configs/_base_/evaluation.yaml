@@ -16,7 +16,7 @@ evaluation:
   method_labels:
     M0_real_only: Imbalanced Baseline   # `report` tự thêm " (class-weighted)" nếu .npz ghi đã train có class weight
     M0b_real_oversample: Random Oversampling (ROS)
-    M0c_real_oversample_matched: ROS (size-matched to M8)   # chỉ có khi selection.balanced_synth_ratio > 0
+    M0c_real_oversample_matched: ROS (size-matched)   # chỉ có khi selection.balanced_synth_ratio > 0
     M1_random: Unfiltered GAN (Random Selection)
     M2_visual: Visual-only Filter ($M_v$)
     M3_disease: Disease-only Filter ($M_d$)

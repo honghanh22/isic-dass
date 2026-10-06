@@ -88,10 +88,17 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
         return None
     init_tensorflow(cfg)
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    n_synth, n_pool = synth_budget(budget.n_select, sel.synth_fraction, sel.pool_mult)
-    if n_pool < len(pool):   # synth_fraction < 1: chọn ít ảnh sinh hơn từ phần đầu của pool (giữ đúng k)
-        log.info("synth_fraction = %g: chọn %d ảnh sinh từ %d ảnh đầu của pool (phần còn lại bù bằng ROS ở `train`)",
-                 sel.synth_fraction, n_synth, n_pool)
+    source_balanced = sel.design == "source_balanced"
+    if source_balanced:   # thiết kế B: M1–M6 chọn s ảnh sinh lớp thiểu số từ ⌈k·s⌉ ảnh đầu pool
+        n_synth = balanced_synth_count(sel.balanced_synth_ratio, budget.n_real[budget.majority])
+        n_pool = int(np.ceil(sel.pool_mult * n_synth))
+        if n_pool > len(pool):
+            raise RuntimeError(f"Thiết kế source_balanced cần {n_pool} ảnh trong pool nhưng chỉ có {len(pool)} -> giảm "
+                               "selection.balanced_synth_ratio")
+    else:
+        n_synth, n_pool = synth_budget(budget.n_select, sel.synth_fraction, sel.pool_mult)
+    if n_pool < len(pool):   # chọn từ phần đầu của pool (giữ đúng k)
+        log.info("%s: chọn %d ảnh sinh lớp thiểu số từ %d ảnh đầu của pool", sel.design, n_synth, n_pool)
         pool = pool[:n_pool]
     classes = cfg.data.class_names
     train_paths, val_paths = ctx.train_paths, ctx.val_paths
@@ -128,7 +135,7 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
         scores.update(crossfit_md_scores(cfg, ctx, pool, layout.e_d_ckpt.parent, train_if_missing=not shared))
     selections = select_all_methods(scores, z_v_pool, n_synth, sel.alpha, sel.beta, sel.gamma, cfg.seed,
                                     both_classes=sel.both_classes_variant)
-    if sel.balanced_synth_ratio > 0:
+    if sel.balanced_synth_ratio > 0 and not source_balanced:   # M8r / M8 (thiết kế B đã thay bằng M1 / M6)
         selections[BALANCED_RANDOM], selections[BALANCED] = _select_balanced(cfg, scores, z_v_pool,
                                                                              budget.n_real[budget.majority])
     for m, idx in selections.items():

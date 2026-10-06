@@ -44,7 +44,7 @@ def test_classifier_no_data_intervention(name):
 def test_display_names_and_groups():
     ev = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).evaluation
     assert list(ev.method_labels.values()) == [
-        "Imbalanced Baseline", "Random Oversampling (ROS)", "ROS (size-matched to M8)",
+        "Imbalanced Baseline", "Random Oversampling (ROS)", "ROS (size-matched)",
         "Unfiltered GAN (Random Selection)",
         "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
         "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)", "ROS + Class-balanced Synthetic (Random)",
@@ -223,3 +223,14 @@ def test_balanced_synth_ratio_default_and_validation():
     with pytest.raises(ValueError, match="synth_fraction"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                     ["selection.balanced_synth_ratio=0.5", "selection.synth_fraction=0.5"])
+
+
+def test_design_b_server_config():
+    cfg = load_config([CONFIGS / "server" / "rsna_pneumonia_designB.yaml"], tag="srv")
+    s = cfg.selection
+    assert (s.design, s.balanced_synth_ratio, s.pool_mult, s.synth_fraction) == ("source_balanced", 0.5, 1.5, 1.0)
+    assert cfg.paths.run_tag == "rsna_v4_srv" and cfg.encoder.e_d_from_run == "rsna_v3_srv"
+    assert cfg.paths.gan_tag == "rsna" and cfg.classifier.monitor == "val_auc"
+    assert ["M6_dass", "M0c_real_oversample_matched"] in cfg.evaluation.primary_comparisons
+    with pytest.raises(ValueError, match="source_balanced"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["selection.design=source_balanced"])

@@ -27,13 +27,16 @@ def variant_inputs(cfg: Config, ctx: Context) -> tuple[dict[str, list[str]], dic
         majority_synth[BOTH_CLASSES] = majority_pool.final
     real_minority = ctx.train_paths[b.minority]
     ros = [real_minority[i] for i in oversample_indices(len(real_minority), b.n_select, cfg.seed)]   # = tập của M0b
-    balanced = [m for m in (BALANCED_RANDOM, BALANCED) if m in selections]
+    if sel.design == "source_balanced":   # thiết kế B: mọi biến thể có ảnh sinh (M1–M6) đều theo khung M8
+        balanced = [m for m, v in selections.items() if v and m not in (BOTH_CLASSES,)]
+    else:
+        balanced = [m for m in (BALANCED_RANDOM, BALANCED) if m in selections]
     # synth_fraction < 1: M1–M6 có ít ảnh sinh hơn số cần bù -> bù phần thiếu bằng ảnh thật nhân bản (cùng seed)
     extra_real = ros_fill(selections, real_minority, b.n_select, cfg.seed, skip=set(balanced))
     majority_extra_real = {}
     if balanced:
-        # M8r / M8: ảnh thật cân bằng bằng ROS (đúng tập của M0b) + cùng số ảnh sinh s ở mỗi lớp; cùng ảnh sinh lớp đa
-        # số và cùng ảnh nhân bản -> M8r và M8 chỉ khác cách chọn ảnh sinh lớp thiểu số
+        # M8r / M8 (hoặc M1–M6 ở thiết kế B): ảnh thật cân bằng bằng ROS (đúng tập của M0b) + cùng số ảnh sinh s ở
+        # mỗi lớp; cùng ảnh sinh lớp đa số và cùng ảnh nhân bản -> các biến thể chỉ khác cách chọn ảnh sinh thiểu số
         majority_pool = resolve_balanced_majority_pool(ctx, generate_if_missing=False)
         if majority_pool is None:
             raise RuntimeError(f"selections.json có {balanced} nhưng selection.balanced_synth_ratio = 0. Bật lại tuỳ "
@@ -78,4 +81,4 @@ def run(cfg: Config, model_name: str, seeds: list[int] | None = None, archive_mi
                                 majority_extra_real=majority_extra_real)
     assert_clean_eval_sets(variants, ctx.layout.test_pp, cfg.data.class_names)
     run_experiments(cfg, ctx.layout, model_name, variants, seeds or cfg.classifier.seeds, ctx.channels,
-                    archive_mismatched)
+                    archive_mismatched, train_real=ctx.train_paths)

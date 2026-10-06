@@ -1,0 +1,28 @@
+# RSNA — THIẾT KẾ B (1.18.0): mọi biến thể M1–M6 = ROS + ảnh sinh cân bằng hai lớp (q = 0,5), thêm M0c cùng kích thước.
+#   dass -c configs/server/rsna_pneumonia_designB.yaml --tag srv show-config      -> run_tag rsna_v4_srv
+# Cùng GAN `rsna`, cùng split rsna_v2 (split.expected), cùng E_d với rsna_v3_srv (không train lại), k = 1,5, val_auc.
+# Thiết kế, q và giả thuyết chính ghi ở đây và CHANGELOG 1.18.0 TRƯỚC khi chạy test.
+_base_:
+  - rsna_pneumonia.yaml
+
+paths:
+  run_tag: rsna_v4
+
+selection:
+  design: source_balanced
+  balanced_synth_ratio: 0.5     # s = 0,5 × 7.522 = 3.761 ảnh sinh mỗi lớp
+
+encoder:
+  e_d_from_run: rsna_v3_srv     # dùng lại E_d (cùng giao thức val_auc) -> chỉ thiết kế tập train thay đổi
+
+evaluation:
+  # Họ chính (khai báo trước, Holm riêng): H1 DASS vs Random, H2 DASS vs ROS cùng kích thước, H3 DASS vs ROS gốc
+  # (H3 đọc như kiểm định không kém hơn: cận dưới 95% CI của ΔAUC > −0,01).
+  primary_comparisons:
+    - [M6_dass, M1_random]
+    - [M6_dass, M0c_real_oversample_matched]
+    - [M6_dass, M0b_real_oversample]
+  comparisons:
+    - [M6_dass, M1_random]
+    - [M6_dass, M0c_real_oversample_matched]
+    - [M6_dass, M0b_real_oversample]

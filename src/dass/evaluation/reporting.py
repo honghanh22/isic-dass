@@ -244,6 +244,33 @@ def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None
     return out, bold
 
 
+SPLIT_AUC = (("train_roc_auc", "Train AUC"), ("val_roc_auc", "Val AUC"), ("roc_auc", "Test AUC"))
+
+
+def split_auc_table(runs: pd.DataFrame, labels: dict[str, str] | None = None,
+                    groups: dict[str, list[str]] | None = None) -> pd.DataFrame:
+    """AUC trên ảnh THẬT của train / val / test (mean ± std qua seed) cạnh nhau + khoảng cách train − test (học thuộc).
+    Train AUC chỉ có khi .npz có p_train (từ 1.18.0); thiếu -> "–"."""
+    cols = [c for c, _ in SPLIT_AUC if c in runs]
+    g = runs.groupby(["model", "method"])
+    mean, std = g[cols].mean(), g[cols].std(ddof=1)
+    df = mean.reset_index().assign(_rank=lambda d: d["method"].map(lambda m: method_rank(m, labels)))
+    df = df.sort_values(["model", "_rank"], kind="stable").reset_index(drop=True)
+    out = pd.DataFrame({"Model": df["model"]})
+    if groups:
+        out["Group"] = [method_group(m, groups) for m in df["method"]]
+    out["Method"] = [method_label(m, labels) for m in df["method"]]
+    out["Seeds"] = [int(g.size()[(mo, me)]) for mo, me in zip(df["model"], df["method"])]
+    for c, name in SPLIT_AUC:
+        out[name] = ([fmt_mean_std(mean.loc[(mo, me), c], std.loc[(mo, me), c]) for mo, me in
+                      zip(df["model"], df["method"])] if c in cols else "–")
+    if "train_roc_auc" in cols:
+        out["Train − Test"] = [("–" if _isnan(mean.loc[(mo, me), "train_roc_auc"])
+                                else f"{mean.loc[(mo, me), 'train_roc_auc'] - mean.loc[(mo, me), 'roc_auc']:+.3f}")
+                               for mo, me in zip(df["model"], df["method"])]
+    return out
+
+
 def dataset_table(card: dict) -> pd.DataFrame:
     rows = []
     for subset in ("train", "val", "test"):

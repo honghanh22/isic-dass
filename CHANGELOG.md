@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.18.0 — thiết kế B (`selection.design: source_balanced`), AUC train / val / test
+- `selection.design` (mặc định `minority_only` = công thức gốc, kết quả cũ không đổi). `source_balanced` (thiết kế B):
+  MỌI biến thể M1–M6 = ảnh thật cân bằng bằng ROS (đúng tập nhân bản của M0b) + s = q × (ảnh thật lớp đa số) ảnh sinh
+  MỖI lớp (q = `balanced_synth_ratio`); ảnh sinh lớp thiểu số chọn theo tiêu chí của từng biến thể trong ⌈k·s⌉ ảnh đầu
+  pool (k = 1,5); ảnh sinh lớp đa số dùng chung, KHÔNG lọc (seed gen_seed + 1); thêm M0c (cùng kích thước, toàn ảnh
+  thật nhân bản). M6 / M1 của thiết kế B = M8 / M8r của 1.17 (không tạo M8 / M8r khi bật thiết kế B).
+- `configs/server/rsna_pneumonia_designB.yaml` (`rsna_v4`), `configs/server/isic2016_designB.yaml` (`v13`): q = 0,5,
+  E_d dùng lại của `rsna_v3_srv` / `v12_srv`.
+- **Giả thuyết khai báo trước khi chạy test** (họ chính, Holm riêng): H1 M6 vs M1 (DASS vs ngẫu nhiên), H2 M6 vs M0c
+  (ảnh sinh vs ảnh thật lặp lại, cùng kích thước), H3 M6 vs M0b (ROS gốc; đọc như không kém hơn: cận dưới 95% CI
+  của ΔAUC > −0,01). Trên val (1.17): H1 +0,0036, H2 +0,0027, H3 +0,0007 — hiệu ứng nhỏ so với CI test (RSNA khoảng
+  ±0,011), có thể không đạt ý nghĩa. RSNA chạy trước; ISIC là phép thử độc lập (thiết kế B được phát triển trên RSNA).
+- `.npz` ghi thêm `y_train` / `p_train` (dự đoán trên ảnh THẬT của tập train, không gồm ảnh nhân bản / ảnh sinh) và
+  `design`; `classification_runs` có `train_roc_auc`; bảng mới `tables/auc_by_split` (Train / Val / Test AUC +
+  Train − Test). Trộn hai thiết kế trong một thư mục dự đoán -> báo lỗi.
+- Tên hiển thị M0c: "ROS (size-matched)". `scripts/shortcut_probe.py` chấm thêm M0c.
+
 ## 1.17.3 — dọn code
 - Bỏ `selection.div_normalization` và `selection.diversity_start` (1.14.0): chưa từng bật ở lần chạy nào (chỉ chạy thử
   một lần với tag tạm đã xoá). `greedy_dass_select`, `diversity_only_select`, `select_all_methods` trở về đúng bản
