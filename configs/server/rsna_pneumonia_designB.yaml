@@ -26,3 +26,17 @@ evaluation:
     - [M6_dass, M1_random]
     - [M6_dass, M0c_real_oversample_matched]
     - [M6_dass, M0b_real_oversample]
+  # Tên hiển thị của thiết kế B (mã nội bộ M1–M6 giữ nguyên). Thứ tự = thứ tự hàng trong bảng.
+  method_labels:
+    M0_real_only: Imbalanced Baseline
+    M0b_real_oversample: Random Oversampling (ROS)
+    M0c_real_oversample_matched: ROS (size-matched)
+    M1_random: "ROS + Balanced GAN: Random"
+    M2_visual: "ROS + Balanced GAN: Visual margin ($M_v$)"
+    M3_disease: "ROS + Balanced GAN: Disease margin ($M_d$)"
+    M5_diversity: "ROS + Balanced GAN: Diversity ($S_{\\text{div}}$)"
+    M4_visual_disease: "ROS + Balanced GAN: Dual margin ($M_v + M_d$)"
+    M6_dass: "ROS + Balanced GAN: DASS (Ours)"
+  method_groups:
+    Real Data Baselines: [M0_real_only, M0b_real_oversample, M0c_real_oversample_matched]
+    ROS + Class-balanced GAN (StyleGAN2-ADA): [M1_random, M2_visual, M3_disease, M5_diversity, M4_visual_disease, M6_dass]
