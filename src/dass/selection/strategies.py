@@ -38,7 +38,6 @@ from ..utils import minmax
 BASELINE = "M0_real_only"
 OVERSAMPLE = "M0b_real_oversample"   # không chọn từ pool -> không thuộc METHODS / selections.json
 BOTH_CLASSES = "M7_dass_both_classes"
-FINETUNE_SUFFIX = "+FT"   # kết quả sau giai đoạn B (fine-tune chỉ trên ảnh thật cân bằng), classifier.finetune_real_epochs
 METHODS = ("M0_real_only", "M1_random", "M2_visual", "M3_disease", "M4_visual_disease", "M5_diversity", "M6_dass",
            BOTH_CLASSES)
 

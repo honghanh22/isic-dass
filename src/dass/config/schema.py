@@ -188,11 +188,6 @@ class ClassifierConfig:
     baseline_class_weight: bool = False  # M0 có class weight; 1.11.0: tắt (baseline mất cân bằng thật, ROS cân bằng)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
-    # Train 2 giai đoạn theo dữ liệu (1.13.0, tuỳ chọn): sau khi train xong một biến thể (giai đoạn A), train tiếp
-    # `finetune_real_epochs` epoch CHỈ trên ảnh thật đã cân bằng bằng ROS (tập train của M0b) với lr nhỏ -> thêm kết quả
-    # "<phương pháp>+FT" (cùng model A). 0 = tắt. M0 không có giai đoạn B (baseline mất cân bằng giữ nguyên).
-    finetune_real_epochs: int = 0
-    finetune_real_lr: float = 5e-6
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"
     swin_preset: str = "hf://keras/swin_tiny_patch4_window7_224"
 
@@ -251,11 +246,6 @@ def validate(cfg: Config) -> None:
             resolve_model_name(m)
         except KeyError as e:
             errors.append(str(e).strip("'\""))
-    if cfg.classifier.finetune_real_epochs < 0:
-        errors.append("classifier.finetune_real_epochs phải >= 0")
-    if cfg.classifier.finetune_real_epochs > 0 and not cfg.selection.oversample_variant:
-        errors.append("classifier.finetune_real_epochs > 0 cần selection.oversample_variant = true (giai đoạn B dùng "
-                      "tập train của M0b)")
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
     from ..selection.strategies import DIV_NORMALIZATIONS, DIVERSITY_STARTS

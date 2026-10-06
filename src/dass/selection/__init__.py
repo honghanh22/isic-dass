@@ -8,7 +8,6 @@ from .scoring import compute_pool_scores, crossfit_folds, crossfit_margin, margi
 from .strategies import (
     BASELINE,
     BOTH_CLASSES,
-    FINETUNE_SUFFIX,
     METHODS,
     OVERSAMPLE,
     greedy_dass_select,
@@ -16,5 +15,5 @@ from .strategies import (
     select_all_methods,
 )
 
-__all__ = ["BASELINE", "BOTH_CLASSES", "FINETUNE_SUFFIX", "METHODS", "OVERSAMPLE", "compute_pool_scores", "crossfit_folds", "crossfit_margin", "greedy_dass_select",
+__all__ = ["BASELINE", "BOTH_CLASSES", "METHODS", "OVERSAMPLE", "compute_pool_scores", "crossfit_folds", "crossfit_margin", "greedy_dass_select",
            "jaccard_matrix", "margin_score", "select_all_methods", "topk_similarity"]

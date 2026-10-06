@@ -511,10 +511,10 @@ dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ 
     ánh qua std giữa các seed (và cột `ΔAUC per seed`). Báo cáo cả hai.
   - Với 2.000 lần lấy mẫu, p nhỏ nhất khác 0 là 0,001. p = 0 nên ghi là **p < 0,001**.
   - **Đa so sánh (từ 1.14.0):** giả thuyết chính khai báo trước trong `evaluation.primary_comparisons` (H1–H3: M6
-    vs M0b, M6 vs M1, M6 vs M0) là **họ chính**; mọi so sánh khác (mọi biến thể vs M0, các cặp `+FT`…) là **họ khám
+    vs M0b, M6 vs M1, M6 vs M0) là **họ chính**; mọi so sánh khác (mọi biến thể vs M0, các cặp bổ sung) là **họ khám
     phá**. Cột `family` / **Family**; **`p (Holm)`** hiệu chỉnh Holm–Bonferroni **riêng trong từng họ** của từng
     backbone. Kết luận chính dựa vào `p (Holm)` của họ chính; kết quả khám phá chỉ để gợi ý. Trước 1.14.0 mọi so sánh
-    chung một họ (gồm cả cặp `+FT` trùng hệt bản gốc) nên quá bảo thủ. Nêu trong bài: hiệu chỉnh theo từng backbone,
+    chung một họ nên quá bảo thủ. Nêu trong bài: hiệu chỉnh theo từng backbone,
     tách họ chính / khám phá, họ chính khai báo trước khi có kết quả RSNA `rsna_v3`.
   - Bootstrap dùng xác suất **trung bình qua seed** -> chỉ đo dao động do tập test; dao động do train chỉ có ở cột
     ΔAUC theo seed (3 seed: yếu).

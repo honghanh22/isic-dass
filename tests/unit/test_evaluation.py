@@ -244,15 +244,6 @@ def test_protocol_records_monitor(tmp_path):
         check_single_protocol(runs)
 
 
-def test_finetune_methods_label_order_and_group():
-    labels = {"M0_real_only": "Base", "M0b_real_oversample": "ROS", "M6_dass": "DASS (Ours)"}
-    assert reporting.method_label("M6_dass+FT", labels) == "DASS (Ours) + real fine-tune"
-    order = sorted(["M6_dass+FT", "M0b_real_oversample+FT", "M6_dass", "M0_real_only", "M0b_real_oversample"],
-                   key=lambda m: reporting.method_rank(m, labels))
-    assert order == ["M0_real_only", "M0b_real_oversample", "M6_dass", "M0b_real_oversample+FT", "M6_dass+FT"]
-    assert reporting.method_group("M6_dass+FT", {"G": ["M6_dass"]}) == reporting.FINETUNE_GROUP
-    assert reporting.method_group("M6_dass", {"G": ["M6_dass"]}) == "G"
-
 
 def test_holm_is_computed_separately_for_primary_and_exploratory():
     from dass.evaluation.aggregate import add_holm, mark_family

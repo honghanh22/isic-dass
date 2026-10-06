@@ -56,15 +56,8 @@ def plain_label(s: object) -> object:
     return re.sub(r"\\text\{([^}]*)\}", r"\1", s).replace("$", "").replace("{", "").replace("}", "")
 
 
-FINETUNE_LABEL = " + real fine-tune"
-
-
 def method_label(method: str, labels: dict[str, str] | None) -> str:
-    """Tên hiển thị; "<mã>+FT" (giai đoạn B, `classifier.finetune_real_epochs`) -> tên của mã gốc + " + real fine-tune"."""
-    labels = labels or {}
-    if method not in labels and method.endswith("+FT"):
-        return method_label(method[:-3], labels) + FINETUNE_LABEL
-    return labels.get(method, method)
+    return (labels or {}).get(method, method)
 
 
 CLASS_WEIGHT_SUFFIX = " (class-weighted)"
@@ -87,17 +80,10 @@ def labels_for_runs(labels: dict[str, str] | None, runs: pd.DataFrame | None) ->
 def method_rank(method: str, labels: dict[str, str] | None) -> tuple[int, str]:
     """Thứ tự hàng: theo thứ tự trong `labels`, phương pháp không có tên hiển thị xếp sau (theo mã)."""
     order = list(labels or {})
-    if method not in order and method.endswith("+FT") and method[:-3] in order:   # giai đoạn B: sau mọi mã gốc
-        return (len(order) + order.index(method[:-3]), "")
-    return (order.index(method), "") if method in order else (2 * len(order), method)
-
-
-FINETUNE_GROUP = "Two-stage: + real fine-tune"
+    return (order.index(method), "") if method in order else (len(order), method)
 
 
 def method_group(method: str, groups: dict[str, list[str]] | None) -> str:
-    if method.endswith("+FT"):
-        return FINETUNE_GROUP
     return next((g for g, members in (groups or {}).items() if method in members), "")
 
 

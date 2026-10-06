@@ -21,11 +21,6 @@ classifier:
   # baseline cân bằng bằng ảnh thật). Kết quả có augmentation + M0 class weight (ISIC v7 / v10) giữ nguyên trên Drive.
   augment: false                # true: lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
   baseline_class_weight: false  # true: M0 train với class weight (cân bằng trong loss)
-  # Train 2 giai đoạn (tuỳ chọn, 1.13.0): train tiếp N epoch chỉ trên ảnh thật cân bằng bằng ROS (tập train của M0b),
-  # lr nhỏ, từ chính model của mỗi biến thể -> thêm kết quả "<phương pháp>+FT". Chọn epoch theo `monitor`; nếu không
-  # epoch nào tốt hơn model giai đoạn A trên val thì giữ model A. 0 = tắt. M0 không có giai đoạn B.
-  finetune_real_epochs: 0
-  finetune_real_lr: 5.0e-6
   mixed_precision: false
   save_weights_to_drive: true
   vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px

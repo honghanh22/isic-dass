@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.15.0 — bỏ train 2 giai đoạn
+- Người dùng quyết định: gỡ hẳn tuỳ chọn train 2 giai đoạn của 1.13.0 (`classifier.finetune_real_epochs`,
+  `classifier.finetune_real_lr`, kết quả `<phương pháp>+FT`). Lý do ghi nhận: chỉ giúp nhẹ ở ISIC (≈ +0,01 AUC, giai
+  đoạn B được nhận 8/21 lần), không tác dụng ở RSNA (2/21), không làm ảnh sinh vượt ROS.
+- `engine/trainer.py`, `pipeline/stages/train.py` trở về đúng một luồng train của 1.12.0 (head -> fine-tune, chọn epoch
+  theo `monitor`, ghi `monitor` vào `.npz`). Bỏ `FINETUNE_SUFFIX`, tên / nhóm / thứ tự "+FT" trong bảng, test liên quan.
+- Kết quả `+FT` đã chạy (ISIC `v12`, RSNA `rsna_v3`, EfficientNetV2B0) KHÔNG xoá: chuyển sang
+  `results_<run>/predictions_two_stage_removed/`; `evaluate` / `report` chạy lại chỉ còn M0–M6 + M0b.
+- Giữ nguyên mọi thay đổi khác (Holm theo họ, tuỳ chọn chọn ảnh, cross-fitting E_d của 1.14.0).
+
 ## 1.14.0 — rà soát công thức: họ kiểm định, chuẩn hoá đa dạng, cross-fitting E_d
 Rà lại mọi công thức (margin, DASS, KID, bootstrap, Holm, class weight, ngân sách, học thuộc): không có lỗi tính
 toán. Sửa / bổ sung:
@@ -23,7 +33,7 @@ toán. Sửa / bổ sung:
   một model). Lần chạy ngắn hơn (vừa giới hạn giờ GPU), RAM / VRAM giải phóng giữa các seed, bị ngắt chỉ mất seed đang
   chạy. `dass train --model X --seeds S` vẫn chạy được từng seed bằng tay. Kết quả không đổi (mỗi seed độc lập).
 
-## 1.13.0 — tuỳ chọn train 2 giai đoạn (fine-tune chỉ trên ảnh thật)
+## 1.13.0 — tuỳ chọn train 2 giai đoạn (fine-tune chỉ trên ảnh thật) — ĐÃ BỎ ở 1.15.0
 - `classifier.finetune_real_epochs` (mặc định 0 = tắt), `classifier.finetune_real_lr` (5e-6): sau khi train một biến
   thể (giai đoạn A, không đổi), train tiếp từ CHÍNH model A, chỉ trên ảnh thật cân bằng bằng ROS (tập train của M0b,
   giống nhau cho mọi biến thể), lr nhỏ; chọn epoch theo `monitor` và chỉ nhận epoch tốt hơn model A trên val (không có
