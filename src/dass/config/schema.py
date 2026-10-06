@@ -151,6 +151,7 @@ class SelectionConfig:
     gamma: float = 0.5
     div_normalization: str = "per_round"   # per_round | fixed (1.14.0)
     diversity_start: str = "first"         # first | medoid (1.14.0)
+    synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
     oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
@@ -255,6 +256,10 @@ def validate(cfg: Config) -> None:
         errors.append(f"selection.diversity_start phải thuộc {DIVERSITY_STARTS}")
     if cfg.encoder.e_d_crossfit_folds == 1 or cfg.encoder.e_d_crossfit_folds < 0:
         errors.append("encoder.e_d_crossfit_folds phải là 0 (tắt) hoặc >= 2")
+    if not 0 < cfg.selection.synth_fraction <= 1:
+        errors.append("selection.synth_fraction phải trong (0, 1]")
+    if cfg.selection.synth_fraction < 1 and cfg.selection.both_classes_variant:
+        errors.append("selection.synth_fraction < 1 chưa hỗ trợ M7 (both_classes_variant)")
     if not cfg.selection.pool_mult >= 1:
         errors.append(f"selection.pool_mult (k) phải >= 1 (pool không được nhỏ hơn số ảnh cần chọn), nhận "
                       f"{cfg.selection.pool_mult}")

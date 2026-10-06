@@ -17,16 +17,17 @@ from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight", "monitor")   # thiết lập train ghi trong .npz (augment / class_weight từ
-                                                            # 1.4.0, monitor từ 1.12.0; .npz cũ không có)
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction")   # thiết lập train ghi trong .npz (augment /
+# class_weight từ 1.4.0, monitor từ 1.12.0, synth_fraction từ 1.16.0; .npz cũ không có -> None, không kiểm tra)
+_PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float}
 
 
-def read_protocol(d) -> dict[str, bool | str | None]:
-    """{augment, class_weight, monitor} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
-    return {f: ((str(d[f]) if f == "monitor" else bool(d[f])) if f in d.files else None) for f in PROTOCOL_FIELDS}
+def read_protocol(d) -> dict[str, bool | str | float | None]:
+    """{augment, class_weight, monitor, synth_fraction} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
+    return {f: (_PROTOCOL_TYPES.get(f, bool)(d[f]) if f in d.files else None) for f in PROTOCOL_FIELDS}
 
 
-def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool | str]) -> str | None:
+def protocol_mismatch(npz_path: str | Path, expected: dict[str, bool | str | float]) -> str | None:
     """Mô tả chỗ lệch giữa thiết lập train lưu trong `npz_path` và `expected`; None nếu khớp (hoặc .npz cũ không ghi)."""
     with np.load(npz_path, allow_pickle=True) as d:
         stored = read_protocol(d)
@@ -62,7 +63,8 @@ def archive_superseded_run(npz_path: str | Path, weights_path: str | Path, pred_
 def check_single_protocol(runs: pd.DataFrame) -> None:
     """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation, tiêu chí chọn epoch) — trộn thì mean ± std
     và bootstrap sai."""
-    for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau")):
+    for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau"),
+                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau")):
         if col in runs and len(set(runs[col].dropna())) > 1:
             raise ValueError(f"Thư mục dự đoán trộn lần chạy {what} -> tách bằng --tag / run_tag mới")
 

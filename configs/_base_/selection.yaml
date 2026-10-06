@@ -21,6 +21,10 @@ selection:
   diversity_start: first
   # M0b: nhân bản ảnh THẬT lớp thiểu số lên 1 : 1 (random oversampling, không class weight) — cùng số ảnh, cùng số
   # bước train, cùng cách cân bằng với M1–M6 -> M6 vs M0b đo đúng đóng góp của nội dung ảnh sinh
+  # Tỉ lệ ảnh SINH trong phần cần bù của lớp thiểu số (1.16.0). 1 = công thức gốc (bù hoàn toàn bằng ảnh sinh);
+  # f < 1: M1–M6 chọn round(f × n) ảnh sinh từ ⌈k × f × n⌉ ảnh ĐẦU của pool (giữ đúng k), phần còn lại bù bằng ảnh
+  # thật nhân bản (như ROS) -> mọi biến thể vẫn cùng tổng số ảnh, cân bằng 1 : 1. M0, M0b không đổi.
+  synth_fraction: 1.0
   oversample_variant: true
   both_classes_variant: false   # M7 (ảnh sinh ở cả hai lớp) — ngoài bộ M0–M6 chuẩn
 

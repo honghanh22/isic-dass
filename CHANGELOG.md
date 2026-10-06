@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.16.0 — tỉ lệ ảnh sinh (`selection.synth_fraction`)
+- `selection.synth_fraction` f ∈ (0, 1], mặc định 1 (công thức gốc, kết quả cũ không đổi). f < 1: M1–M6 chọn
+  round(f × n) ảnh sinh từ ⌈k × f × n⌉ ảnh ĐẦU của pool (giữ đúng k = 1,5; pool sinh tuần tự cùng seed nên không
+  sinh lại); phần còn lại của lớp thiểu số bù bằng ảnh thật nhân bản (`data.variants.ros_fill`, cùng seed -> mọi biến
+  thể cùng tập ảnh nhân bản). Mọi biến thể vẫn cùng tổng số ảnh, cân bằng 1 : 1. M0, M0b không đổi. Chưa hỗ trợ M7.
+- `.npz` ghi `synth_fraction`; trộn hai tỉ lệ trong một thư mục dự đoán -> báo lỗi.
+- `pipeline.stages.train.variant_inputs`: ghép đầu vào mọi biến thể, dùng chung cho `train` và
+  `scripts/train_variant_val.py`. Có test.
+
 ## 1.15.0 — bỏ train 2 giai đoạn
 - Người dùng quyết định: gỡ hẳn tuỳ chọn train 2 giai đoạn của 1.13.0 (`classifier.finetune_real_epochs`,
   `classifier.finetune_real_lr`, kết quả `<phương pháp>+FT`). Lý do ghi nhận: chỉ giúp nhẹ ở ISIC (≈ +0,01 AUC, giai

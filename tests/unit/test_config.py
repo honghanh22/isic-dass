@@ -198,3 +198,13 @@ def test_run_chain_trains_one_seed_per_process():
     assert cmds[0][-4:] == ["--model", "EfficientNetV2B0", "--seeds", "2026"]
     assert cmds[2][-4:] == ["--model", "EfficientNetV2B0", "--seeds", "2028"]
     assert cmds[3][-4:] == ["--model", "ResNet50", "--seeds", "2026"]
+
+
+def test_synth_fraction_default_and_validation():
+    cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
+    assert cfg.selection.synth_fraction == 1.0
+    with pytest.raises(ValueError, match="synth_fraction"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["selection.synth_fraction=0"])
+    with pytest.raises(ValueError, match="M7"):
+        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
+                    ["selection.synth_fraction=0.5", "selection.both_classes_variant=true"])

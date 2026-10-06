@@ -11,7 +11,7 @@ import pandas as pd
 from ...analysis import figures
 from ...analysis.shortcut import probe_auc, separability_auc, shortcut_table
 from ...config import Config
-from ...data.variants import assemble_variant
+from ...data.variants import assemble_variant, synth_budget
 from ...selection import (
     BOTH_CLASSES,
     compute_pool_scores,
@@ -68,6 +68,11 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
         return None
     init_tensorflow(cfg)
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
+    n_synth, n_pool = synth_budget(budget.n_select, sel.synth_fraction, sel.pool_mult)
+    if n_pool < len(pool):   # synth_fraction < 1: chọn ít ảnh sinh hơn từ phần đầu của pool (giữ đúng k)
+        log.info("synth_fraction = %g: chọn %d ảnh sinh từ %d ảnh đầu của pool (phần còn lại bù bằng ROS ở `train`)",
+                 sel.synth_fraction, n_synth, n_pool)
+        pool = pool[:n_pool]
     classes = cfg.data.class_names
     train_paths, val_paths = ctx.train_paths, ctx.val_paths
 
@@ -101,7 +106,7 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
                                  sel.lambda_v, sel.lambda_d, sel.sim_topk)
     if cfg.encoder.e_d_crossfit_folds >= 2:
         scores.update(_crossfit_md(cfg, ctx, pool, layout.e_d_ckpt.parent, train_if_missing=not shared))
-    selections = select_all_methods(scores, z_v_pool, budget.n_select, sel.alpha, sel.beta, sel.gamma, cfg.seed,
+    selections = select_all_methods(scores, z_v_pool, n_synth, sel.alpha, sel.beta, sel.gamma, cfg.seed,
                                     both_classes=sel.both_classes_variant, div_normalization=sel.div_normalization,
                                     diversity_start=sel.diversity_start)
     for m, idx in selections.items():

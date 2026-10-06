@@ -162,3 +162,22 @@ def test_oversample_variant_reaches_one_to_one_with_real_copies(image_tree, tmp_
     assert not m0b.class_weight and v["M0_real_only_p3"].class_weight
     assert len(list((v["M0_real_only_p3"].dir / "train" / budget.minority).iterdir())) == len(real)
     assert_clean_eval_sets(v, image_tree, CLASSES)
+
+
+def test_synth_budget_keeps_pool_ratio():
+    from dass.data.variants import synth_budget
+
+    assert synth_budget(470, 1.0, 1.5) == (470, 705)
+    assert synth_budget(470, 0.5, 1.5) == (235, 353)
+    assert synth_budget(6463, 0.5, 1.5) == (3232, 4848)
+
+
+def test_ros_fill_tops_up_to_same_total_with_shared_duplicates():
+    from dass.data.variants import ros_fill
+
+    real = [f"r{i}.png" for i in range(10)]
+    sel = {"M0_real_only": [], "M1_random": ["s1", "s2"], "M6_dass": ["s3", "s4"], "M2_visual": ["s"] * 7}
+    fill = ros_fill(sel, real, 7, seed=0)
+    assert set(fill) == {"M1_random", "M6_dass"}                      # M0 (không ảnh sinh) và biến thể đã đủ: bỏ qua
+    assert all(len(sel[m]) + len(fill[m]) == 7 for m in fill)
+    assert fill["M1_random"] == fill["M6_dass"]                       # cùng ảnh nhân bản -> chỉ khác ở ảnh sinh

@@ -36,26 +36,28 @@ def main() -> None:
     from dass.data.variants import Variant, assemble_variant, variant_tag
     from dass.engine.trainer import predict_dir, train_classifier
     from dass.pipeline.context import Context
-    from dass.pipeline.pool import load_selections, resolve_candidate_pool
     from dass.pipeline.stages import init_tensorflow
+    from dass.pipeline.stages.train import variant_inputs
 
     cfg = load_config([Path(c) for c in args.configs], args.overrides, tag=args.tag)
     init_tensorflow(cfg)
     ctx = Context.create(cfg, "train_variant_val")
     lay, b, sel = ctx.layout, ctx.budget, cfg.selection
-    pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    synth = load_selections(ctx, pool)[args.method]
+    selections, majority_synth, extra_real, cw_methods = variant_inputs(cfg, ctx)   # cùng logic với `train`
+    synth = selections[args.method]
     tag = variant_tag(args.method, sel.pool_mult)
     vdir = lay.variants / tag
-    assemble_variant(vdir, lay.train_pp, ctx.split, b.minority, synth)
+    assemble_variant(vdir, lay.train_pp, ctx.split, b.minority, synth, b.majority,
+                     majority_synth.get(args.method, ()), extra_real.get(args.method, ()))
     variant = Variant(tag=tag, dir=vdir, method=args.method, lam=f"v{sel.lambda_v:g}_d{sel.lambda_d:g}",
-                      feature_space="Ev+Ed", class_weight=False)
+                      feature_space="Ev+Ed", class_weight=args.method in cw_methods)
     model, preprocess, best_epoch = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
     y_val, p_val, _ = predict_dir(model, preprocess, vdir / "val", cfg, ctx.channels)     # CHỈ val
     auc = float(roc_auc_score(y_val, p_val))
     out = lay.results_dir / "val_only" / f"{args.model}__{tag}__s{args.seed}.json"
     write_json_atomic(out, {"method": args.method, "model": args.model, "seed": args.seed, "val_auc": auc,
-                            "best_epoch": best_epoch, "n_synth": len(synth), "run_tag": cfg.paths.run_tag,
+                            "best_epoch": best_epoch, "n_synth": len(synth),
+                            "n_real_duplicates": len(extra_real.get(args.method, ())), "run_tag": cfg.paths.run_tag,
                             "overrides": args.overrides})
     log.info("val AUC = %.4f -> %s", auc, out)
 

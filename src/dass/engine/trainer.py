@@ -5,7 +5,7 @@
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
 - Mỗi (model, biến thể, seed) lưu một .npz trên Drive (ghi nguyên tử); file đã có -> bỏ qua (chạy lại được), nhưng
-  nếu thiết lập train lưu trong file (augment, class_weight, monitor) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại
+  nếu thiết lập train lưu trong file (augment, class_weight, monitor, synth_fraction) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại
   (`--archive-mismatched`: chuyển kết quả cũ sang thư mục *_superseded/ rồi train lại).
 """
 
@@ -120,7 +120,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
             if out.exists():
                 mismatch = protocol_mismatch(out, {"augment": cfg.classifier.augment,
                                                    "class_weight": variant.class_weight,
-                                                   "monitor": cfg.classifier.monitor})
+                                                   "monitor": cfg.classifier.monitor,
+                                                   "synth_fraction": cfg.selection.synth_fraction})
                 if not mismatch:
                     log.info("[bỏ qua, đã có] %s", out.name)
                     continue
@@ -140,7 +141,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                             test_files=np.array(test_files), model=model_name, method=variant.method,
                             k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, lam=variant.lam,
                             feature_space=variant.feature_space, augment=cfg.classifier.augment,
-                            class_weight=variant.class_weight, monitor=cfg.classifier.monitor, code_version=code or "",
+                            class_weight=variant.class_weight, monitor=cfg.classifier.monitor,
+                            synth_fraction=cfg.selection.synth_fraction, code_version=code or "",
                             dass_version=__version__)
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model

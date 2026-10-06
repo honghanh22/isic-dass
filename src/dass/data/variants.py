@@ -37,6 +37,25 @@ def oversample_indices(n_real: int, n_extra: int, seed: int) -> list[int]:
     return [i for i in range(n_real) for _ in range(q)] + sorted(int(i) for i in extra)
 
 
+def synth_budget(n_select: int, fraction: float, pool_mult: float) -> tuple[int, int]:
+    """(số ảnh sinh cần chọn, số ảnh ĐẦU của pool được dùng) khi chỉ `fraction` phần cần bù là ảnh sinh (giữ đúng k)."""
+    n_synth = int(round(n_select * fraction))
+    return n_synth, int(np.ceil(pool_mult * n_synth))
+
+
+def ros_fill(selections: dict[str, list[str]], real_minority: list[str], n_select: int, seed: int,
+             skip: set[str] | tuple[str, ...] = ()) -> dict[str, list[str]]:
+    """Ảnh THẬT lớp thiểu số nhân bản bù cho các biến thể có ít hơn `n_select` ảnh sinh (`selection.synth_fraction`
+    < 1) -> mọi biến thể cùng tổng số ảnh. Biến thể không có ảnh sinh (M0, M0b) hoặc trong `skip` thì bỏ qua. Cùng
+    `seed` -> mọi biến thể dùng CÙNG tập ảnh nhân bản (khác biệt chỉ còn ở ảnh sinh)."""
+    out = {}
+    for method, synth in selections.items():
+        n_extra = n_select - len(synth)
+        if synth and n_extra > 0 and method not in skip:
+            out[method] = [real_minority[i] for i in oversample_indices(len(real_minority), n_extra, seed)]
+    return out
+
+
 @dataclass
 class Variant:
     tag: str
