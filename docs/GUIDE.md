@@ -705,9 +705,10 @@ Một ô `train` bị ngắt giữa chừng chỉ mất lần chạy đang dở.
 ```bash
 E=configs/experiments/rsna_pneumonia_dass.yaml
 dass -c $E show-config                                   # xem cấu hình đã hợp nhất
-dass -c $E run                                           # toàn bộ chuỗi prepare → report
+dass -c $E run                                           # toàn bộ chuỗi prepare → report (train: mỗi model × seed
+                                                         # một tiến trình riêng, lần lượt)
 dass -c $E run --from select --to report                 # một đoạn của chuỗi
-dass -c $E train --model resnet50 --seeds 2026 2027 2028 # một backbone
+dass -c $E train --model resnet50 --seeds 2026           # một backbone, MỘT seed (chạy lại với 2027, 2028)
 dass -c $E evaluate --skip-generative                    # chỉ metric phân loại (không tính KID / FID)
 dass -c $E -c configs/experiments/smoke.yaml run         # chạy thử
 ```

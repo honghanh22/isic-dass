@@ -197,3 +197,13 @@ def test_finetune_real_is_off_by_default_and_needs_ros():
     with pytest.raises(ValueError, match="oversample_variant"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                     ["classifier.finetune_real_epochs=5", "selection.oversample_variant=false"])
+
+
+def test_run_chain_trains_one_seed_per_process():
+    from dass.cli import train_commands
+
+    cmds = train_commands(["py", "-m", "dass"], ["EfficientNetV2B0", "ResNet50"], [2026, 2027, 2028])
+    assert len(cmds) == 6
+    assert cmds[0][-4:] == ["--model", "EfficientNetV2B0", "--seeds", "2026"]
+    assert cmds[2][-4:] == ["--model", "EfficientNetV2B0", "--seeds", "2028"]
+    assert cmds[3][-4:] == ["--model", "ResNet50", "--seeds", "2026"]

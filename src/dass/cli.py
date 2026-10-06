@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("select", help="E_v / E_d, chấm điểm, chọn ảnh M0–M6, kiểm tra shortcut")
     p.add_argument("--force", action="store_true", help="chọn lại dù đã có selections.json")
 
-    p = sub.add_parser("train", help="train một backbone trên mọi biến thể")
+    p = sub.add_parser("train", help="train một backbone trên mọi biến thể (--seeds: chỉ các seed này)")
     p.add_argument("--model", required=True, help=f"một trong {', '.join(MODEL_NAMES)} (không phân biệt hoa thường)")
     p.add_argument("--seeds", type=int, nargs="+", help="mặc định: classifier.seeds")
     p.add_argument("--archive-mismatched", action="store_true",
@@ -89,6 +89,12 @@ def _global_args(args: argparse.Namespace) -> list[str]:
     return out
 
 
+def train_commands(base: list[str], models: list[str], seeds: list[int]) -> list[list[str]]:
+    """Mỗi (model, seed) một tiến trình `train` riêng, chạy LẦN LƯỢT: lần chạy ngắn hơn (vừa giới hạn giờ GPU), giải
+    phóng hết RAM / VRAM giữa các seed, bị ngắt chỉ mất seed đang chạy. Thứ tự: model -> seed -> biến thể."""
+    return [[*base, "train", "--model", m, "--seeds", str(s)] for m in models for s in seeds]
+
+
 def _run_chain(args: argparse.Namespace, cfg) -> None:
     from .pipeline.stages import PIPELINE
 
@@ -101,8 +107,7 @@ def _run_chain(args: argparse.Namespace, cfg) -> None:
     base = [sys.executable, "-m", "dass", *_global_args(args)]
     for stage in chain:
         if stage == "train":
-            for model in args.models or cfg.classifier.models:
-                cmd = [*base, "train", "--model", model] + (["--seeds", *map(str, args.seeds)] if args.seeds else [])
+            for cmd in train_commands(base, args.models or cfg.classifier.models, args.seeds or cfg.classifier.seeds):
                 logging.getLogger("dass").info("▶ %s", " ".join(cmd[3:]))
                 subprocess.run(cmd, check=True)
         else:

@@ -200,7 +200,7 @@ dass -c $E gan-setup                       # clone + patch StyleGAN2-ADA, compil
 dass -c $E gan                             # train with KID early stopping (or reuse the trained generator)
 dass -c $E sample                          # candidate pool
 dass -c $E select                          # E_v / E_d, DASS and controls, shortcut diagnostics
-dass -c $E train --model ResNet50          # one backbone: 8 methods × 3 seeds
+dass -c $E train --model ResNet50 --seeds 2026   # one backbone, one seed (repeat for 2027, 2028; `run` does this)
 dass -c $E evaluate                        # metrics, bootstrap, KID / FID, subgroups
 dass -c $E report                          # paper tables
 ```

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.1 — train từng seed một
+- `dass run`: stage `train` gọi MỘT tiến trình cho mỗi (model, seed), lần lượt (trước: một tiến trình cho mọi seed của
+  một model). Lần chạy ngắn hơn (vừa giới hạn giờ GPU), RAM / VRAM giải phóng giữa các seed, bị ngắt chỉ mất seed đang
+  chạy. `dass train --model X --seeds S` vẫn chạy được từng seed bằng tay. Kết quả không đổi (mỗi seed độc lập).
+
 ## 1.13.0 — tuỳ chọn train 2 giai đoạn (fine-tune chỉ trên ảnh thật)
 - `classifier.finetune_real_epochs` (mặc định 0 = tắt), `classifier.finetune_real_lr` (5e-6): sau khi train một biến
   thể (giai đoạn A, không đổi), train tiếp từ CHÍNH model A, chỉ trên ảnh thật cân bằng bằng ROS (tập train của M0b,
