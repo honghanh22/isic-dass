@@ -43,12 +43,13 @@ def main() -> None:
     init_tensorflow(cfg)
     ctx = Context.create(cfg, "train_variant_val")
     lay, b, sel = ctx.layout, ctx.budget, cfg.selection
-    selections, majority_synth, extra_real, cw_methods = variant_inputs(cfg, ctx)   # cùng logic với `train`
+    selections, majority_synth, extra_real, majority_extra_real, cw_methods = variant_inputs(cfg, ctx)   # như `train`
     synth = selections[args.method]
     tag = variant_tag(args.method, sel.pool_mult)
     vdir = lay.variants / tag
     assemble_variant(vdir, lay.train_pp, ctx.split, b.minority, synth, b.majority,
-                     majority_synth.get(args.method, ()), extra_real.get(args.method, ()))
+                     majority_synth.get(args.method, ()), extra_real.get(args.method, ()),
+                     majority_extra_real.get(args.method, ()))
     variant = Variant(tag=tag, dir=vdir, method=args.method, lam=f"v{sel.lambda_v:g}_d{sel.lambda_d:g}",
                       feature_space="Ev+Ed", class_weight=args.method in cw_methods)
     model, preprocess, best_epoch = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
@@ -57,7 +58,8 @@ def main() -> None:
     out = lay.results_dir / "val_only" / f"{args.model}__{tag}__s{args.seed}.json"
     write_json_atomic(out, {"method": args.method, "model": args.model, "seed": args.seed, "val_auc": auc,
                             "best_epoch": best_epoch, "n_synth": len(synth),
-                            "n_real_duplicates": len(extra_real.get(args.method, ())), "run_tag": cfg.paths.run_tag,
+                            "n_real_duplicates": len(extra_real.get(args.method, ())),
+                            "n_majority_duplicates": len(majority_extra_real.get(args.method, ())), "run_tag": cfg.paths.run_tag,
                             "overrides": args.overrides})
     log.info("val AUC = %.4f -> %s", auc, out)
 

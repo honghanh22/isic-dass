@@ -12,10 +12,11 @@ from .strategies import (
     BOTH_CLASSES,
     METHODS,
     OVERSAMPLE,
+    OVERSAMPLE_MATCHED,
     greedy_dass_select,
     jaccard_matrix,
     select_all_methods,
 )
 
-__all__ = ["BALANCED", "BALANCED_RANDOM", "BASELINE", "BOTH_CLASSES", "METHODS", "OVERSAMPLE", "compute_pool_scores", "crossfit_folds", "crossfit_margin", "greedy_dass_select",
+__all__ = ["BALANCED", "BALANCED_RANDOM", "BASELINE", "BOTH_CLASSES", "METHODS", "OVERSAMPLE", "OVERSAMPLE_MATCHED", "compute_pool_scores", "crossfit_folds", "crossfit_margin", "greedy_dass_select",
            "jaccard_matrix", "margin_score", "select_all_methods", "topk_similarity"]

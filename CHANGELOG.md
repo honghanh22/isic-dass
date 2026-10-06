@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.17.2 — đối chứng cùng kích thước M0c
+- M8 / M8r có nhiều ảnh train hơn M0b (RSNA q = 0,5: 22.566 so với 15.044) -> so M8 với M0b lẫn "nội dung ảnh sinh"
+  với "train nhiều hơn". Thêm **M0c_real_oversample_matched** (khi `balanced_synth_ratio` > 0): cùng kích thước với
+  M8 nhưng toàn ảnh THẬT nhân bản (lớp thiểu số n_select + s bản sao, lớp đa số s bản sao). M8 vs M0c chỉ khác "s ảnh
+  mỗi lớp là ảnh sinh hay ảnh thật nhân bản". `assemble_variant(majority_extra_real=...)`: bản sao lớp đa số (`dup_`).
+- Quy tắc quyết định (ghi TRƯỚC khi xem val 3 seed của M8): khoá cấu hình và chạy test chỉ khi trung bình val AUC
+  3 seed của M8 hơn CẢ M0b lẫn M0c ít nhất 0,003.
+
 ## 1.17.1 — đối chứng M8r
 - Khi `selection.balanced_synth_ratio` > 0, thêm **M8r_ros_balanced_random**: như M8 (ROS + cùng số ảnh sinh mỗi lớp,
   cùng ảnh nhân bản, cùng ảnh sinh lớp đa số) nhưng ảnh sinh lớp thiểu số chọn NGẪU NHIÊN (seed như M1) trong cùng

@@ -42,7 +42,10 @@ BOTH_CLASSES = "M7_dass_both_classes"
 # s = q × số ảnh thật lớp đa số vào MỖI lớp (lớp thiểu số: DASS chọn; lớp đa số: không lọc). Cân bằng lớp VÀ nguồn
 # ảnh (thật / sinh) độc lập với nhãn -> không còn đường tắt "ảnh sinh -> lớp thiểu số". So trực tiếp với M0b.
 BALANCED = "M8_ros_balanced_synth"
-BALANCED_RANDOM = "M8r_ros_balanced_random"   # đối chứng của M8: như M8 nhưng ảnh sinh lớp thiểu số chọn NGẪU NHIÊN
+BALANCED_RANDOM = "M8r_ros_balanced_random"
+# Đối chứng CÙNG KÍCH THƯỚC với M8 / M8r: toàn ảnh THẬT nhân bản, mỗi lớp thêm đúng s ảnh như M8 (lớp thiểu số:
+# n_select + s bản sao, lớp đa số: s bản sao) -> M8 vs M0c chỉ khác "s ảnh mỗi lớp là ảnh sinh hay ảnh thật nhân bản".
+OVERSAMPLE_MATCHED = "M0c_real_oversample_matched"   # đối chứng của M8: như M8 nhưng ảnh sinh lớp thiểu số chọn NGẪU NHIÊN
 METHODS = ("M0_real_only", "M1_random", "M2_visual", "M3_disease", "M4_visual_disease", "M5_diversity", "M6_dass",
            BOTH_CLASSES)
 

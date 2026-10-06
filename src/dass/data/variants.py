@@ -76,32 +76,37 @@ def variant_tag(method: str, pool_mult: float) -> str:
 
 
 def _signature(split: Split, minority: str, synth_paths: list[str], majority: str | None,
-               majority_synth: list[str], extra_real: list[str]) -> str:
+               majority_synth: list[str], extra_real: list[str], majority_extra_real: list[str] = ()) -> str:
     data = {"split": {c: {s: parts[s] for s in ("train", "val")} for c, parts in split.items()},
             "minority": minority, "synth": synth_paths}
     if majority_synth:
         data.update(majority=majority, majority_synth=majority_synth)
     if extra_real:
         data.update(extra_real=extra_real)
+    if majority_extra_real:   # chỉ thêm khi dùng -> chữ ký của các biến thể cũ không đổi
+        data.update(majority=majority, majority_extra_real=list(majority_extra_real))
     return hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
 def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split, minority: str,
                      synth_paths: list[str], majority: str | None = None,
                      majority_synth: list[str] | tuple[str, ...] = (),
-                     extra_real: list[str] | tuple[str, ...] = ()) -> dict[str, dict[str, int]]:
+                     extra_real: list[str] | tuple[str, ...] = (),
+                     majority_extra_real: list[str] | tuple[str, ...] = ()) -> dict[str, dict[str, int]]:
     """out_dir/{train,val}/<lớp>/: ảnh thật theo split (không lấy phần test) + ảnh sinh vào
     train/<minority>/synth_XXXXX.png (và train/<majority>/ nếu có `majority_synth`) + bản sao ảnh thật lớp thiểu số
-    vào train/<minority>/dup_XXXXX_<tên gốc> (`extra_real`, M0b).
+    vào train/<minority>/dup_XXXXX_<tên gốc> (`extra_real`, M0b) + bản sao ảnh thật lớp đa số vào
+    train/<majority>/dup_XXXXX_<tên gốc> (`majority_extra_real`, đối chứng cùng kích thước M0c).
 
     Bỏ qua nếu thư mục đã được ghép với đúng cùng đầu vào (đánh dấu bằng file .complete.json).
     """
     out_dir = Path(out_dir)
-    majority_synth, extra_real = list(majority_synth), list(extra_real)
-    if majority_synth and majority is None:
-        raise ValueError("majority_synth cần tên lớp đa số")
+    majority_synth, extra_real, majority_extra_real = list(majority_synth), list(extra_real), list(majority_extra_real)
+    if (majority_synth or majority_extra_real) and majority is None:
+        raise ValueError("majority_synth / majority_extra_real cần tên lớp đa số")
     signature = _signature(split, minority, [Path(p).name for p in synth_paths], majority,
-                           [Path(p).name for p in majority_synth], [Path(p).name for p in extra_real])
+                           [Path(p).name for p in majority_synth], [Path(p).name for p in extra_real],
+                           [Path(p).name for p in majority_extra_real])
     marker = out_dir / _MARKER
     if marker.exists() and json.loads(marker.read_text()).get("signature") == signature:
         return json.loads(marker.read_text())["counts"]
@@ -118,6 +123,8 @@ def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split
             shutil.copy2(src, out_dir / "train" / label / f"{SYNTH_PREFIX}{i:05d}.png")
     for i, src in enumerate(extra_real):
         shutil.copy2(src, out_dir / "train" / minority / f"{DUP_PREFIX}{i:05d}_{Path(src).name}")
+    for i, src in enumerate(majority_extra_real):
+        shutil.copy2(src, out_dir / "train" / majority / f"{DUP_PREFIX}{i:05d}_{Path(src).name}")
 
     counts = {s: {c: len(list((out_dir / s / c).iterdir())) for c in split} for s in ["train", "val"]}
     marker.write_text(json.dumps({"signature": signature, "counts": counts}))
@@ -128,19 +135,21 @@ def prepare_variants(variants_root: str | Path, train_pp_dir: str | Path, split:
                      selections: dict[str, list[str]], pool_mult: float, lam: str,
                      class_weight_methods: set[str] | tuple[str, ...], majority: str | None = None,
                      majority_synth: dict[str, list[str]] | None = None,
-                     extra_real: dict[str, list[str]] | None = None) -> dict[str, Variant]:
+                     extra_real: dict[str, list[str]] | None = None,
+                     majority_extra_real: dict[str, list[str]] | None = None) -> dict[str, Variant]:
     """`selections`: {phương pháp: [ảnh sinh lớp thiểu số]}; `majority_synth`: {phương pháp: [ảnh sinh lớp đa số]};
     `extra_real`: {phương pháp: [ảnh thật lớp thiểu số được nhân bản thêm]} (M0b).
 
     Phương pháp trong `class_weight_methods` (baseline, biến thể có ảnh sinh ở cả hai lớp) train với class weight.
     """
-    majority_synth, extra_real = majority_synth or {}, extra_real or {}
+    majority_synth, extra_real, majority_extra_real = majority_synth or {}, extra_real or {}, majority_extra_real or {}
     variants = {}
     for method, synth_paths in selections.items():
         tag = variant_tag(method, pool_mult)
         out_dir = Path(variants_root) / tag
         counts = assemble_variant(out_dir, train_pp_dir, split, minority, synth_paths, majority,
-                                  majority_synth.get(method, ()), extra_real.get(method, ()))
+                                  majority_synth.get(method, ()), extra_real.get(method, ()),
+                                  majority_extra_real.get(method, ()))
         log.info("%s: %s", tag, counts)
         variants[tag] = Variant(tag=tag, dir=out_dir, method=method, lam=lam, feature_space="Ev+Ed",
                                 class_weight=method in class_weight_methods)

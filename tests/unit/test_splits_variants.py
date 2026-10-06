@@ -188,3 +188,21 @@ def test_balanced_synth_count():
 
     assert balanced_synth_count(0.5, 618) == 309 and balanced_synth_count(0.5, 7522) == 3761
     assert balanced_synth_count(1.0, 618) == 618
+
+
+def test_assemble_variant_with_majority_duplicates(tmp_path):
+    from dass.data.variants import assemble_variant
+
+    pp = tmp_path / "pp"
+    split = {"neg": {"train": ["n0.png", "n1.png", "n2.png"], "val": ["n3.png"], "test": []},
+             "pos": {"train": ["p0.png"], "val": ["p1.png"], "test": []}}
+    for c, parts in split.items():
+        (pp / c).mkdir(parents=True)
+        for f in parts["train"] + parts["val"]:
+            (pp / c / f).write_bytes(b"x")
+    counts = assemble_variant(tmp_path / "v", pp, split, "pos", [], "neg",
+                              extra_real=[str(pp / "pos" / "p0.png")] * 3,
+                              majority_extra_real=[str(pp / "neg" / "n0.png")])
+    assert counts["train"] == {"neg": 4, "pos": 4}                       # 3 + 1 bản sao / 1 + 3 bản sao
+    assert sum(f.name.startswith("dup_") for f in (tmp_path / "v" / "train" / "neg").iterdir()) == 1
+    assert counts["val"] == {"neg": 1, "pos": 1}                         # val không đổi

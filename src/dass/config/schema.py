@@ -13,6 +13,7 @@ from typing import Any
 METHOD_LABELS = {
     "M0_real_only": "Imbalanced Baseline",          # report tự thêm " (class-weighted)" nếu đã train có class weight
     "M0b_real_oversample": "Random Oversampling (ROS)",
+    "M0c_real_oversample_matched": "ROS (size-matched to M8)",   # chỉ có khi balanced_synth_ratio > 0
     "M1_random": "Unfiltered GAN (Random Selection)",
     "M2_visual": "Visual-only Filter ($M_v$)",
     "M3_disease": "Disease-only Filter ($M_d$)",
@@ -23,7 +24,7 @@ METHOD_LABELS = {
     "M8_ros_balanced_synth": "ROS + Class-balanced Synthetic (DASS)",   # chỉ có khi balanced_synth_ratio > 0
 }
 METHOD_GROUPS = {
-    "Real Data Baselines": ("M0_real_only", "M0b_real_oversample"),
+    "Real Data Baselines": ("M0_real_only", "M0b_real_oversample", "M0c_real_oversample_matched"),
     "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
                                                 "M4_visual_disease", "M6_dass"),
     "Class-balanced Synthetic (no source shortcut)": ("M8r_ros_balanced_random", "M8_ros_balanced_synth"),
