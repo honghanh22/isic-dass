@@ -231,7 +231,8 @@ def test_design_b_server_config():
     assert (s.design, s.balanced_synth_ratio, s.pool_mult, s.synth_fraction) == ("source_balanced", 0.5, 1.5, 1.0)
     assert cfg.paths.run_tag == "rsna_v4_srv" and cfg.encoder.e_d_from_run == "rsna_v3_srv"
     assert cfg.paths.gan_tag == "rsna" and cfg.classifier.monitor == "val_auc"
-    assert ["M6_dass", "M0c_real_oversample_matched"] in cfg.evaluation.primary_comparisons
+    assert cfg.evaluation.primary_comparisons == [["M6_dass", "M1_random"], ["M6_dass", "M0_real_only"]]
+    assert not s.oversample_variant   # M0b / M0c tắt; ROS vẫn nằm trong M1–M6
     with pytest.raises(ValueError, match="source_balanced"):
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["selection.design=source_balanced"])
 

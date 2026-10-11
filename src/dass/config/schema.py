@@ -263,9 +263,9 @@ def validate(cfg: Config) -> None:
     if cfg.selection.design not in ("minority_only", "source_balanced"):
         errors.append("selection.design phải là minority_only | source_balanced")
     if cfg.selection.design == "source_balanced" and not (
-            cfg.selection.balanced_synth_ratio > 0 and cfg.selection.oversample_variant
+            cfg.selection.balanced_synth_ratio > 0
             and cfg.selection.synth_fraction == 1 and not cfg.selection.both_classes_variant):
-        errors.append("selection.design = source_balanced cần balanced_synth_ratio > 0, oversample_variant = true, "
+        errors.append("selection.design = source_balanced cần balanced_synth_ratio > 0, "
                       "synth_fraction = 1, both_classes_variant = false")
     if cfg.selection.filter_majority and cfg.selection.design != "source_balanced":
         errors.append("selection.filter_majority cần selection.design = source_balanced")
