@@ -77,7 +77,10 @@ def check_expected_split(split: Split, expected_json: str | Path) -> None:
     """
     expected = read_json(expected_json)
     if expected is None:
-        raise FileNotFoundError(f"Không tìm thấy split tham chiếu {expected_json} (data.split.expected)")
+        raise FileNotFoundError(f"Không tìm thấy split tham chiếu {expected_json} (data.split.expected). Đây là split mà "
+                                "GAN dùng lại đã được train trên đó: chép đúng file này từ nơi đã chạy lần chạy gốc "
+                                "(Drive / server) vào đường dẫn trên; nếu file đã có, kiểm tra kết nối Drive "
+                                "(`dass … preflight`).")
     if canonical(expected) != canonical(split):
         raise ValueError(f"Split khác split tham chiếu {expected_json}: GAN dùng lại có thể đã thấy ảnh val/test. "
                          "Giữ đúng cấu hình chia của lần train GAN, hoặc train GAN mới (đổi paths.gan_tag) "

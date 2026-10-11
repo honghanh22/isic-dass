@@ -25,6 +25,26 @@ def test_preflight_lists_required_artifacts_of_the_colab_rsna_run(tmp_path):
     assert lay.e_d_ckpt.parent.parent.name == "checkpoints_rsna_v3_srv"
 
 
+def test_preflight_reports_unreadable_drive_instead_of_crashing(tmp_path, monkeypatch):
+    """Drive FUSE ngắt (Errno 103 khi stat) -> mục đó "LỖI ĐỌC", không làm hỏng cả lệnh."""
+    from pathlib import Path
+
+    from dass.pipeline import preflight
+
+    cfg = _cfg(tmp_path)
+    real_exists = Path.exists
+
+    def flaky(self, *a, **k):
+        if "data" in self.parts:
+            raise ConnectionAbortedError(103, "Software caused connection abort")
+        return real_exists(self, *a, **k)
+
+    monkeypatch.setattr(Path, "exists", flaky)
+    checks = {c.what: c for c in preflight.preflight_checks(cfg)}
+    assert checks["dữ liệu gốc"].error and not checks["dữ liệu gốc"].ok
+    assert not preflight.run(cfg)
+
+
 def test_preflight_flags_stray_m0b_predictions(tmp_path):
     cfg = _cfg(tmp_path)
     pred = Layout(cfg).pred_dir

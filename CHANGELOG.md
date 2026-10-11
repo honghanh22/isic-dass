@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.21.3 — preflight chịu được Drive mất kết nối
+- `dass preflight`: đường dẫn không đọc được (Google Drive FUSE ngắt, Errno 103) -> báo "LỖI ĐỌC" kèm cách mount lại,
+  thay vì dừng bằng traceback (lần chạy RSNA trên Colab 2026-10-11). Có test.
+- Thông báo thiếu split tham chiếu (`data.split.expected`) nói rõ cần chép file nào, từ đâu.
+
 ## 1.21.2 — chạy cấu hình server trên Colab
 - `configs/colab/{rsna_pneumonia,isic2016}.yaml`: đúng cấu hình server (3 CNN EfficientNetV2B0 / ResNet50 /
   ConvNeXtTiny, 3 seed, thiết kế B, E_d dùng lại `rsna_v3_srv` / `v12_srv`) với đường dẫn Google Drive; run_tag

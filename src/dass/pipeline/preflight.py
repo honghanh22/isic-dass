@@ -16,17 +16,25 @@ class Check:
     path: Path
     ok: bool
     required: bool = True
+    error: str = ""        # không đọc được đường dẫn (vd Google Drive mất kết nối: Errno 103 / 107)
+
+
+def _check(what: str, path: Path) -> Check:
+    try:
+        return Check(what, path, path.exists())
+    except OSError as e:   # Drive FUSE ngắt giữa chừng -> báo rõ thay vì dừng cả lệnh
+        return Check(what, path, False, error=f"{type(e).__name__}: {e.strerror or e}")
 
 
 def preflight_checks(cfg: Config) -> list[Check]:
     lay = Layout(cfg)
-    checks = [Check("dữ liệu gốc", lay.drive_train_images, lay.drive_train_images.exists()),
-              Check("GAN (best.pkl)", lay.gan_best_pkl, lay.gan_best_pkl.exists()),
-              Check("GAN (gan_state.json)", lay.gan_state_json, lay.gan_state_json.exists())]
+    checks = [_check("dữ liệu gốc", lay.drive_train_images),
+              _check("GAN (best.pkl)", lay.gan_best_pkl),
+              _check("GAN (gan_state.json)", lay.gan_state_json)]
     if lay.expected_split is not None:
-        checks.append(Check("split tham chiếu của GAN", lay.expected_split, lay.expected_split.exists()))
+        checks.append(_check("split tham chiếu của GAN", lay.expected_split))
     if cfg.encoder.e_d_from_run and lay.e_d_run != cfg.paths.run_tag:
-        checks.append(Check(f"E_d dùng lại ({lay.e_d_run})", lay.e_d_ckpt, lay.e_d_ckpt.exists()))
+        checks.append(_check(f"E_d dùng lại ({lay.e_d_run})", lay.e_d_ckpt))
     return checks
 
 
@@ -45,7 +53,12 @@ def run(cfg: Config) -> bool:
     print(f"Lần chạy: {cfg.paths.run_tag} | thiết kế {cfg.selection.design} | model {cfg.classifier.models} | "
           f"seed {cfg.classifier.seeds}")
     for c in checks:
-        print(f"  [{'OK ' if c.ok else 'THIẾU'}] {c.what}: {c.path}")
+        state = "OK " if c.ok else ("LỖI ĐỌC" if c.error else "THIẾU")
+        print(f"  [{state}] {c.what}: {c.path}" + (f" — {c.error}" if c.error else ""))
+    if any(c.error for c in checks):
+        print("  => Không đọc được Drive (mất kết nối). Chạy lại ô Mount Drive với "
+              "drive.mount('/content/drive', force_remount=True) rồi chạy lại ô này.")
+        return False
     n_pred = len(list(lay.pred_dir.glob("*.npz"))) if lay.pred_dir.exists() else 0
     print(f"  Dự đoán đã có trong {lay.pred_dir}: {n_pred} file (sẽ được bỏ qua nếu đúng giao thức)")
     extra = unexpected_predictions(cfg)
