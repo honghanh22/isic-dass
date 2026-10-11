@@ -10,24 +10,20 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
+# Tên hiển thị của thiết kế B (chính, 1.21.0). Thiết kế A ghi lại tên cũ trong configs/experiments/design_a.yaml.
 METHOD_LABELS = {
     "M0_real_only": "Imbalanced Baseline",          # report tự thêm " (class-weighted)" nếu đã train có class weight
-    "M0b_real_oversample": "Random Oversampling (ROS)",
-    "M0c_real_oversample_matched": "ROS (size-matched)",   # chỉ có khi balanced_synth_ratio > 0
-    "M1_random": "Unfiltered GAN (Random Selection)",
-    "M2_visual": "Visual-only Filter ($M_v$)",
-    "M3_disease": "Disease-only Filter ($M_d$)",
-    "M5_diversity": r"Diversity-only Filter ($S_{\text{div}}$)",
-    "M4_visual_disease": "Dual-Margin Filter ($M_v + M_d$)",
-    "M6_dass": "DASS (Ours)",
-    "M8r_ros_balanced_random": "ROS + Class-balanced Synthetic (Random)",   # chỉ có khi balanced_synth_ratio > 0
-    "M8_ros_balanced_synth": "ROS + Class-balanced Synthetic (DASS)",   # chỉ có khi balanced_synth_ratio > 0
+    "M1_random": "ROS + Balanced GAN: Random",
+    "M2_visual": "ROS + Balanced GAN: Visual margin ($M_v$)",
+    "M3_disease": "ROS + Balanced GAN: Disease margin ($M_d$)",
+    "M5_diversity": r"ROS + Balanced GAN: Diversity ($S_{\text{div}}$)",
+    "M4_visual_disease": "ROS + Balanced GAN: Dual margin ($M_v + M_d$)",
+    "M6_dass": "ROS + Balanced GAN: DASS (Ours)",
 }
 METHOD_GROUPS = {
-    "Real Data Baselines": ("M0_real_only", "M0b_real_oversample", "M0c_real_oversample_matched"),
-    "Generative Augmentation (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
-                                                "M4_visual_disease", "M6_dass"),
-    "Class-balanced Synthetic (no source shortcut)": ("M8r_ros_balanced_random", "M8_ros_balanced_synth"),
+    "Real Data Baseline": ("M0_real_only",),
+    "ROS + Class-balanced GAN (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
+                                                 "M4_visual_disease", "M6_dass"),
 }
 SOURCE_TYPES = ("csv", "folders", "dicom_csv")
 AUGMENT_PROFILES = ("rotation_invariant", "upright")
@@ -154,10 +150,10 @@ class SelectionConfig:
     beta: float = 1.0
     gamma: float = 0.5
     synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
-    balanced_synth_ratio: float = 0.0  # q > 0: thêm M8 (ROS + ảnh sinh cân bằng hai lớp), 1.17.0
-    design: str = "minority_only"      # minority_only | source_balanced (thiết kế B, 1.18.0)
-    filter_majority: bool = False      # thiết kế B: lọc cả ảnh sinh lớp đa số (margin đảo chiều), 1.19.0
-    oversample_variant: bool = True      # thêm M0b (nhân bản ảnh thật lớp thiểu số lên 1 : 1) — baseline oversampling
+    balanced_synth_ratio: float = 0.5  # q: s = q × ảnh thật lớp đa số ảnh sinh MỖI lớp (thiết kế B); A: q > 0 -> M8
+    design: str = "source_balanced"    # source_balanced (thiết kế B, chính từ 1.21.0) | minority_only (thiết kế A)
+    filter_majority: bool = True       # thiết kế B: lọc cả ảnh sinh lớp đa số (margin đảo chiều), 1.19.0
+    oversample_variant: bool = False     # M0b / M0c (ROS bằng ảnh thật nhân bản); B: tắt (ROS nằm trong M1–M6)
     both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
 
@@ -203,11 +199,11 @@ class EvaluationConfig:
     threshold: float = 0.5           # ngưỡng cố định — không dò trên val / test
     baseline_method: str = "M0_real_only"
     # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
-    comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
-                                                                  ["M6_dass", "M1_random"]])
-    # giả thuyết chính (khai báo trước): Holm riêng cho họ này; còn lại là khám phá (Holm trong họ khám phá)
-    primary_comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M0b_real_oversample"],
-                                                                          ["M6_dass", "M1_random"],
+    comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"],
+                                                                  ["M6_dass", "M0_real_only"]])
+    # giả thuyết chính (khai báo trước): Holm riêng cho họ này; còn lại là khám phá (Holm trong họ khám phá).
+    # Thiết kế B (1.20.0): H1 DASS vs Random, H2 DASS vs Imbalanced Baseline.
+    primary_comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"],
                                                                           ["M6_dass", "M0_real_only"]])
     # Tên hiển thị trong bảng bài báo (mã nội bộ giữ nguyên trong file .npz / selections.json); thứ tự = thứ tự
     # hàng. `$...$` được giữ làm công thức trong .tex, bỏ ký hiệu LaTeX trong .csv.

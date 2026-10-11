@@ -2,48 +2,69 @@
 
 Tài liệu dành cho người mới tiếp cận dự án, đồng thời là nguồn tham chiếu khi viết phần *Phương pháp* và *Thực
 nghiệm* của bài báo. Mọi công thức, con số và tham số dưới đây khớp với code (`src/dass/`) và cấu hình (`configs/`)
-của phiên bản **1.11.0**. Hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**; k = 1,5 và **cùng giao thức classifier
-(không augmentation, M0 không class weight)** cho cả hai. Brain Tumor
-đã bị loại khỏi dự án và bài báo (1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp; kết quả cũ vẫn
-trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
+của phiên bản **1.21.0**. Hai bộ dữ liệu: **ISIC 2016** và **RSNA Pneumonia**; k = 1,5, **cùng giao thức classifier**
+(không augmentation, M0 không class weight, chọn epoch theo `val_auc`) và **cùng thiết kế tập train: thiết kế B** cho
+cả hai. Brain Tumor đã bị loại khỏi dự án và bài báo (1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương
+pháp; kết quả cũ vẫn trên Drive). Khi đổi code hoặc cấu hình, cập nhật file này.
+
+**Hai thiết kế tập train** (`selection.design`):
+
+| | **Thiết kế B — `source_balanced` (chính từ 1.21.0)** | Thiết kế A — `minority_only` (tới 1.20.x) |
+|---|---|---|
+| Ảnh sinh nằm ở | **cả hai lớp, cùng số lượng** s = q × (ảnh thật lớp đa số), q = 0,5 | chỉ lớp thiểu số, n = n_maj − n_min |
+| Cân bằng lớp bằng | ROS (nhân bản ảnh thật lớp thiểu số lên 1 : 1), rồi thêm s ảnh sinh mỗi lớp | ảnh sinh |
+| Phương pháp | M0 + M1–M6 (7) | M0, M0b (ROS) + M1–M6 (8) |
+| Họ giả thuyết chính | H1 M6 vs M1, H2 M6 vs M0 | M6 vs M0b, M6 vs M1, M6 vs M0 |
+| Lần chạy | ISIC `v13` (server `v13_srv`), RSNA `rsna_v4` (server `rsna_v4_srv`) | ISIC `v7`–`v12`, RSNA `rsna_v2`, `rsna_v3` (bảng dưới) |
+| Cấu hình | `configs/_base_/` (mặc định) | profile `configs/experiments/design_a.yaml` |
+
+**Vì sao chuyển sang B:** ở thiết kế A, mọi ảnh sinh đều thuộc lớp thiểu số, nên "trông như ảnh GAN" trở thành manh
+mối của nhãn (AUC tách ảnh thật / ảnh sinh ≈ 0,99). Ở các lần chạy A (`v12`, `rsna_v3`), không so sánh nào có ý nghĩa
+sau Holm và ảnh sinh không vượt ROS (CHANGELOG 1.14–1.15). Thiết kế B đặt cùng số ảnh sinh vào mỗi lớp, nên nguồn ảnh
+(thật / sinh) không còn mang thông tin về nhãn; các phương pháp chỉ khác nhau ở **cách chọn** ảnh sinh. Thiết kế B,
+q = 0,5 và việc lọc cả lớp đa số được quyết định **sau khi đã xem kết quả test của thiết kế A** (q và kiểu ghép dữ
+liệu chọn trên val, CHANGELOG 1.16–1.19) — phải nêu trong bài báo.
 
 **Các cấu hình đã chạy** (kết quả đều giữ trên Drive, không trộn với nhau):
 
-| Run tag | k | Augmentation classifier | Class weight M0 | Ghi chú |
-|---|---|---|---|---|
-| ISIC `v7` | 4 | có | có | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
-| ISIC `v9` | 2 | **không** | **không** | EfficientNetV2B0, ResNet50 |
-| ISIC `v10` | 1,5 | có | có | cấu hình chính của ISIC trước 1.11.0 |
-| ISIC `v11` | 1,5 | không | không | như `v12` nhưng chọn epoch theo `val_macro_recall` (1.11.0) |
-| RSNA `rsna_v2` | 1,5 | không | không | như `rsna_v3` nhưng chọn epoch theo `val_macro_recall`; split của GAN `rsna` |
-| **ISIC `v12`** | **1,5** | **không** | **không** | cấu hình chính của ISIC (từ 1.12.0): chọn epoch theo `val_auc` |
-| **RSNA `rsna_v3`** | **1,5** | **không** | **không** | cấu hình chính của RSNA (từ 1.12.0): chọn epoch theo `val_auc`, cùng split `rsna_v2` |
+| Run tag | Thiết kế | k | Augmentation classifier | Class weight M0 | Chọn epoch | Ghi chú |
+|---|---|---|---|---|---|---|
+| ISIC `v7` | A | 4 | có | có | `val_macro_recall` | notebook v5, chỉ EfficientNetV2B0, 2 seed, không có ROS |
+| ISIC `v9` | A | 2 | không | không | `val_macro_recall` | EfficientNetV2B0, ResNet50 |
+| ISIC `v10` | A | 1,5 | có | có | `val_macro_recall` | |
+| ISIC `v11` | A | 1,5 | không | không | `val_macro_recall` | |
+| ISIC `v12` / `v12_srv` | A | 1,5 | không | không | `val_auc` | cấu hình chính của A |
+| RSNA `rsna_v2` | A | 1,5 | không | không | `val_macro_recall` | split của GAN `rsna` |
+| RSNA `rsna_v3` / `rsna_v3_srv` | A | 1,5 | không | không | `val_auc` | cấu hình chính của A, cùng split `rsna_v2` |
+| **ISIC `v13` / `v13_srv`** | **B** | **1,5** | **không** | **không** | **`val_auc`** | **cấu hình chính**; server dùng lại E_d của `v12_srv` |
+| **RSNA `rsna_v4` / `rsna_v4_srv`** | **B** | **1,5** | **không** | **không** | **`val_auc`** | **cấu hình chính**, cùng split `rsna_v2`; server dùng lại E_d của `rsna_v3_srv` |
 
-**Giao thức chung (1.11.0, người dùng quyết định):** classifier **không can thiệp dữ liệu** ở bất kỳ phương pháp nào,
-cho cả hai bộ dữ liệu — không augmentation và M0 không class weight. RSNA chạy như vậy từ đầu (augmentation tắt ở
-1.8.2, class weight của M0 tắt ở 1.9.1; M0 của ResNet50 lỡ train có class weight được chuyển sang
-`predictions_superseded/` và train lại). ISIC chuyển sang giao thức này ở `v11` (cùng GAN `v5`, cùng split, k = 1,5);
-`v10` (có augmentation + class weight) giữ nguyên trên Drive để báo cáo riêng. `rsna_v2`: toàn bộ ảnh, đã loại
-"Exclude"; `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
+Hậu tố `_srv`: chạy trên server phòng lab (`configs/server/`, 3 CNN), thư mục kết quả riêng.
+
+**Giao thức classifier chung (1.11.0, người dùng quyết định):** không can thiệp dữ liệu ở bất kỳ phương pháp nào —
+không augmentation và M0 không class weight. `v10` (có augmentation + class weight) giữ nguyên trên Drive để báo cáo
+riêng. `rsna_v1` (tập con 6.000 ảnh) chỉ chạy đến `prepare`.
 
 **Lỗi đã sửa ở 1.5.1:** trước đó 5 phép augmentation dùng chung một seed nên bị tương quan với nhau (xem CHANGELOG). Các lần chạy có augmentation trước 1.5.1 (`v7`) và mọi E_d cũ dùng augmentation tương quan này; `v10` dùng augmentation đã sửa, nên không giống hệt `v7` ở điểm này.
 
 Cấu hình được đổi nhiều lần sau khi đã xem kết quả test. Khi viết bài báo phải nêu rõ điều này, và nên báo cáo kết
 quả của mọi cấu hình đã chạy (ví dụ trong phụ lục) thay vì chỉ chọn cấu hình có kết quả đẹp nhất.
 
-**Tên phương pháp:** trong code và file kết quả dùng **mã nội bộ** (M0, M0b, M1–M6); trong bảng bài báo dùng **tên
-hiển thị** (`evaluation.method_labels`):
+**Tên phương pháp:** trong code và file kết quả dùng **mã nội bộ** (M0, M1–M6; thiết kế A thêm M0b); trong bảng bài
+báo dùng **tên hiển thị** (`evaluation.method_labels`):
 
-| Nhóm | Mã | Tên trong bài báo |
-|---|---|---|
-| Real Data Baselines | M0 (`M0_real_only`) | **Imbalanced Baseline** (bảng tự thêm "(class-weighted)" nếu lần chạy có class weight, như ISIC `v10`) |
-| | M0b (`M0b_real_oversample`) | **Random Oversampling (ROS)** |
-| Generative Augmentation (StyleGAN2-ADA) | M1 (`M1_random`) | **Unfiltered GAN (Random Selection)** |
-| | M2 (`M2_visual`) | **Visual-only Filter (M_v)** |
-| | M3 (`M3_disease`) | **Disease-only Filter (M_d)** |
-| | M5 (`M5_diversity`) | **Diversity-only Filter (S_div)** |
-| | M4 (`M4_visual_disease`) | **Dual-Margin Filter (M_v + M_d)** |
-| | M6 (`M6_dass`) | **DASS (Ours)** |
+| Nhóm (thiết kế B) | Mã | Tên trong bài báo (B) | Tên ở thiết kế A |
+|---|---|---|---|
+| Real Data Baseline | M0 (`M0_real_only`) | **Imbalanced Baseline** | Imbalanced Baseline |
+| — | M0b (`M0b_real_oversample`) | (không có) | Random Oversampling (ROS) |
+| ROS + Class-balanced GAN (StyleGAN2-ADA) | M1 (`M1_random`) | **ROS + Balanced GAN: Random** | Unfiltered GAN (Random Selection) |
+| | M2 (`M2_visual`) | **ROS + Balanced GAN: Visual margin (M_v)** | Visual-only Filter (M_v) |
+| | M3 (`M3_disease`) | **ROS + Balanced GAN: Disease margin (M_d)** | Disease-only Filter (M_d) |
+| | M5 (`M5_diversity`) | **ROS + Balanced GAN: Diversity (S_div)** | Diversity-only Filter (S_div) |
+| | M4 (`M4_visual_disease`) | **ROS + Balanced GAN: Dual margin (M_v + M_d)** | Dual-Margin Filter (M_v + M_d) |
+| | M6 (`M6_dass`) | **ROS + Balanced GAN: DASS (Ours)** | DASS (Ours) |
+
+Bảng tự thêm "(class-weighted)" sau tên M0 nếu lần chạy có class weight (ISIC `v10`, `v7`).
 
 Tài liệu liên quan: [ARCHITECTURE.md](ARCHITECTURE.md) (cấu trúc code), [WORKFLOW.md](WORKFLOW.md) (làm việc hằng
 ngày), [RESULTS_FORMAT.md](RESULTS_FORMAT.md) (ý nghĩa từng cột kết quả).
@@ -76,17 +97,21 @@ sinh, và đó là đóng góp của dự án: **DASS**.
 ```
 Tập train thật   D = D_maj ∪ D_min,  n_maj = |D_maj| > n_min = |D_min|.   Lớp thiểu số = lớp dương (nhãn 1).
 Bộ sinh          G(z, c): StyleGAN2-ADA có điều kiện theo lớp c, train trên D (cả hai lớp).
-Ngân sách        n = n_maj − n_min                 số ảnh sinh cần thêm để tập train cân bằng 1 : 1.
-Pool ứng viên    P = { G(z_j, min) : j = 1..N },  N = ⌈k · n⌉,  k = pool_mult.
-Bài toán chọn    Tìm S ⊂ P, |S| = n, sao cho classifier f train trên D ∪ S (gán nhãn lớp thiểu số)
+ROS              R = n_maj − n_min bản sao ảnh thật lớp thiểu số (cố định, chung mọi phương pháp) -> D ∪ R cân bằng 1 : 1.
+Ngân sách        s = q · n_maj   ảnh sinh MỖI lớp, q = 0,5 (thiết kế B).
+Pool ứng viên    P_c = { G(z_j, c) : j = 1..N },  N = ⌈k · s⌉,  k = pool_mult,  cho c ∈ {min, maj}.
+Bài toán chọn    Tìm S_c ⊂ P_c, |S_c| = s, sao cho classifier f train trên D ∪ R ∪ S_min ∪ S_maj
                  đạt hiệu năng cao nhất trên tập test thật T.
 ```
+
+Thiết kế A là trường hợp riêng: không có R và S_maj, |S_min| = n = n_maj − n_min.
 
 Không thể tối ưu trực tiếp hiệu năng trên T, vì T không được phép dùng trong lúc xây dựng mô hình. DASS thay mục tiêu
 đó bằng một **tiêu chí đại diện** chỉ tính từ D. Theo tiêu chí này, ảnh sinh tốt là ảnh:
 
-1. **gần lớp thiểu số thật**,
-2. **xa lớp đa số thật**, tức nằm rõ về phía lớp bệnh,
+1. **gần ảnh thật cùng lớp**,
+2. **xa ảnh thật của lớp kia** (ảnh sinh lớp thiểu số nằm rõ về phía lớp bệnh, ảnh sinh lớp đa số rõ về phía lớp
+   bình thường),
 3. **không trùng lặp** với những ảnh đã chọn.
 
 Hai tiêu chí đầu được đo trong **hai không gian đặc trưng**: không gian thị giác chung (E_v, pretrain ImageNet) và
@@ -94,21 +119,23 @@ không gian nhận biết bệnh (E_d, học có giám sát trên ảnh thật).
 
 ### 1.3 Câu hỏi nghiên cứu và giả thuyết
 
-Tám biến thể M0, M0b, M1–M6 ([mục 3.7](#37-các-biến-thể-so-sánh)) được thiết kế để trả lời các câu hỏi sau:
+Bảy phương pháp M0, M1–M6 của thiết kế B ([mục 3.7](#37-các-biến-thể-so-sánh)) trả lời các câu hỏi sau:
 
 | | Câu hỏi | So sánh | Giả thuyết |
 |---|---|---|---|
-| RQ1 | Thêm ảnh sinh **không chọn lọc** có giúp classifier không? | M1 vs M0 | (mở, có thể giúp hoặc hại) |
-| RQ2 | DASS có tốt hơn baseline chỉ dùng ảnh thật không? | M6 vs M0 | **H1 (chính): AUC(M6) > AUC(M0)** |
-| RQ3 | Ảnh sinh có mang thêm thông tin so với **nhân bản ảnh thật** không? (cùng số ảnh, cùng số bước train, cùng cách cân bằng) | M6 vs M0b | **H2: AUC(M6) > AUC(M0b)** |
-| RQ4 | Chọn lọc có tốt hơn chọn ngẫu nhiên không? | M6 vs M1 | **H3: AUC(M6) > AUC(M1)** |
-| RQ5 | Mỗi thành phần đóng góp gì? | M2 / M3 vs M4 (một hay hai không gian); M4 vs M6 (thêm đa dạng); M5 vs M6 (thêm điểm lề) | H4: M6 ≥ M2, M3, M4, M5 |
-| RQ6 | Kết quả có nhất quán giữa các backbone (CNN, Transformer) và giữa các bộ dữ liệu không? | 6 backbone × 2 bộ dữ liệu (ISIC `v11`, RSNA `rsna_v2`; cùng giao thức classifier) | H5: chiều của H1–H3 giữ ở đa số cấu hình |
-| RQ7 | Ảnh được chọn khác pool như thế nào (chất lượng, khả năng tạo shortcut)? | KID, AUC thật-vs-sinh, Jaccard | (mô tả) |
+| RQ1 | Khi mọi thứ khác giống hệt, **chọn ảnh sinh bằng DASS** có tốt hơn chọn ngẫu nhiên không? | M6 vs M1 | **H1 (chính): AUC(M6) > AUC(M1)** |
+| RQ2 | Toàn bộ quy trình (ROS + ảnh sinh cân bằng hai lớp + DASS) có tốt hơn không làm gì không? | M6 vs M0 | **H2 (chính): AUC(M6) > AUC(M0)** |
+| RQ3 | Ảnh sinh cân bằng hai lớp **không chọn lọc** có giúp không? | M1 vs M0 | (khám phá) |
+| RQ4 | Mỗi thành phần đóng góp gì? | M2 / M3 vs M4 (một hay hai không gian); M4 vs M6 (thêm đa dạng); M5 vs M6 (thêm điểm lề) | (khám phá) M6 ≥ M2, M3, M4, M5 |
+| RQ5 | Kết quả có nhất quán giữa các backbone và giữa hai bộ dữ liệu không? | backbone × 2 bộ dữ liệu (ISIC `v13`, RSNA `rsna_v4`) | chiều của H1, H2 giữ ở đa số cấu hình |
+| RQ6 | Ảnh được chọn khác pool thế nào (chất lượng, học thuộc, tư thế chụp)? | KID, chỉ số học thuộc, AUC thật-vs-sinh, Jaccard, `subgroup_share` | (mô tả) |
 
-**H1, H2, H3** được kiểm định thống kê trực tiếp bằng paired bootstrap ΔAUC: mọi biến thể so với M0, cộng hai cặp
-M6 vs M0b và M6 vs M1 (`evaluation.comparisons`). Các so sánh thành phần (RQ5) được đọc từ bảng mean ± std và nên
-trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-kê)).
+**H1, H2** là họ giả thuyết chính, khai báo trước khi train (1.20.0, `evaluation.primary_comparisons`), kiểm định bằng
+paired bootstrap ΔAUC với Holm riêng trong họ. Mọi so sánh khác với M0 là **họ khám phá** ([mục 5.2](#52-phân-tích-thống-kê)).
+
+Thiết kế B **không có** baseline "chỉ ROS" (M0b, M0c bị bỏ ở 1.20.0, người dùng quyết định), nên không tách được đóng
+góp của **nội dung ảnh sinh** với việc **có thêm dữ liệu train**. Câu hỏi này được trả lời ở thiết kế A (M6 vs M0b)
+và ở các lần thử trên val của 1.17 (M8 vs M0b / M0c); phải nêu trong bài ([mục 6.2](#62-các-mối-đe-doạ-đến-tính-hợp-lệ)).
 
 ---
 
@@ -156,16 +183,35 @@ trình bày là **phân tích thăm dò** ([mục 5.2](#52-phân-tích-thống-k
 
 ### 2.4 Ngân sách sinh và ý nghĩa của k
 
+**Thiết kế B (chính):**
+
+| | ISIC 2016 | RSNA Pneumonia |
+|---|---|---|
+| ROS: bản sao ảnh thật lớp thiểu số | 618 − 148 = 470 | 7.522 − 1.059 = 6.463 |
+| s = q · n_maj (q = 0,5), mỗi lớp | **309** | **3.761** |
+| Pool mỗi lớp được dùng: ⌈k · s⌉ (k = 1,5) | **464** | **5.642** |
+| Lớp đa số trong tập train M1–M6 | 618 thật + 309 sinh = **927** | 7.522 + 3.761 = **11.283** |
+| Lớp thiểu số trong tập train M1–M6 | 148 thật + 470 bản sao + 309 sinh = **927** | 1.059 + 6.463 + 3.761 = **11.283** |
+| Tỉ lệ ảnh sinh trong mỗi lớp | 1/3 ở **cả hai lớp** | 1/3 ở **cả hai lớp** |
+
+- Pool lớp thiểu số trên Drive vẫn có ⌈k · n⌉ ảnh của thiết kế A (ISIC 705, RSNA 9.695, dùng lại); thiết kế B chỉ
+  chọn trong **⌈k · s⌉ ảnh đầu** (pool sinh tuần tự cùng seed, nên phần đầu giống hệt pool nhỏ hơn). Pool lớp đa số
+  có ⌈k · s⌉ ảnh, seed 778.
+- Mỗi lớp, mỗi biến thể giữ s / ⌈k · s⌉ = 2/3 pool.
+
+**Thiết kế A** (tham khảo, các lần chạy tới `v12` / `rsna_v3`):
+
 | | ISIC 2016 | RSNA Pneumonia |
 |---|---|---|
 | n = n_maj − n_min | 618 − 148 = **470** | 7.522 − 1.059 = **6.463** |
 | k (`pool_mult`) | 1,5 | 1,5 |
 | N = ⌈k · n⌉ (pool) | **705** | **9.695** |
 | Tập train sau khi thêm ảnh sinh | 618 : (148 + 470) = **1 : 1** | 7.522 : (1.059 + 6.463) = **1 : 1** |
-| Tỉ lệ ảnh sinh trong lớp thiểu số | 76 % | 86 % |
+| Tỉ lệ ảnh sinh trong lớp thiểu số | 76 % (lớp đa số 0 %) | 86 % (lớp đa số 0 %) |
 
-- **n quyết định tỉ lệ lớp cuối cùng** (luôn 1 : 1). **k chỉ quyết định độ chọn lọc:** DASS giữ 1/k pool.
-  - k = 1: pool đúng bằng n, nên mọi biến thể M1–M6 chọn **cùng một tập** (không có gì để chọn).
+- **Số ảnh cần chọn (s ở B, n ở A) quyết định thành phần tập train. k chỉ quyết định độ chọn lọc:** mỗi biến thể
+  giữ 1/k pool.
+  - k = 1: pool đúng bằng số ảnh cần chọn, nên mọi biến thể M1–M6 chọn **cùng một tập** (không có gì để chọn).
   - k = 1,5: mỗi biến thể giữ 2/3 pool (loại 1/3). k lớn hơn thì chọn lọc gắt hơn, nhưng tập được chọn lệch xa phân
     phối ảnh thật hơn.
 - **k = 1,5** (từ phiên bản 1.5.0), dùng chung cho mọi bộ dữ liệu. Lịch sử: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5.
@@ -226,13 +272,14 @@ GAN, và còn chỗ để cải thiện (không chạm trần).
                               ▼
                         [2] gan ──► StyleGAN2-ADA có điều kiện, snapshot có KID lớp thiểu số thấp nhất
                               ▼
-                        [3] sample ──► pool N = ⌈k·n⌉ ảnh sinh lớp thiểu số
+                        [3] sample ──► pool ảnh sinh lớp thiểu số + pool lớp đa số (⌈k·s⌉ ảnh mỗi lớp)
                               ▼
                  ( [3b] fingerprint — tuỳ chọn: đo dấu vết tần số của ảnh sinh )
                               ▼
-                        [4] select ──► E_v, E_d → điểm lề + đa dạng → mỗi biến thể M1…M6 chọn n ảnh
+                        [4] select ──► E_v, E_d → điểm lề + đa dạng → mỗi biến thể M1…M6 chọn s ảnh MỖI lớp
                               ▼
-                        [5] train ──► 6 backbone × 8 biến thể × 3 seed (val chọn epoch, test dự đoán 1 lần)
+                        [5] train ──► backbone × 7 phương pháp × 3 seed (val chọn epoch, test dự đoán 1 lần)
+                                       tập train M1–M6 = ảnh thật + ROS + s ảnh sinh mỗi lớp
                               ▼
                         [6] evaluate ──► metric phân loại, paired bootstrap ΔAUC, KID / FID
                               ▼
@@ -267,10 +314,12 @@ xong được khôi phục hoặc bỏ qua).
 
 ### 3.3 Candidate pool
 
-- Sinh N = ⌈k · n⌉ ảnh lớp thiểu số từ `best.pkl` với `truncation ψ = 1` (không cắt bớt độ đa dạng). Seed cố định
-  777, nên pool tái lập được. Pool được nén zip lên Drive.
+- Sinh ảnh từ `best.pkl` với `truncation ψ = 1` (không cắt bớt độ đa dạng), seed cố định nên pool tái lập được. Pool
+  được nén zip lên Drive.
+  - Lớp thiểu số: seed 777, ⌈k · n⌉ ảnh (giữ nguyên pool của thiết kế A); thiết kế B chọn trong ⌈k · s⌉ ảnh đầu.
+  - Lớp đa số (thiết kế B): seed 778, ⌈k · s⌉ ảnh (`filter_majority: true`; nếu tắt thì đúng s ảnh, không lọc).
 - Ảnh sinh lưu đúng số kênh của bộ dữ liệu: ISIC 3 kênh; RSNA 1 kênh (generator 1 kênh, pool có hậu tố `_c1`).
-- **Mọi biến thể chọn từ cùng một pool**, nên khác biệt giữa các biến thể chỉ đến từ tiêu chí chọn.
+- **Mọi biến thể chọn từ cùng các pool**, nên khác biệt giữa các biến thể chỉ đến từ tiêu chí chọn.
 
 ### 3.4 Hai không gian đặc trưng
 
@@ -299,6 +348,9 @@ M(x)  = S⁺(x) − λ · S⁻(x)          K = 5,  λ_v = λ_d = 1
 ```
 
 - M cao nghĩa là x gần lớp thiểu số **hơn** lớp đa số.
+- **Ảnh sinh lớp đa số** (thiết kế B, `filter_majority`): margin **đảo chiều** — S⁺ tính với ảnh thật lớp đa số, S⁻ với
+  ảnh thật lớp thiểu số — rồi chọn bằng đúng tiêu chí của từng biến thể (M1 ngẫu nhiên với seed 2027, M5 đa dạng
+  trong lớp đa số, M6 S_DASS). Hai lớp dùng chung E_v, E_d và tham số.
 - Dùng trung bình top-K thay vì max, vì max chỉ phụ thuộc vào một ảnh thật nên rất nhạy với ngoại lai.
 - Log in **tương quan M_v–M_d**. Tương quan gần 1 cho thấy hai không gian đo cùng một thứ, khi đó E_d không thêm thông
   tin.
@@ -311,7 +363,7 @@ Chuẩn hoá:   M̃_v, M̃_d = min-max của M_v, M_d trên TOÀN pool (về [0,
 Đa dạng:     S_div(x | S) = 1 − max_{y ∈ S} cos(z_x^v, z_y^v)        khoảng cách tới ảnh gần nhất đã chọn, trong E_v
 
 S ← { argmax_x b(x) }                                              ảnh đầu tiên: điểm nền cao nhất
-lặp đến khi |S| = n:
+lặp đến khi |S| = s (thiết kế B; n ở thiết kế A):
     với mọi x ∈ P \ S:   score(x) = b(x) + γ · S̃_div(x | S)        S̃_div: min-max trên P \ S, tính lại MỖI vòng
     S ← S ∪ { argmax score }                                        γ = 0,5
 ```
@@ -324,61 +376,60 @@ lặp đến khi |S| = n:
 
 ### 3.7 Các biến thể so sánh
 
-M1–M6 chọn **đúng n ảnh sinh từ cùng một pool**. M0 và M0b không dùng ảnh sinh:
+**Thiết kế B:** M1–M6 chọn **đúng s ảnh sinh mỗi lớp từ cùng các pool**; mọi biến thể có cùng ảnh thật và cùng tập
+ảnh nhân bản ROS. M0 không dùng ảnh sinh:
 
-| ID | Tên trong bài báo | Tiêu chí chọn | Đa dạng | Biến thể này cô lập yếu tố gì |
+| ID | Tên trong bài báo | Tiêu chí chọn (mỗi lớp) | Đa dạng | Biến thể này cô lập yếu tố gì |
 |---|---|---|---|---|
-| M0 | Imbalanced Baseline | không dùng ảnh sinh; dữ liệu thật mất cân bằng (ISIC 4,2 : 1, RSNA 7,1 : 1), **không cân bằng** (không class weight, không lấy mẫu lại) | – | **baseline** |
-| M0b | Random Oversampling (ROS) | không dùng ảnh sinh: **nhân bản ảnh thật** lớp thiểu số lên 1 : 1 | – | **baseline oversampling**: cùng số ảnh, cùng số bước train, cùng cách cân bằng với M1–M6 |
-| M1 | Unfiltered GAN (Random Selection) | ngẫu nhiên (seed 2026) | – | tác dụng của ảnh sinh khi không chọn lọc |
-| M2 | Visual-only Filter (M_v) | M_v | – | chỉ không gian thị giác |
-| M3 | Disease-only Filter (M_d) | M_d | – | chỉ không gian bệnh |
-| M5 | Diversity-only Filter (S_div) | 0 (k-center greedy, γ = 1) | ✓ | chỉ đa dạng, không có điểm lề |
-| M4 | Dual-Margin Filter (M_v + M_d) | α·M̃_v + β·M̃_d | – | kết hợp hai không gian, chưa có đa dạng |
-| **M6** | **DASS (Ours)** | **α·M̃_v + β·M̃_d** | **γ = 0,5** | **DASS đầy đủ (phương pháp đề xuất)** |
+| M0 | Imbalanced Baseline | không dùng ảnh sinh, không ROS; dữ liệu thật mất cân bằng (ISIC 4,2 : 1, RSNA 7,1 : 1), **không cân bằng** (không class weight) | – | **baseline** (H2) |
+| M1 | ROS + Balanced GAN: Random | ngẫu nhiên (seed 2026 lớp thiểu số, 2027 lớp đa số) | – | ROS + ảnh sinh cân bằng, không chọn lọc — đối chứng của **H1** |
+| M2 | ROS + Balanced GAN: Visual margin (M_v) | M_v | – | chỉ không gian thị giác |
+| M3 | ROS + Balanced GAN: Disease margin (M_d) | M_d | – | chỉ không gian bệnh |
+| M5 | ROS + Balanced GAN: Diversity (S_div) | 0 (k-center greedy, γ = 1) | ✓ | chỉ đa dạng, không có điểm lề |
+| M4 | ROS + Balanced GAN: Dual margin (M_v + M_d) | α·M̃_v + β·M̃_d | – | kết hợp hai không gian, chưa có đa dạng |
+| **M6** | **ROS + Balanced GAN: DASS (Ours)** | **α·M̃_v + β·M̃_d** | **γ = 0,5** | **DASS đầy đủ (phương pháp đề xuất)** |
 
-**Cách M0b nhân bản ảnh** (`data.variants.oversample_indices`, seed 2026): cần thêm n bản sao từ n_min ảnh thật, nên
-mỗi ảnh được lặp q = ⌊n / n_min⌋ lần, và r = n mod n_min ảnh (chọn ngẫu nhiên, không lặp) được lặp thêm một lần. Số
-lần xuất hiện của các ảnh vì thế chênh nhau tối đa 1. Ví dụ ISIC: 470 = 148 × 3 + 26, nên mỗi ảnh malignant thật xuất
-hiện 4 hoặc 5 lần trong tập train; RSNA: 6.463 = 1.059 × 6 + 109, nên mỗi ảnh dương thật xuất hiện 7 hoặc 8 lần (RSNA
-không augmentation, nên đây là các bản sao y hệt). M0b không chọn gì từ pool
-nên không nằm trong `selections.json`; tập train của M0b được ghép ở bước `train` (bật bằng
-`selection.oversample_variant`, mặc định bật). Lý do có M0b: theo Buda et al. (2018), oversampling tới 1 : 1 là cách
-xử lý mất cân bằng đơn giản mạnh nhất với CNN, nên **M6 vs M0b** là phép so sánh công bằng nhất cho đóng góp của
-**nội dung** ảnh sinh.
+**Cách nhân bản ROS** (`data.variants.oversample_indices`, seed 2026, chung cho M1–M6): cần R = n_maj − n_min bản
+sao từ n_min ảnh thật, nên mỗi ảnh được lặp ⌊R / n_min⌋ lần, và R mod n_min ảnh (chọn ngẫu nhiên, không lặp) được lặp
+thêm một lần. ISIC: 470 = 148 × 3 + 26, nên mỗi ảnh malignant thật xuất hiện 4 hoặc 5 lần; RSNA: 6.463 = 1.059 × 6 +
+109, nên mỗi ảnh dương thật xuất hiện 7 hoặc 8 lần (không augmentation, nên đây là các bản sao y hệt).
 
-M7 (thêm ảnh sinh vào cả lớp đa số) là tuỳ chọn `selection.both_classes_variant`, **mặc định tắt** và không nằm trong
-thực nghiệm chính.
+**Thiết kế A** (profile `design_a.yaml`): M1–M6 chọn n ảnh sinh **chỉ cho lớp thiểu số**; thêm **M0b** (Random
+Oversampling, cùng tập nhân bản ở trên, không ảnh sinh) làm đối chứng có cùng số ảnh và số bước train với M1–M6; tuỳ
+chọn M7 (ảnh sinh vào cả lớp đa số, có class weight) và M8 / M8r / M0c (1.17, khám phá). Tên hiển thị: bảng ở đầu tài
+liệu.
 
 ### 3.8 Classifier downstream
 
-**Tập train của mỗi biến thể:**
-- Lớp đa số: giữ nguyên ảnh thật.
-- Lớp thiểu số:
-  - M0: chỉ ảnh thật;
-  - M0b: ảnh thật cộng n bản sao ảnh thật;
-  - M1–M6: ảnh thật cộng n ảnh sinh đã chọn.
+**Tập train của mỗi biến thể (thiết kế B):**
+- M0: ảnh thật, mất cân bằng.
+- M1–M6:
+  - lớp đa số: ảnh thật + s ảnh sinh lớp đa số do biến thể chọn;
+  - lớp thiểu số: ảnh thật + R bản sao ROS (chung) + s ảnh sinh lớp thiểu số do biến thể chọn.
 - Val và test: giữ nguyên, 100 % ảnh thật.
 
 **Cân bằng lớp:**
 
-| | Số ảnh train: ISIC (`v11`) | RSNA (`rsna_v2`) | Bước mỗi epoch (ISIC / RSNA) | Cân bằng bằng |
+| | Số ảnh train ISIC (`v13`) | RSNA (`rsna_v4`) | Bước mỗi epoch (ISIC / RSNA) | Cân bằng bằng |
 |---|---|---|---|---|
 | M0 Imbalanced Baseline | 618 : 148 | 7.522 : 1.059 | 48 / 537 | **không cân bằng** |
-| M0b (ROS) | 618 : (148 + 470 bản sao) | 7.522 : (1.059 + 6.463 bản sao) | 78 / 941 | dữ liệu (ảnh thật nhắc lại) |
-| M1–M6 | 618 : (148 + 470 ảnh sinh) | 7.522 : (1.059 + 6.463 ảnh sinh) | 78 / 941 | dữ liệu (ảnh sinh) |
+| M1–M6 | 927 : 927 | 11.283 : 11.283 | 116 / 1.411 | ROS (ảnh thật nhắc lại) + cùng số ảnh sinh mỗi lớp |
 
 - **Không can thiệp dữ liệu ở classifier, cho cả hai bộ dữ liệu** (người dùng quyết định, 1.11.0): không augmentation
   (`classifier.augment: false`) và M0 **không class weight** (`classifier.baseline_class_weight: false`), đặt trong
   `configs/_base_/classifier.yaml`, không bộ dữ liệu nào ghi đè. Khác biệt giữa các phương pháp vì thế chỉ nằm ở
   **nội dung tập train**.
-- M0 là baseline mất cân bằng thật (ISIC 4,2 : 1, RSNA 7,1 : 1); ROS là baseline cân bằng bằng ảnh thật. Ở ngưỡng 0,5,
+- M0 là baseline mất cân bằng thật (ISIC 4,2 : 1, RSNA 7,1 : 1); ở thiết kế B, ROS nằm sẵn trong M1–M6. Ở ngưỡng 0,5,
   M0 sẽ ít khi đoán dương nên sensitivity thấp; so sánh chính dựa vào AUC (không phụ thuộc ngưỡng).
-- M0b và M1–M6 giống hệt nhau về số ảnh, số bước train và cách cân bằng; chỉ khác **nội dung** ảnh thêm vào. Vì vậy
-  **M6 vs M0b** là phép so sánh chặt chẽ nhất.
+- M1–M6 giống hệt nhau về ảnh thật, ảnh nhân bản, số ảnh, số bước train và cách cân bằng; chỉ khác **ảnh sinh được
+  chọn**. Vì vậy **M6 vs M1 (H1)** là phép so sánh chặt chẽ nhất cho đóng góp của DASS. M6 vs M0 (H2) đo toàn bộ quy
+  trình, lẫn tác dụng của ROS, của việc có thêm ảnh và của số bước train.
 - Cấu hình cũ có augmentation + M0 class weight (ISIC `v10`, như `v7`) chạy lại được bằng `--set classifier.augment=true
   --set classifier.baseline_class_weight=true` kèm `--tag` riêng; khi đó bảng tự đổi tên M0 thành "Imbalanced
   Baseline (class-weighted)".
+- `.npz` còn ghi tiêu chí chọn epoch (`monitor`) và thiết kế (`design`, `filter_majority`); trộn thiết kế A với B
+  trong cùng thư mục dự đoán -> báo lỗi. Ngoài ra `.npz` lưu dự đoán trên ảnh **thật** của tập train
+  (`y_train`, `p_train`) cho bảng `auc_by_split`.
 - Mỗi `.npz` ghi giao thức train (augment, class_weight). Gặp `.npz` của giao thức khác, `train` dừng báo lỗi;
   `train --archive-mismatched` chuyển nó (và trọng số) sang `predictions_superseded/<giao thức>/` (không xoá) rồi train
   lại, nên thư mục `predictions/` luôn chỉ có một giao thức. Ở `rsna_v2`, phần EfficientNetV2B0 lỡ train có
@@ -392,7 +443,7 @@ thực nghiệm chính.
 | ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
 **Augmentation** của classifier: **tắt** ở cấu hình hiện tại (cả hai bộ dữ liệu). Khi bật (`classifier.augment: true`,
-như ISIC `v10`): chỉ tập train, giống hệt nhau cho mọi biến thể, kể cả M0 và M0b; profile `rotation_invariant` = lật
+như ISIC `v10`): chỉ tập train, giống hệt nhau cho mọi biến thể; profile `rotation_invariant` = lật
 ngang và dọc, xoay tới ±180° (biên phản chiếu), zoom ±10 %, độ sáng ±10 %, tương phản ±10 %, áp dụng trực tuyến (không
 làm tăng số ảnh, không đổi tỉ lệ lớp). Augmentation vẫn có ở hai chỗ, độc lập với tuỳ chọn này:
 - **ADA của StyleGAN2-ADA** là augmentation cho discriminator khi train GAN;
@@ -425,28 +476,30 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
 
 | Loại | Biến số |
 |---|---|
-| **Biến độc lập (yếu tố nghiên cứu)** | phương pháp cân bằng / chọn ảnh: M0, M0b, M1–M6 |
-| **Yếu tố khối (để kiểm tra tính tổng quát)** | backbone (6), bộ dữ liệu (2) |
+| **Biến độc lập (yếu tố nghiên cứu)** | phương pháp: M0, M1–M6 (thiết kế B) |
+| **Yếu tố khối (để kiểm tra tính tổng quát)** | backbone (Colab 6, server 3), bộ dữ liệu (2) |
 | **Lặp lại** | seed classifier: 2026, 2027, 2028 (khởi tạo đầu ra, thứ tự trộn dữ liệu) |
 | **Biến phụ thuộc** | metric phân loại trên test ([mục 5.1](#51-metric-phân-loại)); KID và các chỉ số chẩn đoán của tập ảnh được chọn |
-| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng n, cùng siêu tham số train, **không augmentation và không class weight cho mọi biến thể**, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
+| **Biến được kiểm soát** | cùng split, cùng GAN, cùng pool, cùng s, cùng ảnh nhân bản ROS, cùng siêu tham số train, **không augmentation và không class weight cho mọi biến thể**, cùng seed cho mọi phương pháp (thiết kế **ghép cặp**), cùng ngưỡng 0,5, cùng tập val / test |
 
 ### 4.2 Ma trận thực nghiệm
 
 | | Mỗi bộ dữ liệu | Hai bộ dữ liệu (ISIC + RSNA) |
 |---|---|---|
-| Lần train classifier | 8 biến thể × 6 backbone × 3 seed = **144** | **288** |
-| Lần train E_d | 1 | 2 |
-| GAN | ISIC dùng lại `v5`; RSNA train một lần (`rsna`) | 1 |
+| Lần train classifier (Colab, 6 backbone) | 7 phương pháp × 6 backbone × 3 seed = **126** | **252** |
+| Lần train classifier (server, 3 CNN) | 7 × 3 × 3 = **63** | **126** |
+| Lần train E_d | 1 (server: dùng lại E_d của lần chạy A cùng giao thức) | 2 |
+| GAN | ISIC dùng lại `v5`; RSNA dùng lại `rsna` | 0 lần train mới |
 
 ### 4.3 Siêu tham số được cố định trước
 
 - Tham số DASS (K = 5, λ = 1, α = β = 1, γ = 0,5) lấy theo công thức của notebook ISIC v5. Lịch train E_d và mọi siêu
   tham số classifier được **dùng chung cho mọi bộ dữ liệu và mọi backbone**.
 - k = 1,5 (xem [mục 2.4](#24-ngân-sách-sinh-và-ý-nghĩa-của-k)); classifier không augmentation, M0 không class weight
-  (1.11.0).
-- **Lưu ý:** k, augmentation và class weight đã được đổi qua nhiều phiên bản **sau khi xem kết quả test** (bảng ở đầu
-  tài liệu). Đây không còn là thiết lập được chốt trước; phải báo cáo minh bạch mọi cấu hình đã chạy.
+  (1.11.0); thiết kế B với q = 0,5 và lọc cả hai lớp (1.18–1.21). Trọng số DASS (α : β : γ = 0,4 : 0,4 : 0,2 sau
+  chuẩn hoá) được giữ sau ablation chỉ trên val (1.20.0: không bộ trọng số nào hơn quá 0,01).
+- **Lưu ý:** k, augmentation, class weight, tiêu chí chọn epoch và thiết kế tập train đã được đổi qua nhiều phiên bản
+  **sau khi xem kết quả test** (bảng ở đầu tài liệu). Đây không còn là thiết lập được chốt trước; phải báo cáo minh bạch mọi cấu hình đã chạy.
 - **Không có tham số nào được dò trên test.** Val chỉ dùng để chọn epoch.
 - Không dò siêu tham số riêng cho từng backbone. Cách này công bằng giữa các phương pháp, nhưng có thể chưa tối ưu cho
   từng backbone (xem [mục 7](#7-hạn-chế-đã-biết)).
@@ -455,8 +508,8 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
 
 | Seed | Dùng cho |
 |---|---|
-| 2026 (`seed` toàn cục) | chia dữ liệu, tập ngẫu nhiên của M1, ảnh được nhân bản thêm của M0b, bootstrap, cross-validation của probe / shortcut, tập con KID và cặp SSIM khi đánh giá |
-| 777 (`generator.gen_seed`) | sinh pool lớp thiểu số (778 dùng cho pool lớp đa số của M7) |
+| 2026 (`seed` toàn cục) | chia dữ liệu, tập ngẫu nhiên của M1 (lớp thiểu số; lớp đa số dùng 2027), ảnh nhân bản ROS, bootstrap, cross-validation của probe / shortcut, tập con KID và cặp SSIM khi đánh giá |
+| 777 (`generator.gen_seed`) | sinh pool lớp thiểu số (778 = gen_seed + 1 cho pool lớp đa số của thiết kế B / M7) |
 | 123 (`generator.kid_seed`) | 1.000 ảnh để tính KID mỗi snapshot GAN |
 | 4242 (`encoder.e_d_seed`) | train E_d |
 | 2026 / 2027 / 2028 (`classifier.seeds`) | train classifier |
@@ -494,7 +547,8 @@ dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ 
   qua 3 seed. Độ biến thiên này phản ánh **ngẫu nhiên của quá trình train**.
 - **Paired bootstrap ΔAUC** (bảng `significance`, cột `vs` ghi đối chứng):
   - **mọi biến thể so với M0** (`evaluation.baseline_method`);
-  - cộng hai cặp bổ sung (`evaluation.comparisons`): **M6 vs M0b** (H2) và **M6 vs M1** (H3).
+  - cộng các cặp trong `evaluation.comparisons`: thiết kế B **M6 vs M1** (H1) và M6 vs M0 (H2, trùng phép so với
+    baseline nên chỉ tính một lần); thiết kế A M6 vs M0b, M6 vs M1.
 
   Cách tính cho mỗi cặp:
   1. Lấy trung bình xác suất test qua các seed chung, tức **ensemble theo seed** của từng phương pháp.
@@ -510,15 +564,17 @@ dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ 
   - Bootstrap đo **độ bất định do mẫu test**, với điều kiện mô hình đã train cố định. Độ bất định do train được phản
     ánh qua std giữa các seed (và cột `ΔAUC per seed`). Báo cáo cả hai.
   - Với 2.000 lần lấy mẫu, p nhỏ nhất khác 0 là 0,001. p = 0 nên ghi là **p < 0,001**.
-  - **Đa so sánh (từ 1.14.0):** giả thuyết chính khai báo trước trong `evaluation.primary_comparisons` (H1–H3: M6
-    vs M0b, M6 vs M1, M6 vs M0) là **họ chính**; mọi so sánh khác (mọi biến thể vs M0, các cặp bổ sung) là **họ khám
+  - **Đa so sánh (từ 1.14.0):** giả thuyết chính khai báo trước trong `evaluation.primary_comparisons` (thiết kế B:
+    H1 M6 vs M1, H2 M6 vs M0; thiết kế A: M6 vs M0b, M6 vs M1, M6 vs M0) là **họ chính**; mọi so sánh khác (mọi biến thể vs M0, các cặp bổ sung) là **họ khám
     phá**. Cột `family` / **Family**; **`p (Holm)`** hiệu chỉnh Holm–Bonferroni **riêng trong từng họ** của từng
     backbone. Kết luận chính dựa vào `p (Holm)` của họ chính; kết quả khám phá chỉ để gợi ý. Trước 1.14.0 mọi so sánh
     chung một họ nên quá bảo thủ. Nêu trong bài: hiệu chỉnh theo từng backbone,
-    tách họ chính / khám phá, họ chính khai báo trước khi có kết quả RSNA `rsna_v3`.
+    tách họ chính / khám phá; họ chính của thiết kế B khai báo trước khi train ResNet50 / ConvNeXtTiny ISIC (1.20.0).
   - Bootstrap dùng xác suất **trung bình qua seed** -> chỉ đo dao động do tập test; dao động do train chỉ có ở cột
     ΔAUC theo seed (3 seed: yếu).
-  - So sánh M6 với M2–M5 (RQ5) **chưa có kiểm định chính thức** (chỉ đọc từ mean ± std). Có thể thêm bằng cách bổ
+  - **AUC train / val / test** (bảng `auc_by_split`): AUC trên ảnh **thật** của tập train (không gồm ảnh nhân bản /
+    ảnh sinh), val, test và hiệu train − test — đo mức overfit của từng phương pháp.
+  - So sánh M6 với M2–M5 (RQ4) **chưa có kiểm định chính thức** (chỉ đọc từ mean ± std). Có thể thêm bằng cách bổ
     sung cặp vào `evaluation.comparisons`, không cần train lại.
 
 ### 5.3 Chất lượng ảnh sinh (Inception-v3 của StyleGAN2-ADA, 2.048 chiều)
@@ -581,28 +637,29 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 | GAN dùng lại hợp lệ | split phải trùng split mà GAN đã train (RSNA: `split.expected`, kiểm tra tự động ở mọi stage; ISIC: test regression) |
 | Không có shortcut định dạng | mọi ảnh lưu PNG, đúng số kênh gốc cho cả ảnh thật và ảnh sinh (ISIC 3 kênh, RSNA 1 kênh) |
 | Không rò rỉ bệnh nhân | RSNA: 1 ảnh mỗi bệnh nhân (mapping NIH), nên chia theo ảnh cũng là chia theo bệnh nhân |
-| So sánh công bằng | cùng pool, cùng n, cùng seed, cùng quy trình train, không augmentation / class weight cho mọi biến thể; M0b có cùng số ảnh, số bước train và cách cân bằng với M1–M6 |
+| So sánh công bằng | cùng pool, cùng s, cùng ảnh nhân bản ROS, cùng seed, cùng quy trình train, không augmentation / class weight cho mọi biến thể; M1–M6 có cùng số ảnh, số bước train và thành phần (thật / nhân bản / sinh) ở mỗi lớp |
 
 ### 6.2 Các mối đe doạ đến tính hợp lệ
 
 | Loại | Mối đe doạ | Cách xử lý hoặc đo |
 |---|---|---|
-| Nội tại | Ảnh sinh **chỉ** nằm ở lớp thiểu số, nên đặc điểm "trông như ảnh GAN" tương quan với nhãn trong tập train | Test toàn ảnh thật nên điều này không thổi phồng kết quả test, nhưng có thể làm giảm lợi ích. Đo bằng AUC thật-vs-sinh và fingerprint (RSNA `rsna_v2`: khoảng 0,999, ảnh sinh chiếm khoảng 86 % lớp dương). **M7** (tuỳ chọn, chưa bật) là đối chứng trực tiếp: thêm ảnh sinh vào cả lớp đa số. Chạy như một lần chạy riêng, không đụng `rsna_v2`: `dass … --set selection.both_classes_variant=true --set encoder.e_d_from_run=base --tag m7 run --from sample --models EfficientNetV2B0` (dùng lại E_d của `rsna_v2`; cần GPU để sinh pool lớp đa số; run này train lại mọi biến thể cho backbone đã chọn, nên giới hạn bằng `--models`) |
+| Nội tại | Ảnh sinh mang dấu vết GAN (AUC thật-vs-sinh ≈ 0,99). Ở thiết kế A ảnh sinh **chỉ** nằm ở lớp thiểu số nên dấu vết này là manh mối của nhãn | **Thiết kế B** đặt cùng số ảnh sinh (1/3) vào mỗi lớp nên dấu vết GAN không còn tương quan với nhãn. Còn lại: dấu vết GAN của hai lớp có thể khác nhau; `scripts/shortcut_probe.py` (chỉ val) chấm ảnh sinh lớp đa số giữ riêng bằng classifier đã train để đo trực tiếp |
 | Nội tại | **Shortcut tư thế chụp (RSNA):** AP gắn với bệnh nặng (dương ≈ 58 % AP, âm ≈ 23 % AP) | Đo, không sửa dữ liệu: AUC trong từng nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh (mục 5.5) |
 | Nội tại | **Classifier không can thiệp dữ liệu** (không augmentation, M0 không class weight; người dùng quyết định, cả hai bộ dữ liệu): công bằng về quy trình nhưng không trung lập về tác động — ROS lặp y hệt mỗi ảnh dương (ISIC 4–5 lần, RSNA 7–8 lần) nên dễ học thuộc hơn, trong khi biến thể GAN có ảnh mới | Nêu trong bài. Kết quả ISIC `v10` (cùng k, có augmentation + class weight) là phân tích độ nhạy sẵn có. RSNA (tuỳ chọn): một backbone có augmentation trong lần chạy riêng, `dass … --set classifier.augment=true --set encoder.e_d_from_run=base --tag aug run --from sample --models EfficientNetV2B0` (`split.expected` bảo đảm cùng split; pool sinh lại từ cùng GAN, cùng seed) |
-| Nội tại | M0 có ít bước train hơn (ISIC 48 so với 78, RSNA 537 so với 941 bước mỗi epoch) và không cân bằng, nên M6 vs M0 lẫn tác dụng của số bước / cách cân bằng | **M0b (ROS)** có cùng số ảnh, số bước và cách cân bằng với M6; M6 vs M0b tách riêng tác dụng của nội dung ảnh sinh |
-| Nội tại | Cấu hình (k, augmentation, class weight) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (ISIC `v7`, `v9`, `v10`, `v11`; RSNA `rsna_v2`) và nêu lý do loại Brain Tumor; so `v10` với `v11` (cùng k, chỉ khác augmentation + class weight của M0) cho thấy lợi thế của ảnh sinh phụ thuộc giao thức classifier đến mức nào |
-| Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026); M0b cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 / M0b |
+| Nội tại | **Thiết kế B không có đối chứng "chỉ ROS"** (M0b / M0c bỏ ở 1.20.0): M6 vs M0 lẫn tác dụng của ROS, của thêm dữ liệu, của số bước train (ISIC 48 so với 116, RSNA 537 so với 1.411 bước mỗi epoch) và của nội dung ảnh sinh | H1 (M6 vs M1) chỉ khác cách chọn ảnh sinh, là phép so sánh chặt chẽ; câu hỏi "ảnh sinh có hơn ảnh thật nhân bản" lấy từ thiết kế A (M6 vs M0b) và lần thử trên val 1.17 (M8 vs M0b / M0c); nêu rõ trong bài |
+| Nội tại | **Lọc lớp đa số** (`filter_majority`, 1.19.0) chưa được kiểm chứng trên val trước lần chạy chính | Lần chạy `rsna_v4` là lần đầu đánh giá kiểu lọc này; nêu trong bài |
+| Nội tại | Cấu hình (k, augmentation, class weight, tiêu chí chọn epoch, **thiết kế tập train**) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy (thiết kế A: ISIC `v7`–`v12`, RSNA `rsna_v2`, `rsna_v3`; thiết kế B: ISIC `v13`, RSNA `rsna_v4`) và nêu lý do loại Brain Tumor; so `v10` với `v11` (chỉ khác augmentation + class weight của M0) và A với B (chỉ khác thiết kế tập train) |
+| Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026 / 2027); ROS cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 (H1) |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
 | Nội tại | KID dùng trong early stopping của GAN so với chính ảnh train mà GAN đã thấy (thưởng cả việc học thuộc); KID của snapshot tốt nhất vì thế hơi lạc quan | `nn_dist_ratio` / `near_copy_rate` trong `generation_quality` + hình ảnh sinh cạnh ảnh thật gần nhất; so với hàng tham chiếu "real val vs real train" |
 | Nội tại | KID dao động lớn khi ít ảnh thật (ISIC 148 ảnh): ngưỡng cải thiện 2 % có thể nằm trong nhiễu, snapshot "tốt nhất" có thể do may mắn | Patience 5 + `min_kimg` 400; xem `kid_history.png` — trên đoạn phẳng các snapshot tương đương, không diễn giải số kimg tốt nhất |
-| Cấu trúc | Inception-v3 train trên ImageNet, xa miền ảnh y tế (nhất là X-quang): KID thấp ≠ giống về dấu hiệu bệnh | Nêu trong phần hạn chế; thước đo cuối cùng là kết quả classifier (M1 vs M0, M6 vs M0b) |
+| Cấu trúc | Inception-v3 train trên ImageNet, xa miền ảnh y tế (nhất là X-quang): KID thấp ≠ giống về dấu hiệu bệnh | Nêu trong phần hạn chế; thước đo cuối cùng là kết quả classifier (M1 vs M0, M6 vs M1) |
 | Nội tại | GPU không tất định | Báo cáo từ file `.npz` đã lưu; 3 seed |
 | Cấu trúc | Metric tại ngưỡng 0,5 phụ thuộc tỉ lệ lớp lúc train: M0 (mất cân bằng) có xác suất lệch về lớp đa số, nên ở ngưỡng 0,5 sensitivity thấp là do thiết kế, không phải do mô hình kém hơn về khả năng xếp hạng | Chỉ số chính là ROC-AUC (không phụ thuộc ngưỡng); báo cáo thêm balanced accuracy, G-mean, MCC |
 | Cấu trúc | Tập thật lớp thiểu số nhỏ ở ISIC (148 ảnh) | KID là chỉ số chính, kèm std; FID chỉ tham khảo. Mỗi tập con KID dùng TOÀN BỘ 148 ảnh thật -> `kid_std` chỉ phản ánh dao động của ảnh sinh, đánh giá thấp độ bất định thật |
 | Thiết kế | Trọng số thật của đa dạng trong S_DASS: nền α·M̃_v + β·M̃_d ∈ [0, 2], γ·S̃_div ∈ [0, 0,5] -> đa dạng ≈ 1/5 biên độ (không phải 50 %); S̃_div min-max lại mỗi vòng nên ở vòng cuối khác biệt rất nhỏ bị kéo giãn | Nêu rõ trong bài |
 | Thiết kế | M_d tính với ảnh train mà E_d đã học (probe E_d: train ≈ 0,9, val ≈ 0,78) -> tham chiếu bị học thuộc | Tuỳ chọn `encoder.e_d_crossfit_folds` (K ≥ 2, 1.14.0): mỗi E_d so với ảnh nó không học |
-| Thống kê | Chỉ 3 seed; test ISIC nhỏ (75 ca dương; RSNA 226); 54 so sánh mỗi bộ dữ liệu | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; p Holm trong từng backbone |
+| Thống kê | Chỉ 3 seed; test ISIC nhỏ (75 ca dương; RSNA 226); nhiều so sánh khám phá mỗi bộ dữ liệu; trên val (1.17) hiệu ứng H1 chỉ khoảng +0,004 AUC, nhỏ so với CI test (RSNA ≈ ±0,011) | [Mục 5.2](#52-phân-tích-thống-kê): báo cáo cả std lẫn CI; p Holm trong từng backbone |
 | Ngoại tại | Hai bộ dữ liệu, chỉ bài toán nhị phân, một họ GAN, ảnh 256 px | Nêu trong phần hạn chế |
 | Ngoại tại | RSNA: nhãn "Lung Opacity" là nhận định trên ảnh (không phải chẩn đoán viêm phổi xác nhận lâm sàng), có bất đồng giữa bác sĩ khoảng 11–12 % | Dùng nhãn cuối cùng sau hội chẩn; nêu trong phần hạn chế |
 
@@ -619,8 +676,11 @@ Các điểm sau nên nêu trong bài báo:
   augmentation; kết luận của bài là về **chênh lệch giữa các phương pháp** trong cùng giao thức.
 - **Chỉ hỗ trợ bài toán nhị phân.** Bài toán đa lớp cần mở rộng DASS theo kiểu one-vs-rest.
 - **Siêu tham số chung**, không dò riêng cho từng backbone; Transformer có thể chưa đạt mức tối ưu.
-- **Kiểm định chính thức** có cho mọi biến thể so với M0 và cho M6 vs M0b, M6 vs M1, kèm p hiệu chỉnh Holm trong từng
-  backbone. Các so sánh thành phần (M6 với M2–M5) chưa có kiểm định riêng (thêm được qua `evaluation.comparisons`).
+- **Kiểm định chính thức** có cho H1 (M6 vs M1), H2 (M6 vs M0) và mọi biến thể so với M0, kèm p hiệu chỉnh Holm theo
+  họ trong từng backbone. Các so sánh thành phần (M6 với M2–M5) chưa có kiểm định riêng (thêm được qua
+  `evaluation.comparisons`).
+- **Thiết kế B không tách "nội dung ảnh sinh" với "thêm dữ liệu"** (không có M0b / M0c); dựa vào thiết kế A cho câu
+  hỏi này.
 
 ---
 
@@ -647,14 +707,14 @@ Notebook **tự tải code mới nhất từ GitHub**, không cần upload tay. 
 | Mount Drive | đăng nhập Google, chọn *Allow* | `Mounted at /content/drive`, tên GPU |
 | Lấy mã nguồn | clone / pull từ GitHub rồi cài đặt | `Phiên bản code: <hash> — …` |
 | Chọn thực nghiệm | đặt `EXPERIMENT`, `PROFILE`, `EXTRA` | cấu hình in ra (`run_tag`, `pool_mult`, …) |
-| Tiện ích | định nghĩa `show()`, `table()`, `RESULTS` | không lỗi |
+| Tiện ích | định nghĩa `show()`, `table()`, `results_dir()` | không lỗi |
 | `prepare` | dữ liệu, split | [mục 9](#9-kiểm-tra-sau-mỗi-bước) |
 | `gan-setup` | clone + vá StyleGAN2-ADA, biên dịch plugin CUDA | chỉ cần chạy lại khi là **server mới** |
 | `gan` | dùng lại GAN, vẽ đường KID | |
 | `sample` | sinh pool | `DONE <N> …` |
 | `fingerprint` | (tuỳ chọn) dấu vân tay tần số | bảng AUC |
-| `select` | E_v, E_d, chọn ảnh, chẩn đoán | `M6_dass: chọn n / N ảnh sinh` |
-| 6 ô `train` | mỗi ô một backbone (8 biến thể × 3 seed) | mỗi lần chạy in `test ROC-AUC = …` |
+| `select` | E_v, E_d, chọn ảnh mỗi lớp, chẩn đoán | `M6_dass: chọn s / ⌈k·s⌉ ảnh sinh` (hai dòng: lớp thiểu số, lớp đa số) |
+| 6 ô `train` | mỗi ô một backbone (7 phương pháp × 3 seed) | mỗi lần chạy in `test ROC-AUC = …` |
 | `evaluate` + `report` | metric và bảng | các bảng `dataset`, `classification`, `significance`, `generation_quality` |
 
 ### 8.3 Chạy thử (smoke) và chạy thật
@@ -665,30 +725,37 @@ PROFILE = ""                                                   # "configs/experi
 EXTRA = ""                                                     # ghi đè, ví dụ "--set selection.gamma=0 --tag nodiv"
 ```
 
+Xem lại kết quả thiết kế A: `PROFILE = "configs/experiments/design_a.yaml"`, `EXTRA = "--set paths.run_tag=v12"`
+(RSNA: `rsna_v3`), rồi chạy ô `evaluate` / `report`.
+
 | | Smoke (`PROFILE = "configs/experiments/smoke.yaml"`) | Chạy thật (`PROFILE = ""`) |
 |---|---|---|
 | Mục đích | kiểm tra mọi bước chạy thông, **không dùng để báo cáo** | kết quả cho bài báo |
 | Pool | k = 1,2 | k = 1,5 |
 | E_d | 1 + 1 epoch | 5 + 20 epoch |
-| Classifier | EfficientNetV2B0, 1 seed, 1 + 1 epoch | 6 backbone, 3 seed, 5 + 30 epoch |
+| Classifier | EfficientNetV2B0, 1 seed, 1 + 1 epoch | 6 backbone, 3 seed, 5 + 30 epoch (thiết kế B như chạy thật) |
 | Thư mục | `checkpoints_smoke/`, `results_smoke/` | `checkpoints_<run_tag>/`, `results_<run_tag>/` |
 
 **Chuyển từ smoke sang chạy thật:** không cần tải lại notebook hay khởi động lại kernel.
-1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v3"`,
-   ISIC `"run_tag": "v12"`, `"monitor": "val_auc"`; cả hai `"augment": false`, `"baseline_class_weight": false`, `"pool_mult": 1.5`.
-2. **Bắt buộc** chạy lại ô tiện ích, vì `RESULTS` được tính từ cấu hình. Nếu không chạy lại, `show()` / `table()` vẫn
-   đọc thư mục của smoke.
+1. Sửa `PROFILE = ""`, chạy lại ô chọn thực nghiệm. Kiểm tra cấu hình in ra: RSNA `"run_tag": "rsna_v4"`,
+   ISIC `"run_tag": "v13"`; cả hai `"design": "source_balanced"`, `"balanced_synth_ratio": 0.5`,
+   `"filter_majority": true`, `"oversample_variant": false`, `"monitor": "val_auc"`, `"augment": false`,
+   `"baseline_class_weight": false`, `"pool_mult": 1.5`.
+2. Ô tiện ích đọc lại thư mục kết quả mỗi lần gọi (`results_dir()`), nên không bắt buộc chạy lại.
 3. Chạy tiếp từ `prepare` trở xuống.
 
 ### 8.4 Thứ tự chạy và thời gian
 
 1. **RSNA:** `prepare` → `gan` → `sample` → `select` → các ô `train` → `evaluate` + `report` (`fingerprint` tuỳ chọn).
    GAN `rsna` đã train xong (KID 0,0145 tại 800 kimg); `prepare` mất khoảng 30 phút trên server mới (chuyển DICOM).
+   `sample` dùng lại pool lớp thiểu số và sinh thêm pool lớp đa số (5.642 ảnh); `select` train E_d mới (Colab) hoặc
+   dùng lại E_d qua `encoder.e_d_from_run` (server: `rsna_v3_srv`).
 2. **ISIC:** đổi `EXPERIMENT = "configs/experiments/isic2016_dass.yaml"`, chạy lại ô chọn thực nghiệm và ô tiện ích,
    rồi lặp lại đúng chuỗi trên.
 
 Về thời gian:
-- Bước `train` chiếm gần hết thời gian: 24 lần train cho mỗi backbone, và Transformer chậm hơn CNN.
+- Bước `train` chiếm gần hết thời gian: 21 lần train cho mỗi backbone; tập train M1–M6 của thiết kế B lớn hơn thiết
+  kế A (RSNA 22.566 so với 15.044 ảnh), và Transformer chậm hơn CNN.
 - Nên chạy **từng backbone một**. Sau backbone đầu tiên có thể chạy `evaluate` + `report` để kiểm tra pipeline cho ra
   bảng đúng; các bảng được tính lại mỗi lần chạy `evaluate`.
 - **Xem kết quả sơ bộ thì được, nhưng không được đổi tham số dựa trên kết quả test.** Nếu buộc phải đổi (ví dụ phát hiện
@@ -717,6 +784,8 @@ dass -c $E run --from select --to report                 # một đoạn của c
 dass -c $E train --model resnet50 --seeds 2026           # một backbone, MỘT seed (chạy lại với 2027, 2028)
 dass -c $E evaluate --skip-generative                    # chỉ metric phân loại (không tính KID / FID)
 dass -c $E -c configs/experiments/smoke.yaml run         # chạy thử
+dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=rsna_v3 report   # bảng của lần chạy thiết kế A
+dass -c configs/server/rsna_pneumonia.yaml --tag srv run # server phòng lab: rsna_v4_srv (3 CNN, E_d của rsna_v3_srv)
 ```
 
 ### 8.7 Ablation (nếu cần sau này)
@@ -743,14 +812,14 @@ Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi �
 
 | Bước | RSNA: phải thấy | ISIC: phải thấy | Nếu khác |
 |---|---|---|---|
-| `prepare` | `Thiểu số = positive (1059) \| đa số = negative (7522) \| cần chọn 6463 \| pool 9695 ảnh \| 1 kênh`; `Split trùng khớp split tham chiếu real_val_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 705 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
+| `prepare` | `Thiểu số = positive (1059) \| đa số = negative (7522) \| cần chọn 6463 \| pool 9695 ảnh \| 1 kênh` (số của pool lớp thiểu số, giữ như thiết kế A); `Split trùng khớp split tham chiếu real_val_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 705 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
 | `gan` | dùng `checkpoints_rsna` (KID 0,0145 tại 800 kimg), không train lại | dùng `checkpoints_v5` (KID 0,0201 tại 1.800 kimg), không train lại | sai `gan_tag` |
-| `sample` | `Khôi phục 9695 ảnh từ …pool_positive_from800kimg_n9695_c1.zip` | `DONE 705 …` hoặc khôi phục từ zip | |
-| `select` | `M6_dass: chọn 6463 / 9695 ảnh sinh` | `M6_dass: chọn 470 / 705 ảnh sinh` | |
+| `sample` | khôi phục 9695 ảnh lớp `positive` từ zip; pool lớp `negative` 5642 ảnh | pool `malignant` 705 ảnh; pool `benign` 464 ảnh | `balanced_synth_ratio` / `filter_majority` sai |
+| `select` | `source_balanced: chọn 3761 ảnh sinh lớp thiểu số từ 5642 ảnh đầu của pool`; `M6_dass: chọn 3761 / 5642 ảnh sinh`; `M6_dass (lớp negative): chọn 3761 / 5642 ảnh sinh` | như bên trái với 309 / 464 (lớp `benign`) | |
 | `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 0,5 | như bên trái | ghi lại, nêu trong bài |
 | `train` | dòng đầu `Giao thức train … \| augment = False … \| class weight: không`; mỗi lần chạy in `test ROC-AUC = …` | như bên trái | sai phiên bản code / cấu hình |
-| `train` (ghép dữ liệu) | `M0_real_only_p1.5: {'train': {'negative': 7522, 'positive': 1059}, ...}` và `M0b_real_oversample_p1.5: {'train': {'negative': 7522, 'positive': 7522}, ...}` | `M0b_real_oversample_p1.5: {'train': {'benign': 618, 'malignant': 618}, ...}` | `selection.oversample_variant` đang tắt |
-| `evaluate` | `Phân loại: 144 lần chạy, 48 nhóm` khi đủ 6 backbone; thêm các bảng nhóm con (tư thế AP / PA) | `Phân loại: 144 lần chạy, 48 nhóm` | thiếu: còn backbone chưa xong |
+| `train` (ghép dữ liệu) | `M0_real_only_p1.5: {'train': {'negative': 7522, 'positive': 1059}, ...}` và `M6_dass_p1.5: {'train': {'negative': 11283, 'positive': 11283}, ...}`; không có dòng `M0b_…` | `M6_dass_p1.5: {'train': {'benign': 927, 'malignant': 927}, ...}` | sai thiết kế |
+| `evaluate` | `Phân loại: 126 lần chạy, 42 nhóm` khi đủ 6 backbone (server 3 CNN: 63 / 21); thêm các bảng nhóm con (tư thế AP / PA) | như bên trái (không có bảng nhóm con) | thiếu: còn backbone chưa xong |
 
 ---
 
@@ -763,10 +832,11 @@ Kết quả nằm trong thư mục của từng bộ dữ liệu. Không bao gi�
 | | RSNA (`…/RSNA Pneumonia/Result_Pneumonia/`) | ISIC (`…/ISBI2016_ISIC_Part3/`) |
 |---|---|---|
 | GAN | `checkpoints_rsna/stylegan2ada/` | `checkpoints_v5/stylegan2ada/` |
-| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v3/` (split tham chiếu: `checkpoints_rsna_v2/data/real_val_split.json`) | `checkpoints_v12/` |
-| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v3/` | `results_v12/` |
-| Kết quả giao thức cũ (chuyển ra, không dùng trong bảng) | `results_rsna_v2/predictions_superseded/`, `checkpoints_rsna_v2/classifiers_superseded/` | — |
-| Kết quả cấu hình trước (giữ nguyên, báo cáo riêng) | `results_rsna_v2/` (chọn epoch theo `val_macro_recall`), `results_rsna_v1/` (chỉ `prepare`) | `results_v11/` (chọn epoch theo `val_macro_recall`), `results_v10/` (k = 1,5, có augmentation, M0 có class weight); `results_v9/` (k = 2, không augmentation, M0 không class weight); `results_v7/` (notebook v5, k = 4); `v8` không dùng |
+| Split, pool, lựa chọn, E_d, trọng số classifier | `checkpoints_rsna_v4/` (split tham chiếu: `checkpoints_rsna_v2/data/real_val_split.json`; lựa chọn lớp đa số: `data/selections_majority.json`) | `checkpoints_v13/` |
+| Dự đoán, số liệu thô, **bảng**, hình | `results_rsna_v4/` | `results_v13/` |
+| Server phòng lab (thiết kế B) | `…/RSNA/results_rsna_v4_srv/` | `…/ISIC2016/results_v13_srv/` |
+| Kết quả giao thức cũ (chuyển ra, không dùng trong bảng) | `results_rsna_v2/predictions_superseded/`, `checkpoints_rsna_v2/classifiers_superseded/` | `results_v13_srv/predictions_archived_M0b_M0c/` (M0b / M0c của EfficientNetV2B0 trước 1.20.0) |
+| Kết quả thiết kế A (giữ nguyên, báo cáo riêng; đọc bằng profile `design_a.yaml`) | `results_rsna_v3/` (+ `_srv`), `results_rsna_v2/` (chọn epoch theo `val_macro_recall`), `results_rsna_v1/` (chỉ `prepare`) | `results_v12/` (+ `_srv`), `results_v11/` (`val_macro_recall`), `results_v10/` (có augmentation, M0 có class weight), `results_v9/` (k = 2), `results_v7/` (notebook v5, k = 4); `v8` không dùng |
 | Chạy thử | `checkpoints_smoke/`, `results_smoke/` | như bên trái |
 
 Kết quả Brain Tumor cũ (`…/BrainTumor_GAN/`) vẫn nằm trên Drive, không xoá, nhưng không còn thuộc dự án.
@@ -784,8 +854,9 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 
 | Bảng / chỉ số | Đọc thế nào |
 |---|---|
-| `classification` | Hàng đã dùng tên hiển thị và chia nhóm (cột `Group`: Real Data Baselines / Generative Augmentation). So DASS (Ours) với Imbalanced Baseline (H1), ROS (H2), Unfiltered GAN (H3) và các Filter (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
-| `significance` | Cột `vs` cho biết đối chứng (Imbalanced Baseline, ROS hoặc Unfiltered GAN). ΔAUC > 0 và khoảng tin cậy 95 % không chứa 0 thì phương pháp hơn đối chứng có ý nghĩa thống kê (lưu ý đa so sánh, mục 5.2). Hàng **DASS vs ROS** là bằng chứng mạnh nhất cho giá trị của ảnh sinh |
+| `classification` | Hàng đã dùng tên hiển thị và chia nhóm (cột `Group`: Real Data Baseline / ROS + Class-balanced GAN). So DASS (Ours) với Random (H1), Imbalanced Baseline (H2) và các tiêu chí còn lại (ablation) **trong cùng một backbone**. Với dữ liệu mất cân bằng, ưu tiên ROC-AUC, PR-AUC, sensitivity, balanced accuracy, G-mean, MCC; không dựa vào accuracy |
+| `significance` | Cột `vs` cho biết đối chứng (Imbalanced Baseline hoặc Random), cột `Family` cho biết họ chính / khám phá. ΔAUC > 0 và khoảng tin cậy 95 % không chứa 0 thì phương pháp hơn đối chứng có ý nghĩa thống kê; kết luận chính dựa vào `p (Holm)` của họ chính (mục 5.2). Hàng **DASS vs Random (H1)** là bằng chứng trực tiếp cho giá trị của cách chọn |
+| `auc_by_split` | AUC train (ảnh thật) / val / test và hiệu train − test: hiệu lớn -> phương pháp overfit (ảnh nhân bản / ảnh sinh bị học thuộc) |
 | Tính nhất quán | đếm số backbone (trên 6) mà M6 > M0, ở mỗi bộ dữ liệu; một kết quả tốt ở một backbone chưa đủ để kết luận |
 | KID | thấp hơn là gần ảnh thật hơn; đọc tương đối so với hàng `real val vs real train` và `all candidates` |
 | AUC thật-vs-sinh (`shortcut_check`) | gần 0,5 là khó phân biệt (tốt); gần 1 nghĩa là ảnh sinh dễ nhận ra, có nguy cơ shortcut |
@@ -797,8 +868,9 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 ## 11. Quy tắc báo cáo
 
 **Nên:**
-- Báo cáo **đủ 6 backbone × 8 biến thể × 2 bộ dữ liệu**, kể cả những cấu hình mà M6 không thắng.
-- Mean ± std qua 3 seed, kèm ΔAUC, khoảng tin cậy 95 % và p của M6 so với M0, M0b và M1. Ghi rõ số seed và số lần
+- Báo cáo **đủ mọi backbone × 7 phương pháp × 2 bộ dữ liệu**, kể cả những cấu hình mà M6 không thắng; kèm kết quả
+  thiết kế A (phụ lục) và lý do chuyển sang B.
+- Mean ± std qua 3 seed, kèm ΔAUC, khoảng tin cậy 95 % và p (Holm theo họ) của M6 so với M1 (H1) và M0 (H2). Ghi rõ số seed và số lần
   bootstrap.
 - KID là chỉ số chính về chất lượng ảnh sinh; FID kèm cảnh báo về độ chệch.
 - Nêu AUC thật-vs-sinh và kết quả fingerprint như một hạn chế, cùng các mục ở [phần 7](#7-hạn-chế-đã-biết).
@@ -807,7 +879,8 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 **Không nên:**
 - Chọn seed, backbone hay bộ dữ liệu "đẹp" sau khi đã xem kết quả.
 - Dò ngưỡng, k, γ hay bất kỳ tham số nào trên test, hoặc chạy lại test.
-- Trộn kết quả cũ (`results_v7`, `results_v9`, `results_v10`) với kết quả mới: cấu hình khác nhau.
+- Trộn kết quả thiết kế A (`results_v7` … `results_v12`, `results_rsna_v2`, `results_rsna_v3`) với kết quả thiết kế B
+  trong cùng một bảng: thiết kế khác nhau.
 
 ---
 
@@ -820,15 +893,16 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | GAN | KID khi train: số ảnh / tập con / seed | 1000 / 50 / 123 | |
 | Pool | k = `pool_mult` (chung mọi bộ dữ liệu) / ψ / seed | 1.5 / 1.0 / 777 | `configs/_base_/selection.yaml` |
 | DASS | K / λ_v / λ_d / α / β / γ | 5 / 1 / 1 / 1 / 1 / 0.5 | |
-| Biến thể | M0b oversampling (`oversample_variant`) / M7 (`both_classes_variant`) | bật / tắt | |
-| E_d | backbone / seed / epoch | DenseNet121 / 4242 / 5 + 20 | |
+| Thiết kế | `design` / q = `balanced_synth_ratio` / `filter_majority` | `source_balanced` (B) / 0.5 / true | |
+| Biến thể | M0b / M0c (`oversample_variant`) / M7 (`both_classes_variant`) | tắt (B; A: bật) / tắt | |
+| E_d | backbone / seed / epoch / dùng lại (`e_d_from_run`) | DenseNet121 / 4242 / 5 + 20 / "" (server: `v12_srv`, `rsna_v3_srv`) | |
 | Classifier | backbone | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny, ViT-B16, SwinT | `configs/_base_/classifier.yaml` |
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |
 | Classifier | seed / chọn epoch | 2026, 2027, 2028 / `val_auc` | |
 | Classifier | augmentation (`augment`) / class weight cho M0 (`baseline_class_weight`) | tắt / tắt (mọi bộ dữ liệu) | |
 | Đánh giá | ngưỡng / bootstrap / KID (tập con, kích thước tối đa) / cặp SSIM | 0.5 / 2000 / 50, 1000 / 200 | `configs/_base_/evaluation.yaml` |
-| Đánh giá | đối chứng chính / cặp bổ sung (`comparisons`) | M0 / M6 vs M0b, M6 vs M1 | |
+| Đánh giá | đối chứng / họ chính (`primary_comparisons`) / cặp bổ sung (`comparisons`) | M0 / M6 vs M1, M6 vs M0 / như họ chính | |
 | Đánh giá | tên hiển thị / nhóm (`method_labels`, `method_groups`) | xem đầu tài liệu | |
 | Chung | seed toàn cục / tất định | 2026 / false | `configs/_base_/runtime.yaml` |
 | Dữ liệu | nguồn, tiền xử lý, cách chia, số kênh, thư mục Drive, `gan_tag`, `run_tag` | theo bộ dữ liệu | `configs/datasets/*.yaml` |

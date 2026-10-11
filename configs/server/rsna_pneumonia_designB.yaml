@@ -1,42 +1,5 @@
-# RSNA — THIẾT KẾ B (1.18.0): mọi biến thể M1–M6 = ROS + ảnh sinh cân bằng hai lớp (q = 0,5), thêm M0c cùng kích thước.
+# RSNA — THIẾT KẾ B. Từ 1.21.0 thiết kế B là cấu hình chính (configs/_base_/), nên file này chỉ còn là tên gọi cũ
+# của configs/server/rsna_pneumonia.yaml (giữ cho lệnh / script đã dùng); cấu hình resolve giống hệt.
 #   dass -c configs/server/rsna_pneumonia_designB.yaml --tag srv show-config      -> run_tag rsna_v4_srv
-# Cùng GAN `rsna`, cùng split rsna_v2 (split.expected), cùng E_d với rsna_v3_srv (không train lại), k = 1,5, val_auc.
-# Thiết kế, q và giả thuyết chính ghi ở đây và CHANGELOG 1.18.0 TRƯỚC khi chạy test.
 _base_:
   - rsna_pneumonia.yaml
-
-paths:
-  run_tag: rsna_v4
-
-selection:
-  design: source_balanced
-  filter_majority: true         # lọc CẢ HAI lớp (người dùng chọn, 1.19.0): lớp đa số chọn s / ⌈1,5·s⌉ bằng cùng
-                                #   tiêu chí, margin đảo chiều — chưa kiểm chứng trên val trước lần chạy chính
-  # M0b / M0c tắt (người dùng quyết định, 1.20.0): ROS vẫn nằm TRONG M1–M6 (lớp thiểu số = thật + ROS + s ảnh sinh)
-  oversample_variant: false
-  balanced_synth_ratio: 0.5     # s = 0,5 × 7.522 = 3.761 ảnh sinh mỗi lớp
-
-encoder:
-  e_d_from_run: rsna_v3_srv     # dùng lại E_d (cùng giao thức val_auc) -> chỉ thiết kế tập train thay đổi
-
-evaluation:
-  # Họ chính (1.20.0, khai báo trước khi train, Holm riêng): H1 DASS vs Random (cùng thành phần dữ liệu),
-  # H2 DASS vs mất cân bằng. M0b / M0c không còn trong thiết kế.
-  primary_comparisons:
-    - [M6_dass, M1_random]
-    - [M6_dass, M0_real_only]
-  comparisons:
-    - [M6_dass, M1_random]
-    - [M6_dass, M0_real_only]
-  # Tên hiển thị của thiết kế B (mã nội bộ M1–M6 giữ nguyên). Thứ tự = thứ tự hàng trong bảng.
-  method_labels:
-    M0_real_only: Imbalanced Baseline
-    M1_random: "ROS + Balanced GAN: Random"
-    M2_visual: "ROS + Balanced GAN: Visual margin ($M_v$)"
-    M3_disease: "ROS + Balanced GAN: Disease margin ($M_d$)"
-    M5_diversity: "ROS + Balanced GAN: Diversity ($S_{\\text{div}}$)"
-    M4_visual_disease: "ROS + Balanced GAN: Dual margin ($M_v + M_d$)"
-    M6_dass: "ROS + Balanced GAN: DASS (Ours)"
-  method_groups:
-    Real Data Baseline: [M0_real_only]
-    ROS + Class-balanced GAN (StyleGAN2-ADA): [M1_random, M2_visual, M3_disease, M5_diversity, M4_visual_disease, M6_dass]

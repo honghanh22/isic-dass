@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`), chạy chung một package `dass` và **cùng công thức DASS**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
+Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`), chạy chung một package `dass`, **cùng công thức DASS** và **cùng thiết kế tập train (thiết kế B, từ 1.21.0)**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
@@ -49,26 +49,35 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_auc` từ 1.12.0; `val_macro_recall` tới ISIC `v11` / RSNA `rsna_v2`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải giữ **đúng** thuật toán đã khoá trong `tests/regression/test_split_reproduction.py` (ISIC: split của notebook v5, GAN `v5`; RSNA: split `rsna_v2`, GAN `rsna` gắn qua `split.expected`). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
-- Công thức chuẩn: M0–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`, cộng baseline oversampling **M0b**
-  (`M0b_real_oversample`: nhân bản ảnh thật lớp thiểu số lên 1 : 1, không class weight; ghép ở bước `train`, không nằm
-  trong `selections.json`). M7 là tuỳ chọn, mặc định tắt. Tuỳ chọn khám phá (mặc định tắt, kết quả chuẩn không đổi):
-  `selection.synth_fraction` (< 1: ít ảnh sinh hơn, bù bằng ROS), `selection.balanced_synth_ratio` (q > 0: thêm M8 =
-  ROS + cùng số ảnh sinh mỗi lớp, M8r = như M8 nhưng chọn ngẫu nhiên, M0c = cùng kích thước nhưng toàn ảnh thật nhân
-  bản), `encoder.e_d_crossfit_folds`. Chi tiết và kết quả val ở CHANGELOG 1.14.0–1.17. Không đổi **mã** các biến thể đã có (mã nằm trong `.npz` trên
-  Drive); tên trong bài báo là **tên hiển thị** `evaluation.method_labels` (Imbalanced Baseline, Random Oversampling
-  (ROS), Unfiltered GAN (Random Selection), Visual-only / Disease-only / Diversity-only Filter, Dual-Margin Filter,
-  DASS (Ours)), chỉ áp dụng khi xuất bảng. Kiểm định: mọi biến thể vs M0, cộng `evaluation.comparisons` (M6 vs M0b,
-  M6 vs M1).
+- **Thiết kế chính = B** (`selection.design: source_balanced`, người dùng quyết định, 1.21.0; mặc định trong
+  `configs/_base_/`): M0 = chỉ ảnh thật (mất cân bằng); M1–M6 = ảnh thật + ROS lớp thiểu số lên 1 : 1 (cùng tập nhân
+  bản) + s = q × (ảnh thật lớp đa số) ảnh sinh **mỗi lớp** (q = `balanced_synth_ratio` = 0,5: ISIC 309, RSNA 3.761),
+  chọn trong pool ⌈k·s⌉ ảnh của từng lớp; lớp đa số chọn bằng cùng tiêu chí, margin đảo chiều (`filter_majority:
+  true`). Không M0b / M0c (`oversample_variant: false`; ROS nằm trong M1–M6). Họ giả thuyết chính (khai báo trước,
+  1.20.0): **H1** M6 vs M1 (DASS vs Random), **H2** M6 vs M0; còn lại là khám phá. Tên hiển thị "ROS + Balanced GAN:
+  …" (`evaluation.method_labels`, chỉ áp dụng khi xuất bảng). Lần chạy: ISIC `v13` (server `v13_srv`), RSNA `rsna_v4`
+  (server `rsna_v4_srv`); config server dùng lại E_d của `v12_srv` / `rsna_v3_srv`; `configs/server/*_designB.yaml`
+  chỉ còn là tên cũ (resolve giống hệt, có test).
+- **Thiết kế A** (`minority_only`, công thức gốc tới 1.20.x): ảnh sinh chỉ ở lớp thiểu số (bù n = đa số − thiểu số tới
+  1 : 1) + baseline ROS **M0b** (`M0b_real_oversample`, ghép ở bước `train`, không nằm trong `selections.json`); tên
+  hiển thị Imbalanced Baseline, Random Oversampling (ROS), Unfiltered GAN (Random Selection), Visual-only /
+  Disease-only / Diversity-only Filter, Dual-Margin Filter, DASS (Ours); họ chính M6 vs M0b / M1 / M0. Khôi phục
+  ĐÚNG bằng profile `configs/experiments/design_a.yaml` + `--set paths.run_tag=<lần chạy A>` (có test; đã đối chiếu
+  cấu hình resolve trùng từng byte với trước 1.21.0). Lần chạy A: ISIC `v7`–`v12` (+ `v12_srv`), RSNA `rsna_v2`,
+  `rsna_v3` (+ `rsna_v3_srv`). Tuỳ chọn khám phá của A (mặc định tắt): M7, `synth_fraction`, M8 / M8r / M0c
+  (`balanced_synth_ratio` > 0 khi `design: minority_only`), `encoder.e_d_crossfit_folds` (CHANGELOG 1.14–1.17).
+- Công thức chọn ảnh chung cho hai thiết kế: M1–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`. Không đổi **mã** các
+  biến thể đã có (mã nằm trong `.npz` trên Drive). `.npz` ghi `design`; trộn A với B trong một thư mục dự đoán bị chặn.
 - **Classifier không can thiệp dữ liệu, cho MỌI bộ dữ liệu** (người dùng quyết định, 1.11.0):
   `classifier.augment: false` và `classifier.baseline_class_weight: false` trong `configs/_base_/classifier.yaml`
-  (M0 = baseline mất cân bằng thật; ROS là baseline cân bằng bằng ảnh thật). Không ghi đè trong `configs/datasets/`
-  (có test: classifier của ISIC và RSNA giống hệt). Lần chạy hiện tại: ISIC `v12`, RSNA `rsna_v3` (như `v11` / `rsna_v2`
-  nhưng chọn epoch theo `val_auc`, người dùng quyết định 1.12.0). Cấu hình cũ giữ nguyên trên Drive, báo cáo riêng: ISIC
+  (M0 = baseline mất cân bằng thật; ROS nằm trong M1–M6 ở thiết kế B, là baseline M0b ở thiết kế A). Không ghi đè trong `configs/datasets/`
+  (có test: classifier của ISIC và RSNA giống hệt). Lần chạy hiện tại (thiết kế B): ISIC `v13`, RSNA `rsna_v4`; chọn epoch theo
+  `val_auc` từ 1.12.0 (ISIC `v12`, RSNA `rsna_v3`, thiết kế A). Cấu hình cũ giữ nguyên trên Drive, báo cáo riêng: ISIC
   `v11` / RSNA `rsna_v2` (chọn epoch theo `val_macro_recall`), ISIC `v10` / `v7` (có augmentation, M0 có class weight), ISIC `v9` (cả hai tắt,
   k = 2). E_d luôn train có augmentation + class weight (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA
   của GAN giữ nguyên. RSNA còn `generator.mirror: false` (X-quang không đối xứng trái / phải; có test). Khi người
   dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm vi: augmentation, class weight của M0, hay cả hai.
-- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (ISIC `v10` / `v11`, RSNA `rsna_v2`, hiện tại); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng: 4 (ISIC `v7`) → 3 → 2 (ISIC `v9`) → 1,5 (từ ISIC `v10`, RSNA `rsna_v2`; hiện tại, cả thiết kế A lẫn B); lý do ghi nhận: chọn càng gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive; ISIC `v8` chưa từng chạy. Tuỳ chọn `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 - KID dừng sớm GAN so với ảnh thật lớp thiểu số của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`).
 - **Tách bộ dữ liệu** (có test `tests/regression/test_dataset_isolation.py`): ổ tạm `<local_root>/<data.name>` thuộc

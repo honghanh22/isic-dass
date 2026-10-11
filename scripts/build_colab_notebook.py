@@ -77,9 +77,12 @@ md("""
 ## 1. Chọn thực nghiệm
 
 `EXPERIMENT`: `configs/experiments/rsna_pneumonia_dass.yaml` (RSNA: `prepare` tự đọc DICOM; GAN `rsna` đã train) hoặc
-`configs/experiments/isic2016_dass.yaml`.
+`configs/experiments/isic2016_dass.yaml`. Cấu hình chính là **thiết kế B** (ROS + ảnh sinh cân bằng hai lớp; ISIC
+`v13`, RSNA `rsna_v4`).
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
+Xem lại kết quả **thiết kế A** cũ: `PROFILE = "configs/experiments/design_a.yaml"`,
+`EXTRA = "--set paths.run_tag=v12"` (RSNA: `rsna_v3`).
 """)
 code("""
 EXPERIMENT = "configs/experiments/rsna_pneumonia_dass.yaml"
@@ -159,17 +162,18 @@ show("frequency_analysis/*.png")
 md(r"""
 ## 6. Chọn ảnh sinh: E_v / E_d, chấm điểm, kiểm tra shortcut
 
-Mỗi phương pháp Generative Augmentation chọn đúng n ảnh từ cùng một pool. Log và tên file dùng **mã nội bộ**; bảng
-cho bài báo (`report`) dùng **tên hiển thị** (`evaluation.method_labels`):
+Thiết kế B: mỗi phương pháp M1–M6 chọn **s ảnh sinh cho MỖI lớp** (s = 0,5 × ảnh thật lớp đa số: ISIC 309, RSNA
+3.761) từ pool ⌈1,5·s⌉ ảnh của lớp đó; lớp đa số dùng cùng tiêu chí với margin đảo chiều. E_d dùng lại hoặc train mới
+theo `encoder.e_d_from_run`. Log và tên file dùng **mã nội bộ**; bảng cho bài báo (`report`) dùng **tên hiển thị**:
 
 | Mã nội bộ | Tên trong bài báo |
 |---|---|
-| `M1_random` | Unfiltered GAN (Random Selection) |
-| `M2_visual` | Visual-only Filter ($M_v$) |
-| `M3_disease` | Disease-only Filter ($M_d$) |
-| `M5_diversity` | Diversity-only Filter ($S_{\text{div}}$) |
-| `M4_visual_disease` | Dual-Margin Filter ($M_v + M_d$) |
-| `M6_dass` | **DASS (Ours)** |
+| `M1_random` | ROS + Balanced GAN: Random |
+| `M2_visual` | ROS + Balanced GAN: Visual margin ($M_v$) |
+| `M3_disease` | ROS + Balanced GAN: Disease margin ($M_d$) |
+| `M5_diversity` | ROS + Balanced GAN: Diversity ($S_{\text{div}}$) |
+| `M4_visual_disease` | ROS + Balanced GAN: Dual margin ($M_v + M_d$) |
+| `M6_dass` | **ROS + Balanced GAN: DASS (Ours)** |
 """)
 code("""
 !dass {CFG} select
@@ -180,15 +184,15 @@ show("selection_figures/grid_M6_dass_*.png")
 """)
 
 md("""
-## 7. Train classifier — 6 backbone × 8 phương pháp × 3 seed
+## 7. Train classifier — 6 backbone × 7 phương pháp × 3 seed
 
-Mỗi cell một backbone, train cả 8 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
+Mỗi cell một backbone, train cả 7 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
 trên Drive sẽ bỏ qua). Mọi phương pháp, ở cả hai bộ dữ liệu: **không augmentation, không class weight** — chỉ khác
-nội dung tập train.
+nội dung tập train. Chọn epoch theo `val_auc`.
 
-- **Real Data Baselines:** Imbalanced Baseline (`M0_real_only`, mất cân bằng thật), Random Oversampling (ROS)
-  (`M0b_real_oversample`)
-- **Generative Augmentation (StyleGAN2-ADA):** 6 phương pháp ở mục 6, từ Unfiltered GAN đến **DASS (Ours)**
+- **Real Data Baseline:** Imbalanced Baseline (`M0_real_only`): chỉ ảnh thật, mất cân bằng thật.
+- **ROS + Class-balanced GAN:** M1–M6 = ảnh thật + ROS lớp thiểu số lên 1 : 1 + s ảnh sinh MỖI lớp (mục 6); sáu
+  phương pháp có cùng số ảnh, chỉ khác cách chọn ảnh sinh.
 
 CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub): `ViT-B16`, `SwinT`.
 Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
@@ -205,8 +209,9 @@ for model in ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "Vi
 md("""
 ## 8. Đánh giá và bảng cho bài báo (`tables/*.csv`, `*.json`, `*.tex`)
 
-Bảng dùng tên hiển thị và cột `Group` (Real Data Baselines / Generative Augmentation (StyleGAN2-ADA)); kiểm định
-gồm mọi phương pháp vs Imbalanced Baseline, cộng DASS (Ours) vs ROS và DASS (Ours) vs Unfiltered GAN.
+Bảng dùng tên hiển thị và cột `Group` (Real Data Baseline / ROS + Class-balanced GAN (StyleGAN2-ADA)). Họ giả thuyết
+chính (Holm riêng): **H1** DASS vs Random (M6 vs M1), **H2** DASS vs Imbalanced Baseline (M6 vs M0); mọi so sánh
+khác vs M0 là khám phá. Bảng `auc_by_split` (AUC train / val / test) đọc bằng `table("auc_by_split")`.
 """)
 code("""
 !dass {CFG} evaluate

@@ -6,9 +6,9 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 
 | File | Một dòng là | Cột chính |
 |---|---|---|
-| `classification_runs` | một lần chạy (model × phương pháp × seed) | `model, method, lam, k, seed, best_epoch, n_test, val_roc_auc, roc_auc, pr_auc, f1, macro_f1, sensitivity, specificity, balanced_accuracy, g_mean, mcc, precision, accuracy` |
+| `classification_runs` | một lần chạy (model × phương pháp × seed) | `model, method, lam, k, seed, best_epoch, n_test, train_roc_auc, val_roc_auc, roc_auc, pr_auc, f1, macro_f1, sensitivity, specificity, balanced_accuracy, g_mean, mcc, precision, accuracy` |
 | `classification_summary` | (model, phương pháp) | `<metric>_mean`, `<metric>_std` (độ lệch chuẩn mẫu qua seed), `n_seeds` |
-| `significance_vs_baseline` | (model, phương pháp, đối chứng): mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons` (M6 vs M0b, M6 vs M1) | `vs` (đối chứng), `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung — dao động do mẫu test); `p_holm` (Holm trong mỗi model); `delta_auc_seed_mean, delta_auc_seed_std` (ΔAUC ghép cặp theo seed — dao động giữa các lần train) |
+| `significance_vs_baseline` | (model, phương pháp, đối chứng): mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons` (thiết kế B: M6 vs M1; thiết kế A: M6 vs M0b, M6 vs M1; cặp trùng phép so với M0 chỉ tính một lần) | `vs` (đối chứng), `family` (`primary` = cặp trong `evaluation.primary_comparisons`, còn lại `exploratory`), `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung — dao động do mẫu test); `p_holm` (Holm trong mỗi model × họ `family`); `delta_auc_seed_mean, delta_auc_seed_std` (ΔAUC ghép cặp theo seed — dao động giữa các lần train) |
 | `classification_by_subgroup_runs` | (lần chạy, nhóm con) — chỉ khi `evaluation.subgroup_columns` | `attribute, group` (ví dụ `ViewPosition`, `AP`), `n, n_pos` + metric |
 | `classification_by_subgroup` | (model, phương pháp, nhóm con) | `roc_auc_*`, `pr_auc_*` (mean / std qua seed), `n, n_pos, n_seeds` |
 | `significance_by_subgroup` | (model, phương pháp, đối chứng, nhóm con) | như `significance_vs_baseline`, `p_holm` trong mỗi model × nhóm |
@@ -33,8 +33,8 @@ Quy ước:
 Mỗi bảng: `.csv` (đã định dạng `mean ± std`), `.json` (số thô), `.tex` (booktabs; in đậm giá trị tốt nhất mỗi cột
 trong từng model / nhóm; KID, FID, SSIM, AUC thật-vs-sinh: thấp hơn là tốt hơn).
 
-Bảng dùng **tên hiển thị** của phương pháp (`evaluation.method_labels`, ví dụ "DASS (Ours)", "Random Oversampling
-(ROS)") theo đúng thứ tự khai báo, kèm cột `Group` (`evaluation.method_groups`) trong bảng `classification`. Công thức
+Bảng dùng **tên hiển thị** của phương pháp (`evaluation.method_labels`, ví dụ "ROS + Balanced GAN: DASS (Ours)";
+thiết kế A: "DASS (Ours)", "Random Oversampling (ROS)") theo đúng thứ tự khai báo, kèm cột `Group` (`evaluation.method_groups`) trong bảng `classification`. Công thức
 `$...$` trong tên được giữ trong `.tex` và bỏ ký hiệu LaTeX trong `.csv` (`$S_{\text{div}}$` -> `S_div`). File `.json`
 và `metrics/` giữ **mã nội bộ** (`M6_dass`, …).
 
@@ -42,7 +42,8 @@ và `metrics/` giữ **mã nội bộ** (`M6_dass`, …).
 |---|---|
 | `dataset` | `checkpoints_<run_tag>/data/dataset_card.json` |
 | `classification` | `metrics/classification_summary` |
-| `significance` | `metrics/significance_vs_baseline` |
+| `significance` | `metrics/significance_vs_baseline` (cột `Family`: Primary / Exploratory, họ chính xếp trước) |
+| `auc_by_split` | `metrics/classification_runs`: ROC-AUC train (ảnh **thật** của tập train, không gồm ảnh nhân bản / ảnh sinh) / val / test, mean ± std qua seed, cột Train − Test |
 | `classification_by_subgroup`, `significance_by_subgroup`, `subgroup_reference`, `subgroup_share` | `metrics/` cùng tên |
 | `generation_quality` | `metrics/generation_quality` |
 
@@ -52,8 +53,11 @@ Chú thích bảng (`caption` trong `.tex`) viết bằng tiếng Anh, cùng ng�
 
 - `run_manifest.json`: cấp trên cùng = lần ghi gần nhất (config, phiên bản, commit); `stages.<stage>` lưu riêng thời
   điểm, lệnh, `dass_version`, `code_version` (commit git) và config của **từng** stage (ví dụ `train:ResNet50`).
+- `checkpoints_<run_tag>/data/selections.json`: tên ảnh sinh lớp thiểu số mỗi phương pháp chọn;
+  `selections_majority.json` (thiết kế B, `filter_majority`): ảnh sinh lớp đa số mỗi phương pháp chọn.
 - `checkpoints_<run_tag>/data/dataset_card.json`: số kênh, số ảnh mỗi tập / lớp, tham số chia, SHA-1 của split.
-- `predictions/<model>__<variant>__s<seed>.npz`: `y_val, p_val, y_test, p_test` + metadata (`augment`, `class_weight`;
+- `predictions/<model>__<variant>__s<seed>.npz`: `y_val, p_val, y_test, p_test` (từ 1.18.0 thêm `y_train, p_train` trên ảnh thật
+  của tập train) + metadata (`augment`, `class_weight`, `monitor`, `design`, `filter_majority`, `synth_fraction`;
   từ 1.9.0 thêm `test_files` = tên ảnh test `lớp/tệp` đúng thứ tự dự đoán, `code_version`, `dass_version`) — nguồn
   của mọi bảng phân loại. `.npz` cũ không có `test_files`: phân tích nhóm con dựng lại từ split (thứ tự dự đoán =
   lớp theo cấu hình, tên file tăng dần), chỉ dùng khi nhãn khớp đúng thứ tự.

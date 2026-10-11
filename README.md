@@ -3,11 +3,15 @@
 <!-- TODO: full name of the DASS acronym, paper title and venue -->
 
 Official implementation of **DASS**, a selection method for synthetic training images. A class-conditional
-**StyleGAN2-ADA** generates a pool of candidate images for the minority (disease) class. DASS keeps the candidates that
-are **close to real minority images and far from the majority class**, measured both in a generic ImageNet feature space
-and in a disease-aware feature space, while keeping the selected set **diverse**. Downstream classifiers are trained on
-real + selected images and compared with seven controls, including random oversampling of real images, under a fixed,
-leakage-free protocol.
+**StyleGAN2-ADA** generates a pool of candidate images for each class. DASS keeps the candidates that are **close to real
+images of their own class and far from the other class**, measured both in a generic ImageNet feature space and in a
+disease-aware feature space, while keeping the selected set **diverse**.
+
+In the main experimental design (*source-balanced*), every generative method trains on the real images, random
+oversampling (ROS) of the minority class up to 1 : 1, and **the same number of selected synthetic images in each class**.
+Whether an image is real or synthetic therefore carries no information about its label, and the methods differ only in
+how the synthetic images are selected. They are compared with each other and with the imbalanced real-data baseline
+under a fixed, leakage-free protocol.
 
 **Benchmarks:** ISIC 2016 (dermoscopy, melanoma vs. benign) and RSNA Pneumonia (chest X-ray, lung opacity vs. none).
 Both datasets run on the same code and the same selection formulas; only `configs/datasets/*.yaml` differs.
@@ -37,7 +41,7 @@ flowchart LR
     B --> C["gan<br/>conditional StyleGAN2-ADA<br/>KID early stopping"]
     C --> D["sample<br/>candidate pool N = k·n"]
     D --> E["select<br/>E_v / E_d margins + diversity<br/>DASS and controls"]
-    E --> F["train<br/>6 backbones × 8 methods × 3 seeds"]
+    E --> F["train<br/>backbones × 7 methods × 3 seeds"]
     B --> F
     F --> G["evaluate<br/>AUC · bootstrap · Holm · KID · subgroups"]
     G --> H["report<br/>paper tables"]
@@ -46,9 +50,10 @@ flowchart LR
 | Step | What happens |
 |---|---|
 | Generator | Class-conditional StyleGAN2-ADA, trained on the training split only; the snapshot with the lowest minority-class KID is kept. |
-| Candidate pool | `N = ⌈k · n⌉` synthetic minority images, with `n = |majority| − |minority|` and `k = 1.5`. |
-| Selection | Every generative method picks exactly `n` images from the **same pool**; methods differ only in the selection criterion. |
-| Classifiers | 6 ImageNet-pretrained backbones (4 CNNs, 2 Transformers), 3 seeds each, identical training recipe for every method. |
+| Candidate pools | One pool per class of `⌈k · s⌉` synthetic images, with `s = q · |majority|`, `q = 0.5` and `k = 1.5`. |
+| Selection | Every generative method picks exactly `s` images per class from the **same pools**; methods differ only in the selection criterion. |
+| Training sets | Real images + ROS of the minority class to 1 : 1 + `s` selected synthetic images in **each** class. |
+| Classifiers | ImageNet-pretrained backbones (Colab: 4 CNNs + 2 Transformers; server: 3 CNNs), 3 seeds each, identical training recipe for every method. |
 | Evaluation | Real-only validation and test sets; fixed threshold 0.5; paired bootstrap ΔAUC with Holm adjustment; KID for image quality. |
 
 ## Method
@@ -65,6 +70,8 @@ S_DASS(x) = α · M̃_v(x) + β · M̃_d(x) + γ · S̃_div(x)      ~ : min-max 
 ```
 
 Selection is greedy: at each step the candidate with the highest `S_DASS` is added (`α = β = 1`, `γ = 0.5`, `λ = 1`).
+Majority-class candidates are selected with the same criterion and **reversed margins** (`S⁺` measured against the real
+majority images, `S⁻` against the real minority images).
 
 | Feature space | Model | Training |
 |---|---|---|
@@ -73,22 +80,29 @@ Selection is greedy: at each step the candidate with the highest `S_DASS` is add
 
 ### Compared methods
 
-| Group | Method (paper name) | ID | Minority class in the training set |
+| Group | Method (paper name) | ID | Training set |
 |---|---|---|---|
-| Real Data Baselines | **Imbalanced Baseline** | M0 | real images only, imbalanced (no reweighting, no resampling) |
-| | **Random Oversampling (ROS)** | M0b | real images duplicated up to 1 : 1 |
-| Generative Augmentation (StyleGAN2-ADA) | **Unfiltered GAN (Random Selection)** | M1 | real + `n` random candidates |
-| | **Visual-only Filter (M_v)** | M2 | real + top-`n` by `M̃_v` |
-| | **Disease-only Filter (M_d)** | M3 | real + top-`n` by `M̃_d` |
-| | **Diversity-only Filter (S_div)** | M5 | real + k-center greedy (no margin) |
-| | **Dual-Margin Filter (M_v + M_d)** | M4 | real + top-`n` by `α·M̃_v + β·M̃_d` |
-| | **DASS (Ours)** | M6 | real + greedy `S_DASS` |
+| Real Data Baseline | **Imbalanced Baseline** | M0 | real images only, imbalanced (no reweighting, no resampling) |
+| ROS + Class-balanced GAN (StyleGAN2-ADA) | **ROS + Balanced GAN: Random** | M1 | real + ROS + `s` random synthetic images per class |
+| | **ROS + Balanced GAN: Visual margin (M_v)** | M2 | real + ROS + top-`s` by `M̃_v` per class |
+| | **ROS + Balanced GAN: Disease margin (M_d)** | M3 | real + ROS + top-`s` by `M̃_d` per class |
+| | **ROS + Balanced GAN: Diversity (S_div)** | M5 | real + ROS + k-center greedy per class (no margin) |
+| | **ROS + Balanced GAN: Dual margin (M_v + M_d)** | M4 | real + ROS + top-`s` by `α·M̃_v + β·M̃_d` per class |
+| | **ROS + Balanced GAN: DASS (Ours)** | M6 | real + ROS + greedy `S_DASS` per class |
 
-ROS and all generative methods share the training-set size, the number of optimisation steps and the balancing mechanism
-(data, not loss weights). **DASS vs. ROS** therefore isolates the contribution of the synthetic image *content*, and
-**DASS vs. Unfiltered GAN** that of the *selection*. An optional control M7 (synthetic images added to both classes, to
-neutralise a "synthetic ⇒ minority" shortcut) is available but off by default. Internal IDs are kept in all artefacts;
-paper names are applied only when tables are written.
+M1–M6 share the real images, the same duplicated minority images, the training-set size and the number of optimisation
+steps; only the selected synthetic images differ. The pre-registered primary hypotheses are **H1: DASS vs. Random**
+(M6 vs. M1, the contribution of the *selection*) and **H2: DASS vs. Imbalanced Baseline** (M6 vs. M0, the full
+pipeline). Internal IDs are kept in all artefacts; paper names are applied only when tables are written.
+
+**Why synthetic images in both classes.** When synthetic images are added to the minority class only, "looks synthetic"
+becomes a cue for the minority label: a real-vs-synthetic probe separates the two at AUC ≈ 0.99. With the same number
+of synthetic images in each class, that cue carries no label information.
+
+**Earlier design (A, `minority_only`).** Runs up to ISIC `v12` / RSNA `rsna_v3` added `n = |majority| − |minority|`
+synthetic images to the minority class only and included a random-oversampling baseline (M0b) and an optional
+both-classes control (M7). Design A is kept as a configuration profile, `configs/experiments/design_a.yaml`, and its
+results are reported separately.
 
 The full method, experimental design, statistics and threats to validity are documented in
 [docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
@@ -104,6 +118,8 @@ The full method, experimental design, statistics and threats to validity are doc
 | Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 |
 | Imbalance (train) | 4.2 : 1 | 7.1 : 1 |
 | Generator | reused checkpoint (3 channels, x-flips on) | trained from scratch (1 channel, **no x-flips**: chest anatomy is not left–right symmetric) |
+| Synthetic images per class `s` (pool `⌈1.5 s⌉`) | 309 (464) | 3,761 (5,642) |
+| Training set per class, M1–M6 | 927 + 927 | 11,283 + 11,283 |
 | Classifier augmentation | none | none |
 
 **RSNA specifics.** Patient identities come from the NIH ChestX-ray mapping released with the dataset; keeping one
@@ -124,8 +140,10 @@ image per patient prevents patient overlap between train, validation and test. V
 - **Metrics.** ROC-AUC (primary), PR-AUC, sensitivity, specificity, balanced accuracy, G-mean, MCC, F1 — mean ± std over
   three seeds.
 - **Statistics.** Paired, class-stratified bootstrap of ΔAUC (2,000 resamples) on seed-averaged predictions, with 95 % CI;
-  p-values Holm-adjusted within each backbone; seed-paired ΔAUC (mean ± std) reported alongside. Comparisons: every
-  method vs. the Imbalanced Baseline, plus DASS vs. ROS and DASS vs. Unfiltered GAN.
+  seed-paired ΔAUC (mean ± std) reported alongside. Primary family (pre-registered): H1 DASS vs. Random, H2 DASS vs.
+  Imbalanced Baseline; every other method vs. the Imbalanced Baseline is exploratory. p-values are Holm-adjusted
+  within each family and backbone.
+- **Overfitting check.** ROC-AUC on the real training images, validation and test for every run.
 - **Synthetic image quality.** KID (primary, mean ± std over 50 subsets) and FID (reference) on the StyleGAN2-ADA
   Inception-v3 features, intra-set diversity and SSIM, and real-vs-synthetic separability (logistic probe on `E_v`).
 - **Subgroups (RSNA).** AUC within the AP and PA groups, the AUC obtained from view position alone, and the share of
@@ -214,6 +232,8 @@ or skipped. Useful options:
 | Override one value | `--set selection.gamma=0` |
 | Separate output folder for an ablation | `--tag nodiv` (appends to `run_tag`) |
 | Reuse the main run's `E_d` in an ablation | `--set encoder.e_d_from_run=base --tag <name>` |
+| Re-evaluate an earlier design-A run | `dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=v12 report` |
+| Lab server (3 CNNs, server paths, `E_d` reused) | `dass -c configs/server/rsna_pneumonia.yaml --tag srv run` |
 | Retrain runs made under another protocol | `train --model X --archive-mismatched` (old runs are moved, never deleted) |
 
 Configuration is resolved in this order: `configs/_base_/*` → `configs/datasets/<name>.yaml` →
@@ -228,7 +248,8 @@ mean ± std), `.json` (raw numbers) and `.tex` (booktabs, best value per backbon
 |---|---|
 | `dataset` | images per split and class |
 | `classification` | AUC, PR-AUC, F1, sensitivity, specificity, balanced accuracy, G-mean, MCC — mean ± std over seeds |
-| `significance` | ΔAUC with 95 % CI, p-value, Holm-adjusted p and seed-paired ΔAUC (column `vs` = reference method) |
+| `significance` | ΔAUC with 95 % CI, p-value, Holm-adjusted p and seed-paired ΔAUC (column `vs` = reference method, `Family` = primary / exploratory) |
+| `auc_by_split` | ROC-AUC on train (real images only), validation and test, and the train − test gap |
 | `classification_by_subgroup`, `significance_by_subgroup` | RSNA: the same within the AP and PA subgroups |
 | `subgroup_reference` | RSNA: AUC from view position alone |
 | `subgroup_share` | RSNA: share of AP-looking images in real and synthetic sets |
@@ -269,10 +290,11 @@ diagnostic figures in `gan/` and `selection_figures/`. Column definitions: [docs
 ├── configs/
 │   ├── _base_/                 shared recipe: generator, selection (DASS, E_d), classifier, evaluation, runtime
 │   ├── datasets/               dataset-specific settings only: isic2016, rsna_pneumonia, _template
-│   └── experiments/            experiment = base + dataset (+ smoke profile for quick checks)
+│   ├── experiments/            experiment = base + dataset; profiles: smoke (quick check), design_a (earlier design)
+│   └── server/                 lab-server variants (paths, 3 CNNs, reused E_d); *_designB = aliases
 ├── src/dass/                   the Python package (all logic)
 ├── notebooks/                  Colab notebook (one cell per CLI stage), GPU check, archived original notebook
-├── scripts/                    notebook generator
+├── scripts/                    notebook generator, validation-only diagnostics (shortcut probe, label fidelity, ablations)
 ├── tests/                      unit + regression tests (no GPU, PyTorch or TensorFlow needed)
 ├── docs/                       guide, architecture, workflow, results format (Vietnamese)
 └── colab_gpu_check.ipynb       legacy GPU check (superseded by notebooks/colab_gpu_check.ipynb)
@@ -314,15 +336,16 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - Fixed seeds: split and global seed 2026, classifier seeds 2026 / 2027 / 2028, `E_d` seed 4242, pool seed 777.
 - Splits are saved and checked on every run; changing the split under an existing `run_tag` stops the pipeline.
-- Every prediction file records its training protocol (augmentation, class weights) and, from v1.9.0, the git commit
-  and the test image names; runs under different protocols are never mixed in one table.
+- Every prediction file records its training protocol (augmentation, class weights, epoch-selection metric, training-set
+  design) and, from v1.9.0, the git commit and the test image names; runs under different protocols or designs are
+  never mixed in one table.
 - `run_manifest.json` records, for every stage, the git commit, the resolved configuration and library versions.
 - Artefacts are never deleted; a new configuration gets a new `run_tag` or `--tag`.
 
 | Dataset | `gan_tag` | Main `run_tag` | Other runs kept for reporting |
 |---|---|---|---|
-| ISIC 2016 | `v5` | `v12` (k = 1.5, no augmentation, unweighted baseline, epoch by `val_auc`) | `v11` (as `v12`, epoch by `val_macro_recall`), `v10` (k = 1.5, augmentation, class-weighted baseline), `v9` (k = 2, no augmentation, unweighted), `v7` (k = 4) |
-| RSNA Pneumonia | `rsna` | `rsna_v3` (k = 1.5, no augmentation, unweighted baseline, epoch by `val_auc`; split of `rsna_v2`) | `rsna_v2` (as `rsna_v3`, epoch by `val_macro_recall`), `rsna_v1` (6,000-image subset, data preparation only) |
+| ISIC 2016 | `v5` | `v13` (design B; server `v13_srv`) | design A: `v12` / `v12_srv` (epoch by `val_auc`), `v11` (epoch by `val_macro_recall`), `v10` (augmentation, class-weighted baseline), `v9` (k = 2), `v7` (k = 4) |
+| RSNA Pneumonia | `rsna` | `rsna_v4` (design B; server `rsna_v4_srv`; split of `rsna_v2`) | design A: `rsna_v3` / `rsna_v3_srv` (epoch by `val_auc`), `rsna_v2` (epoch by `val_macro_recall`); `rsna_v1` (6,000-image subset, data preparation only) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

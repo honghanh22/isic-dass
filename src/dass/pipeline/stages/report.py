@@ -46,7 +46,8 @@ def run(cfg: Config) -> list:
                                          "Train − Test: generalisation gap", latex)
 
     sig_caption = ("paired bootstrap ΔAUC on the seed-averaged (ensemble) predictions with 95% CI and p-value; "
-                   "p (Holm): Holm-adjusted within each model; ΔAUC per seed: mean ± std of seed-paired differences")
+                   "p (Holm): Holm-adjusted within each model and hypothesis family (Family); ΔAUC per seed: mean ± std of "
+                   "seed-paired differences")
     cmp = load_metrics(layout, "significance_vs_baseline")
     if cmp is not None:
         written += reporting.write_table(out, "significance", reporting.significance_table(cmp, labels), cmp,

@@ -18,6 +18,14 @@ vì giá trị của nó thay đổi khi tập đã chọn lớn dần.
 | M6 | α·M̃_v + β·M̃_d            | có (γ = gamma)   |
 | M7 | như M6 + `n_select` ảnh sinh vào lớp ĐA SỐ, có class weight (tuỳ chọn `both_classes_variant`) |
 
+Tiêu chí chọn ở trên dùng chung cho hai thiết kế tập train (`selection.design`, ghép ở `pipeline.stages.train`):
+- **B — `source_balanced` (chính từ 1.21.0):** M1–M6 chọn s = q × (ảnh thật lớp đa số) ảnh sinh lớp thiểu số trong
+  ⌈k·s⌉ ảnh đầu pool; với `filter_majority`, chọn thêm s ảnh sinh lớp ĐA SỐ bằng cùng tiêu chí, margin đảo chiều
+  (pool riêng, seed gen_seed + 1). Tập train = ảnh thật + ROS lớp thiểu số lên 1 : 1 + s ảnh sinh MỖI lớp -> nguồn
+  ảnh (thật / sinh) độc lập với nhãn. Không có M0b (ROS đã nằm trong M1–M6).
+- **A — `minority_only` (tới 1.20.x):** M1–M6 chọn n_select ảnh sinh chỉ cho lớp thiểu số (bù tới 1 : 1); M0b là
+  baseline ROS bên dưới.
+
 M0b (random oversampling, Buda et al. 2018): cùng số ảnh, cùng số bước train và cùng cách cân bằng (bằng dữ liệu)
 với M1–M6, chỉ khác ở chỗ ảnh thêm vào là ảnh THẬT nhắc lại -> M6 vs M0b đo đúng đóng góp của NỘI DUNG ảnh sinh.
 M0b không chọn gì từ pool nên không nằm trong `selections.json`; tập train được ghép ở bước train

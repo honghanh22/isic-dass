@@ -48,11 +48,15 @@ Không còn bước nào biến đổi ảnh theo từng kênh (nguồn gốc l�
 ```
 prepare   nguồn ─► raw/ ─► pp{size}_png/ ─► split (+ test tách ra nếu cần) ─► dataset_card.json
 gan       pp train ─► zip ─► StyleGAN2-ADA (KID early stopping) ─► best.pkl
-sample    best.pkl ─► pool_<lớp>_<tag>.zip (Drive)
-select    E_v, E_d ─► M_v, M_d ─► M0–M6 ─► selections.json, embeddings.npz, shortcut_check
-train     selections.json (+ M0b: ảnh thật nhân bản lên 1 : 1, ghép tại đây) ─► variants/<M>_p<k>/{train,val}
-          ─► <model>__<variant>__s<seed>.npz (dự đoán val + test)
-evaluate  .npz ─► metrics/classification_*, significance (vs M0 + cặp bổ sung); Inception-v3 ─► generation_quality
+sample    best.pkl ─► pool_<lớp>_<tag>.zip (Drive): lớp thiểu số; thiết kế B thêm pool lớp đa số (seed + 1)
+select    E_v, E_d ─► M_v, M_d ─► M1–M6 ─► selections.json (+ selections_majority.json ở thiết kế B: lớp đa số,
+          margin đảo chiều), embeddings.npz, shortcut_check
+train     selections.json + ảnh thật nhân bản (ROS) ghép tại đây (`variant_inputs`): thiết kế B = thật + ROS + s ảnh
+          sinh mỗi lớp cho M1–M6; thiết kế A = thật + n ảnh sinh lớp thiểu số, M0b = thật + ROS
+          ─► variants/<M>_p<k>/{train,val}
+          ─► <model>__<variant>__s<seed>.npz (dự đoán train thật + val + test)
+evaluate  .npz ─► metrics/classification_*, significance (vs M0 + cặp bổ sung, Holm theo họ chính / khám phá);
+          Inception-v3 ─► generation_quality
 report    metrics/ ─► tables/*.csv | *.json | *.tex
 ```
 

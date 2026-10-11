@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.21.0 — thiết kế B là thiết kế chính (người dùng quyết định)
+- `configs/_base_/` + schema: `selection.design: source_balanced`, `balanced_synth_ratio: 0.5`, `filter_majority:
+  true`, `oversample_variant: false`; `evaluation`: họ chính H1 M6 vs M1, H2 M6 vs M0, tên hiển thị "ROS + Balanced
+  GAN: …", nhóm "Real Data Baseline" / "ROS + Class-balanced GAN (StyleGAN2-ADA)". Không đổi thuật toán nào.
+- `run_tag`: ISIC `v12` -> **`v13`**, RSNA `rsna_v3` -> **`rsna_v4`** (cùng GAN, cùng split). Colab tự train E_d;
+  `configs/server/{isic2016,rsna_pneumonia}.yaml` dùng lại E_d của `v12_srv` / `rsna_v3_srv`.
+- `configs/server/*_designB.yaml` chỉ còn là tên cũ của config server thường. Đã đối chiếu: cấu hình resolve của
+  `v13_srv` / `rsna_v4_srv` **trùng từng byte** với 1.20.1 (kết quả đang chạy trên server không bị ảnh hưởng).
+- Thiết kế A giữ làm profile **`configs/experiments/design_a.yaml`** (design minority_only, M0b, họ chính và tên hiển
+  thị cũ, E_d tự train). Ghép với `--set paths.run_tag=<v12 | rsna_v3 | …>` cho ra cấu hình **trùng từng byte** với
+  các lần chạy A trước 1.21.0 (Colab và server).
+- Test: thiết kế B là mặc định của cả hai thực nghiệm; profile A khôi phục đúng công thức gốc và chỉ khác ở
+  `selection` / `evaluation`; config server và tên `*_designB` resolve giống hệt.
+- Tài liệu (README, GUIDE, CLAUDE.md, WORKFLOW, ARCHITECTURE, RESULTS_FORMAT, markdown notebook) viết lại theo thiết
+  kế B; thiết kế A mô tả như thiết kế trước, báo cáo riêng. Caption bảng significance: Holm trong từng model × họ.
+
 ## 1.20.0 — thiết kế B bỏ M0b / M0c (người dùng quyết định)
 - `configs/server/{isic2016,rsna_pneumonia}_designB.yaml`: `selection.oversample_variant: false` -> không train M0b
   (ROS) và M0c (ROS cùng kích thước). ROS vẫn nằm TRONG M1–M6 (lớp thiểu số = ảnh thật + ROS + s ảnh sinh).
