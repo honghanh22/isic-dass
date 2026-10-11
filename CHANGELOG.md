@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.4 — Colab chạy tự động
+- `configs/colab/*`: E_d **tự train trong lần chạy** (cùng công thức, lưu lên Drive) thay vì dùng lại E_d của server
+  (file đó không có trên Drive). Khác config server ở `encoder.e_d_from_run`; test cập nhật.
+- `dass preflight --fix`: file bắt buộc bị thiếu nhưng có đúng một bản trong thư mục trùng tên do Drive tạo
+  ("checkpoints_rsna_v2 (1)") hoặc ở thư mục cha (bố cục cũ) -> chép về đúng chỗ; nhiều bản -> không đoán. Split của
+  lần chạy khác không bao giờ được dùng làm split tham chiếu. Thiếu split tham chiếu -> nói rõ không tạo lại được. Có test.
+- Notebook chạy được bằng *Run all*: hàm `ok()` sau mỗi lệnh `!dass` (mã thoát `_exit_code` của Colab) -> lệnh lỗi
+  dừng notebook tại ô đó; ô `preflight --fix` đặt sau ô tiện ích; `label-stats`, `fingerprint` không chặn; ô train của
+  DenseNet121 / ViT-B16 / SwinT để dạng comment (không chạy khi Run all).
+
 ## 1.21.3 — preflight chịu được Drive mất kết nối
 - `dass preflight`: đường dẫn không đọc được (Google Drive FUSE ngắt, Errno 103) -> báo "LỖI ĐỌC" kèm cách mount lại,
   thay vì dừng bằng traceback (lần chạy RSNA trên Colab 2026-10-11). Có test.

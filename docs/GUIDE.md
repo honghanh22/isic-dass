@@ -40,7 +40,8 @@ liệu chọn trên val, CHANGELOG 1.16–1.19) — phải nêu trong bài báo.
 | **RSNA `rsna_v4` / `rsna_v4_srv`** | **B** | **1,5** | **không** | **không** | **`val_auc`** | **cấu hình chính**, cùng split `rsna_v2`; server dùng lại E_d của `rsna_v3_srv` |
 
 Hậu tố `_srv`: chạy trên server phòng lab (`configs/server/`, 3 CNN), thư mục kết quả riêng. Cùng cấu hình đó trên
-Colab: `configs/colab/` (đường dẫn Drive, run_tag không có `_srv`, E_d chép từ server); notebook dùng file này mặc định.
+Colab: `configs/colab/` (đường dẫn Drive, run_tag không có `_srv`, E_d tự train trong lần chạy cùng công thức);
+notebook dùng file này mặc định và chạy được bằng *Run all* (ô lỗi đầu tiên sẽ dừng notebook).
 
 **Giao thức classifier chung (1.11.0, người dùng quyết định):** không can thiệp dữ liệu ở bất kỳ phương pháp nào —
 không augmentation và M0 không class weight. `v10` (có augmentation + class weight) giữ nguyên trên Drive để báo cáo
@@ -794,7 +795,8 @@ dass -c $E evaluate --skip-generative                    # chỉ metric phân lo
 dass -c $E -c configs/experiments/smoke.yaml run         # chạy thử
 dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=rsna_v3 report   # bảng của lần chạy thiết kế A
 dass -c configs/server/rsna_pneumonia.yaml --tag srv run # server phòng lab: rsna_v4_srv (3 CNN, E_d của rsna_v3_srv)
-dass -c configs/colab/rsna_pneumonia.yaml preflight     # Colab, cùng cấu hình: kiểm tra GAN / split / E_d trước khi chạy
+dass -c configs/colab/rsna_pneumonia.yaml preflight --fix   # Colab: kiểm tra GAN / split trước khi chạy; --fix chép
+                                                             # bản nằm trong thư mục trùng tên do Drive tạo về đúng chỗ
 ```
 
 ### 8.7 Ablation (nếu cần sau này)

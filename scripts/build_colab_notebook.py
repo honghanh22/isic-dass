@@ -87,6 +87,10 @@ md("""
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
 Xem lại kết quả **thiết kế A** cũ: `PROFILE = "configs/experiments/design_a.yaml"`,
 `EXTRA = "--set paths.run_tag=v12"` (RSNA: `rsna_v3`).
+
+**Chạy tự động:** *Run all*. Mỗi lệnh lỗi sẽ dừng notebook ngay tại ô đó (ô `preflight` dừng nếu thiếu file bắt buộc).
+Kết quả mỗi bước tự lưu lên Drive; chạy lại *Run all* sau khi Colab ngắt sẽ bỏ qua phần đã xong. Bấm Ctrl+S để lưu
+log vào notebook.
 """)
 code("""
 EXPERIMENT = "configs/colab/rsna_pneumonia.yaml"
@@ -94,10 +98,6 @@ PROFILE = ""          # "configs/experiments/smoke.yaml" để chạy thử
 EXTRA = ""            # ví dụ "--set selection.gamma=0.25 --tag gamma025"
 CFG = f"-c {EXPERIMENT}" + (f" -c {PROFILE}" if PROFILE else "") + (f" {EXTRA}" if EXTRA else "")
 !dass {CFG} show-config | head -n 40
-""")
-code("""
-# Kiểm tra trước khi chạy: dữ liệu, GAN, split tham chiếu, E_d dùng lại phải [OK]; báo file M0b / M0c thừa
-!dass {CFG} preflight
 """)
 code("""
 # Tiện ích xem hình / bảng mà các stage đã lưu lên Drive. Thư mục kết quả đọc lại từ cấu hình MỖI LẦN gọi
@@ -119,14 +119,28 @@ def show(pattern):
     if not found:
         print("chưa có", pattern)
 
+def ok():
+    # Gọi ngay sau lệnh `!dass`: lệnh lỗi -> dừng ở đây, Run all không chạy tiếp các ô sau (Colab ghi mã thoát của
+    # lệnh `!` vào `_exit_code`; môi trường nào không ghi thì hàm này không chặn gì).
+    code = get_ipython().user_ns.get("_exit_code", 0)
+    if code:
+        raise RuntimeError(f"Lệnh vừa chạy lỗi (mã {code}) -> dừng. Xem log phía trên, sửa xong chạy lại ô này.")
+
 def table(name, folder="tables"):
     p = f"{results_dir()}/{folder}/{name}.csv"
     display(pd.read_csv(p)) if os.path.exists(p) else print("chưa có", p)
+""")
+code("""
+# Kiểm tra trước khi chạy: dữ liệu, GAN, split tham chiếu (+ E_d nếu dùng lại) phải [OK]. --fix: file thiếu nhưng có
+# đúng một bản trong thư mục trùng tên do Drive tạo ("… (1)") -> tự chép về đúng chỗ. Thiếu -> dừng ở đây.
+!dass {CFG} preflight --fix
+ok()
 """)
 
 md("## 2. Dữ liệu: đọc nguồn, nhận diện số kênh, tiền xử lý, chia train / val / test")
 code("""
 !dass {CFG} prepare
+ok()
 show("class_distribution.png")
 """)
 code("""
@@ -144,9 +158,11 @@ RSNA: `checkpoints_rsna`) được dùng lại ngay. `--fresh-start` XOÁ GAN c�
 """)
 code("""
 !dass {CFG} gan-setup
+ok()
 """)
 code("""
 !dass {CFG} gan
+ok()
 show("gan/*.png")
 """)
 
@@ -158,6 +174,7 @@ nhau — nếu không, lệnh dừng và yêu cầu train lại GAN 1 kênh.
 """)
 code("""
 !dass {CFG} sample
+ok()
 """)
 
 md("## 5. (Tuỳ chọn) Fingerprint miền tần số — detector của Frank et al.")
@@ -185,6 +202,7 @@ theo `encoder.e_d_from_run`. Log và tên file dùng **mã nội bộ**; bảng 
 """)
 code("""
 !dass {CFG} select
+ok()
 table("probe_auc", "metrics")
 table("shortcut_check", "metrics")
 show("selection_figures/scatter_Mv_Md.png")
@@ -213,14 +231,14 @@ Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 """)
 for model in ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]:
     for seed in [2026, 2027, 2028]:
-        code(f"!dass {{CFG}} train --model {model} --seeds {seed}")
+        code(f"!dass {{CFG}} train --model {model} --seeds {seed}\nok()")
 md("""
 ### 7b. (Tuỳ chọn) Backbone ngoài cấu hình 3 CNN — chỉ với `configs/experiments/*`
 
 Transformer (KerasHub) nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
 """)
 for model in ["DenseNet121", "ViT-B16", "SwinT"]:
-    code(f"!dass {{CFG}} train --model {model}")
+    code(f"# Bỏ dấu # để chạy (không chạy khi bấm Run all)\n# !dass {{CFG}} train --model {model}")
 
 md("""
 ## 8. Đánh giá và bảng cho bài báo (`tables/*.csv`, `*.json`, `*.tex`)
@@ -231,7 +249,9 @@ khác vs M0 là khám phá. Bảng `auc_by_split` (AUC train / val / test) đọ
 """)
 code("""
 !dass {CFG} evaluate
+ok()
 !dass {CFG} report
+ok()
 table("dataset")
 table("classification")
 table("significance")

@@ -234,8 +234,8 @@ or skipped. Useful options:
 | Reuse the main run's `E_d` in an ablation | `--set encoder.e_d_from_run=base --tag <name>` |
 | Re-evaluate an earlier design-A run | `dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=v12 report` |
 | Lab server (3 CNNs, server paths, `E_d` reused) | `dass -c configs/server/rsna_pneumonia.yaml --tag srv run` |
-| Same configuration on Colab (Drive paths) | `dass -c configs/colab/rsna_pneumonia.yaml run` |
-| Check prerequisites before a run | `dass -c $E preflight` |
+| Same configuration on Colab (Drive paths, `E_d` trained in the run) | `dass -c configs/colab/rsna_pneumonia.yaml run` |
+| Check prerequisites before a run | `dass -c $E preflight --fix` (restores a file found in a Drive duplicate folder) |
 | Retrain runs made under another protocol | `train --model X --archive-mismatched` (old runs are moved, never deleted) |
 
 Configuration is resolved in this order: `configs/_base_/*` → `configs/datasets/<name>.yaml` →

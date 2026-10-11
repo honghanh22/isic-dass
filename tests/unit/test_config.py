@@ -274,11 +274,12 @@ def test_design_b_server_config():
 
 @pytest.mark.parametrize("ds", ["rsna_pneumonia", "isic2016"])
 def test_colab_config_matches_server_except_paths(ds):
-    """configs/colab/*: đúng cấu hình server (3 CNN, 3 seed, thiết kế B, E_d dùng lại), chỉ khác đường dẫn Drive / HDD
-    và hậu tố _srv của run_tag."""
+    """configs/colab/*: cấu hình server (3 CNN, 3 seed, thiết kế B), chỉ khác đường dẫn Drive / HDD, hậu tố _srv của
+    run_tag và E_d (Colab tự train trong lần chạy, server dùng lại E_d của lần chạy A)."""
     colab = load_config([CONFIGS / "colab" / f"{ds}.yaml"]).to_dict()
     server = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv").to_dict()
-    assert {k for k in colab if k not in ("paths", "data") and colab[k] != server[k]} == set()
+    assert {k for k in colab if k not in ("paths", "data") and colab[k] != server[k]} == {"encoder"}
+    assert colab["encoder"] == {**server["encoder"], "e_d_from_run": ""}
     assert {k for k in colab["data"] if colab["data"][k] != server["data"][k]} == {"source"}
     assert colab["classifier"]["models"] == ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]
     assert colab["classifier"]["seeds"] == [2026, 2027, 2028]
