@@ -34,6 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True, metavar="<lệnh>")
 
     sub.add_parser("show-config", help="in cấu hình đã hợp nhất (JSON)")
+    sub.add_parser("preflight", help="kiểm tra trước khi chạy: dữ liệu, GAN, split tham chiếu, E_d dùng lại, dự đoán đã có")
     sub.add_parser("prepare", help="đọc nguồn, nhận diện số kênh, tiền xử lý, chia, dataset card")
     p = sub.add_parser("label-stats", help="(nguồn DICOM, nhãn MD.ai) thống kê nhãn theo ảnh + hình ảnh mẫu mỗi nhãn")
     p.add_argument("--focus", nargs="*", default=["Exclude"], metavar="NHÃN",
@@ -159,6 +160,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if cmd == "show-config":
         print(json.dumps(cfg.to_dict(), indent=2, ensure_ascii=False))
+    elif cmd == "preflight":
+        from .pipeline import preflight
+        if not preflight.run(cfg):
+            raise SystemExit(1)
     elif cmd == "run":
         _run_chain(args, cfg)
     elif cmd == "prepare":

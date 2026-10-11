@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.21.2 — chạy cấu hình server trên Colab
+- `configs/colab/{rsna_pneumonia,isic2016}.yaml`: đúng cấu hình server (3 CNN EfficientNetV2B0 / ResNet50 /
+  ConvNeXtTiny, 3 seed, thiết kế B, E_d dùng lại `rsna_v3_srv` / `v12_srv`) với đường dẫn Google Drive; run_tag
+  `rsna_v4` / `v13`. Test: khác config server chỉ ở `paths` và `data.source`.
+- `dass preflight`: kiểm tra trước khi chạy (không cần GPU) — dữ liệu gốc, GAN, split tham chiếu, E_d dùng lại; số dự
+  đoán đã có; file M0b / M0c thừa trong thư mục dự đoán. Thoát mã 1 nếu thiếu mục bắt buộc. Có test.
+- Notebook: mặc định `configs/colab/rsna_pneumonia.yaml`; ô `preflight`; ô train theo từng (model, seed) cho 3 CNN
+  (chạy lần lượt, Colab ngắt chỉ chạy lại ô đang dở); DenseNet121 / ViT-B16 / SwinT tách sang mục tuỳ chọn; thêm bảng
+  `auc_by_split`.
+
 ## 1.21.1 — rà soát code theo thiết kế B (không đổi cách chọn ảnh / cách train)
 - `evaluate`: chất lượng ảnh sinh tính **theo từng lớp** (cột `class`). Thiết kế B có ảnh sinh ở cả hai lớp nhưng trước
   đây chỉ lớp thiểu số được đánh giá; nay thêm khối lớp đa số (KID / FID / đa dạng / SSIM / chỉ số học thuộc so với ảnh

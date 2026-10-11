@@ -234,6 +234,8 @@ or skipped. Useful options:
 | Reuse the main run's `E_d` in an ablation | `--set encoder.e_d_from_run=base --tag <name>` |
 | Re-evaluate an earlier design-A run | `dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=v12 report` |
 | Lab server (3 CNNs, server paths, `E_d` reused) | `dass -c configs/server/rsna_pneumonia.yaml --tag srv run` |
+| Same configuration on Colab (Drive paths) | `dass -c configs/colab/rsna_pneumonia.yaml run` |
+| Check prerequisites before a run | `dass -c $E preflight` |
 | Retrain runs made under another protocol | `train --model X --archive-mismatched` (old runs are moved, never deleted) |
 
 Configuration is resolved in this order: `configs/_base_/*` → `configs/datasets/<name>.yaml` →
@@ -291,7 +293,8 @@ diagnostic figures in `gan/` and `selection_figures/`. Column definitions: [docs
 │   ├── _base_/                 shared recipe: generator, selection (DASS, E_d), classifier, evaluation, runtime
 │   ├── datasets/               dataset-specific settings only: isic2016, rsna_pneumonia, _template
 │   ├── experiments/            experiment = base + dataset; profiles: smoke (quick check), design_a (earlier design)
-│   └── server/                 lab-server variants (paths, 3 CNNs, reused E_d); *_designB = aliases
+│   ├── server/                 lab-server variants (paths, 3 CNNs, reused E_d); *_designB = aliases
+│   └── colab/                  the server configuration with Google Drive paths
 ├── src/dass/                   the Python package (all logic)
 ├── notebooks/                  Colab notebook (one cell per CLI stage), GPU check, archived original notebook
 ├── scripts/                    notebook generator, validation-only diagnostics (shortcut probe, label fidelity, ablations)

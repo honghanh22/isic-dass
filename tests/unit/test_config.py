@@ -272,6 +272,19 @@ def test_design_b_server_config():
         assert load_config([CONFIGS / "server" / f"{ds}_designB.yaml"], tag="srv").to_dict() == main
 
 
+@pytest.mark.parametrize("ds", ["rsna_pneumonia", "isic2016"])
+def test_colab_config_matches_server_except_paths(ds):
+    """configs/colab/*: đúng cấu hình server (3 CNN, 3 seed, thiết kế B, E_d dùng lại), chỉ khác đường dẫn Drive / HDD
+    và hậu tố _srv của run_tag."""
+    colab = load_config([CONFIGS / "colab" / f"{ds}.yaml"]).to_dict()
+    server = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv").to_dict()
+    assert {k for k in colab if k not in ("paths", "data") and colab[k] != server[k]} == set()
+    assert {k for k in colab["data"] if colab["data"][k] != server["data"][k]} == {"source"}
+    assert colab["classifier"]["models"] == ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]
+    assert colab["classifier"]["seeds"] == [2026, 2027, 2028]
+    assert server["paths"]["run_tag"] == colab["paths"]["run_tag"] + "_srv"
+
+
 def test_filter_majority_requires_design_b():
     assert load_config([CONFIGS / "server" / "rsna_pneumonia_designB.yaml"], tag="srv").selection.filter_majority
     with pytest.raises(ValueError, match="filter_majority"):

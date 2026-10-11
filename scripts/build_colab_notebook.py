@@ -76,20 +76,28 @@ print("PROJECT_DIR =", PROJECT_DIR)
 md("""
 ## 1. Chọn thực nghiệm
 
-`EXPERIMENT`: `configs/experiments/rsna_pneumonia_dass.yaml` (RSNA: `prepare` tự đọc DICOM; GAN `rsna` đã train) hoặc
-`configs/experiments/isic2016_dass.yaml`. Cấu hình chính là **thiết kế B** (ROS + ảnh sinh cân bằng hai lớp; ISIC
-`v13`, RSNA `rsna_v4`).
+`EXPERIMENT` (cấu hình chính: **thiết kế B**, ROS + ảnh sinh cân bằng hai lớp):
+
+| File | Lần chạy | Classifier | E_d |
+|---|---|---|---|
+| **`configs/colab/rsna_pneumonia.yaml`** (mặc định) | RSNA `rsna_v4` | 3 CNN × 3 seed, đúng cấu hình server | dùng lại `rsna_v3_srv` (chép từ server) |
+| `configs/colab/isic2016.yaml` | ISIC `v13` | 3 CNN × 3 seed, đúng cấu hình server | dùng lại `v12_srv` (chép từ server) |
+| `configs/experiments/<bộ dữ liệu>_dass.yaml` | `rsna_v4` / `v13` | 6 backbone | train E_d mới |
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
 Xem lại kết quả **thiết kế A** cũ: `PROFILE = "configs/experiments/design_a.yaml"`,
 `EXTRA = "--set paths.run_tag=v12"` (RSNA: `rsna_v3`).
 """)
 code("""
-EXPERIMENT = "configs/experiments/rsna_pneumonia_dass.yaml"
+EXPERIMENT = "configs/colab/rsna_pneumonia.yaml"
 PROFILE = ""          # "configs/experiments/smoke.yaml" để chạy thử
 EXTRA = ""            # ví dụ "--set selection.gamma=0.25 --tag gamma025"
 CFG = f"-c {EXPERIMENT}" + (f" -c {PROFILE}" if PROFILE else "") + (f" {EXTRA}" if EXTRA else "")
 !dass {CFG} show-config | head -n 40
+""")
+code("""
+# Kiểm tra trước khi chạy: dữ liệu, GAN, split tham chiếu, E_d dùng lại phải [OK]; báo file M0b / M0c thừa
+!dass {CFG} preflight
 """)
 code("""
 # Tiện ích xem hình / bảng mà các stage đã lưu lên Drive. Thư mục kết quả đọc lại từ cấu hình MỖI LẦN gọi
@@ -184,18 +192,18 @@ show("selection_figures/grid_M6_dass_*.png")
 """)
 
 md("""
-## 7. Train classifier — 6 backbone × 7 phương pháp × 3 seed
+## 7. Train classifier — 7 phương pháp × 3 seed mỗi backbone
 
-Mỗi cell một backbone, train cả 7 phương pháp với 3 seed (`classifier.seeds`); chạy lại được (lần chạy đã có dự đoán
-trên Drive sẽ bỏ qua). Mọi phương pháp, ở cả hai bộ dữ liệu: **không augmentation, không class weight** — chỉ khác
+**Chạy lần lượt từng ô** (mỗi ô một backbone × một seed, train cả 7 phương pháp). Colab ngắt thì chạy lại đúng ô
+đang dở: lần chạy đã có dự đoán trên Drive được bỏ qua. Mọi phương pháp, ở cả hai bộ dữ liệu: **không augmentation, không class weight** — chỉ khác
 nội dung tập train. Chọn epoch theo `val_auc`.
 
 - **Real Data Baseline:** Imbalanced Baseline (`M0_real_only`): chỉ ảnh thật, mất cân bằng thật.
 - **ROS + Class-balanced GAN:** M1–M6 = ảnh thật + ROS lớp thiểu số lên 1 : 1 + s ảnh sinh MỖI lớp (mục 6); sáu
   phương pháp có cùng số ảnh, chỉ khác cách chọn ảnh sinh.
 
-CNN: `EfficientNetV2B0`, `ResNet50`, `DenseNet121`, `ConvNeXtTiny`; Transformer (KerasHub): `ViT-B16`, `SwinT`.
-Transformer nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
+Cấu hình chính (`configs/colab/*`, như server): **EfficientNetV2B0, ResNet50, ConvNeXtTiny** × seed 2026, 2027,
+2028 = 9 ô dưới đây. `DenseNet121`, `ViT-B16`, `SwinT` ở mục 7b, chỉ chạy với `configs/experiments/*` (6 backbone).
 
 Báo lỗi "được train với thiết lập khác" (dự đoán cũ theo giao thức khác): thêm `--archive-mismatched` để chuyển kết
 quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
@@ -203,7 +211,15 @@ quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
 Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 `!dass {CFG} -c configs/experiments/smoke.yaml run --from train --to train --models ConvNeXtTiny ViT-B16 SwinT`
 """)
-for model in ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "ViT-B16", "SwinT"]:
+for model in ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]:
+    for seed in [2026, 2027, 2028]:
+        code(f"!dass {{CFG}} train --model {model} --seeds {seed}")
+md("""
+### 7b. (Tuỳ chọn) Backbone ngoài cấu hình 3 CNN — chỉ với `configs/experiments/*`
+
+Transformer (KerasHub) nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
+""")
+for model in ["DenseNet121", "ViT-B16", "SwinT"]:
     code(f"!dass {{CFG}} train --model {model}")
 
 md("""
@@ -219,6 +235,7 @@ code("""
 table("dataset")
 table("classification")
 table("significance")
+table("auc_by_split")
 table("generation_quality")
 # RSNA: phân tích theo tư thế chụp (bộ dữ liệu khác: "chưa có")
 table("classification_by_subgroup")

@@ -57,7 +57,8 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   1.20.0): **H1** M6 vs M1 (DASS vs Random), **H2** M6 vs M0; còn lại là khám phá. Tên hiển thị "ROS + Balanced GAN:
   …" (`evaluation.method_labels`, chỉ áp dụng khi xuất bảng). Lần chạy: ISIC `v13` (server `v13_srv`), RSNA `rsna_v4`
   (server `rsna_v4_srv`); config server dùng lại E_d của `v12_srv` / `rsna_v3_srv`; `configs/server/*_designB.yaml`
-  chỉ còn là tên cũ (resolve giống hệt, có test).
+  chỉ còn là tên cũ (resolve giống hệt, có test). `configs/colab/*` = đúng cấu hình server (3 CNN, E_d dùng lại) với
+  đường dẫn Drive (run_tag không hậu tố `_srv`; có test); notebook mặc định dùng `configs/colab/rsna_pneumonia.yaml`.
 - **Thiết kế A** (`minority_only`, công thức gốc tới 1.20.x): ảnh sinh chỉ ở lớp thiểu số (bù n = đa số − thiểu số tới
   1 : 1) + baseline ROS **M0b** (`M0b_real_oversample`, ghép ở bước `train`, không nằm trong `selections.json`); tên
   hiển thị Imbalanced Baseline, Random Oversampling (ROS), Unfiltered GAN (Random Selection), Visual-only /
