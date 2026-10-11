@@ -172,6 +172,20 @@ def test_synth_budget_keeps_pool_ratio():
     assert synth_budget(6463, 0.5, 1.5) == (3232, 4848)
 
 
+def test_selection_budget_matches_both_designs():
+    """`select` và `evaluate` (hàng "pool") dùng chung: thiết kế B chọn s = q × n_maj trong ⌈k·s⌉ ảnh đầu pool."""
+    from types import SimpleNamespace
+
+    from dass.data.variants import selection_budget
+
+    b = SimpleNamespace(design="source_balanced", balanced_synth_ratio=0.5, pool_mult=1.5, synth_fraction=1.0)
+    assert selection_budget(b, 470, 618) == (309, 464)              # ISIC v13
+    assert selection_budget(b, 6463, 7522) == (3761, 5642)          # RSNA rsna_v4
+    a = SimpleNamespace(design="minority_only", balanced_synth_ratio=0.0, pool_mult=1.5, synth_fraction=1.0)
+    assert selection_budget(a, 470, 618) == (470, 705)              # thiết kế A: cả pool
+    assert selection_budget(SimpleNamespace(**{**vars(a), "synth_fraction": 0.5}), 470, 618) == (235, 353)
+
+
 def test_ros_fill_tops_up_to_same_total_with_shared_duplicates():
     from dass.data.variants import ros_fill
 

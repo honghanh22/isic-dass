@@ -48,6 +48,18 @@ def balanced_synth_count(ratio: float, n_majority_real: int) -> int:
     return int(round(ratio * n_majority_real))
 
 
+def selection_budget(sel, n_select: int, n_majority_real: int) -> tuple[int, int]:
+    """(số ảnh sinh lớp thiểu số mỗi phương pháp chọn, số ảnh ĐẦU của pool lớp thiểu số được dùng để chọn).
+
+    Thiết kế B (`source_balanced`): s = q × ảnh thật lớp đa số, chọn trong ⌈k·s⌉ ảnh đầu. Thiết kế A: n_select (hoặc
+    phần ảnh sinh khi `synth_fraction` < 1), chọn trong ⌈k·n⌉ ảnh đầu. Dùng chung cho `select` (chọn ảnh) và `evaluate`
+    (hàng tham chiếu "pool" phải là đúng phần pool đã dùng để chọn)."""
+    if sel.design == "source_balanced":
+        n_synth = balanced_synth_count(sel.balanced_synth_ratio, n_majority_real)
+        return n_synth, int(np.ceil(sel.pool_mult * n_synth))
+    return synth_budget(n_select, sel.synth_fraction, sel.pool_mult)
+
+
 def ros_fill(selections: dict[str, list[str]], real_minority: list[str], n_select: int, seed: int,
              skip: set[str] | tuple[str, ...] = ()) -> dict[str, list[str]]:
     """Ảnh THẬT lớp thiểu số nhân bản bù cho các biến thể có ít hơn `n_select` ảnh sinh (`selection.synth_fraction`

@@ -21,7 +21,7 @@ from .classification import KEY_METRICS, METRIC_LABELS
 
 LOWER_IS_BETTER = {"kid", "fid", "auc_real_vs_synth", "ssim"}
 SET_LABELS = {"real val vs real train": "Real (val vs train)", "all candidates": "All candidates (pool)"}
-TEXT_COLUMNS = {"Model", "Family", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute"}   # căn trái trong .tex
+TEXT_COLUMNS = {"Model", "Family", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute", "Class"}   # căn trái trong .tex
 
 
 def _isnan(x) -> bool:
@@ -227,7 +227,9 @@ def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None
     tốt nhất là ≈ mốc ảnh thật, không phải nhỏ / lớn nhất; `generation_quality` cũ không có cột này -> "–")."""
     df = quality.reset_index(drop=True)
     names = [SET_LABELS.get(m, method_label(m, labels)) for m in df["method"]]
-    out = pd.DataFrame({"Set": df["set"], "Method": names, "N": df["n"],
+    # cột `class` (từ 1.21.1): mỗi lớp có ảnh sinh một khối hàng, so với ảnh thật cùng lớp; file cũ không có -> bỏ cột
+    by_class = "class" in df
+    out = pd.DataFrame({**({"Class": df["class"]} if by_class else {}), "Set": df["set"], "Method": names, "N": df["n"],
                         "KID×1e3": [fmt_mean_std(m * 1e3, s * 1e3, 2) for m, s in zip(df["kid"], df["kid_std"])],
                         "FID (ref.)": [f"{v:.1f}" if pd.notna(v) else "–" for v in df["fid"]],
                         "Diversity": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["diversity"]],
@@ -236,7 +238,7 @@ def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None
     for col, label in [("nn_dist_ratio", "NN ratio"), ("near_copy_rate", "Near-copy")]:
         out[label] = [f"{v:.3f}" if pd.notna(v) else "–" for v in df.get(col, pd.Series(np.nan, index=df.index))]
     bold = {}
-    groups = df["set"]
+    groups = df["class"].astype(str) + "|" + df["set"] if by_class else df["set"]   # tô đậm trong từng lớp × tập
     for col, label in [("kid", "KID×1e3"), ("fid", "FID (ref.)"), ("diversity", "Diversity"), ("ssim", "SSIM"),
                        ("auc_real_vs_synth", "AUC real/synth")]:
         for i in _best_rows(df[col], groups, lower_is_better=col in LOWER_IS_BETTER):

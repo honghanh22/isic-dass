@@ -579,7 +579,10 @@ dương, mỗi ca ≈ 0,44 điểm %. Chênh lệch nhỏ hơn mức này chỉ 
 
 ### 5.3 Chất lượng ảnh sinh (Inception-v3 của StyleGAN2-ADA, 2.048 chiều)
 
-So với **ảnh thật lớp thiểu số của tập train** (ISIC 148 ảnh, RSNA 1.059 ảnh), tính cho từng tập ảnh được chọn:
+Tính **theo từng lớp có ảnh sinh** (cột `class`; thiết kế B: cả hai lớp), mỗi lớp so với **ảnh thật cùng lớp của
+tập train** (lớp thiểu số: ISIC 148, RSNA 1.059 ảnh; lớp đa số: ISIC 618, RSNA 7.522 ảnh), cho từng tập ảnh được
+chọn. AUC thật-vs-sinh chỉ có cho lớp thiểu số (tính bằng E_v ở bước `select`); đường tắt ở lớp đa số đo bằng
+`scripts/shortcut_probe.py`.
 
 | Chỉ số | Định nghĩa | Tốt khi |
 |---|---|---|
@@ -593,7 +596,7 @@ So với **ảnh thật lớp thiểu số của tập train** (ISIC 148 ảnh, 
 Có hai hàng tham chiếu:
 - **`real val vs real train`:** mức nền của metric giữa hai tập ảnh **thật**. Val nhỏ (25 / 59 ảnh), nên m nhỏ và std
   của hàng này lớn.
-- **`all candidates`:** toàn bộ pool chưa lọc. So một tập được chọn với hàng này để thấy việc chọn lọc làm KID tăng
+- **`all candidates`:** đúng phần pool đã dùng để chọn (thiết kế B: ⌈k·s⌉ ảnh đầu), chưa lọc. So một tập được chọn với hàng này để thấy việc chọn lọc làm KID tăng
   hay giảm.
 
 ### 5.4 Chẩn đoán đi kèm
@@ -669,6 +672,10 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 
 Các điểm sau nên nêu trong bài báo:
 
+- **Chọn epoch:** chỉ các epoch của giai đoạn fine-tune được xét (mô hình chỉ train head không là ứng viên); val AUC
+  lúc train dùng `tf.keras.metrics.AUC` (xấp xỉ 200 ngưỡng); val nhỏ (ISIC 25 ca dương) nên val AUC của epoch được
+  chọn lạc quan hơn test (ISIC `v13_srv`, EfficientNetV2B0: val ≈ 0,83, test ≈ 0,78). ResNet50 ISIC chọn epoch 1 ở
+  20 / 21 lần chạy. Đường val qua từng epoch lưu trong `.npz` (`hist_*`) từ 1.21.1.
 - **Dấu vân tay tần số của GAN:** detector của Frank et al. phân biệt ảnh thật / ảnh sinh với AUC ≈ 1. Test toàn ảnh
   thật nên điều này không làm kết quả lạc quan giả tạo, nhưng có thể làm giảm lợi ích của ảnh sinh.
 - **Shortcut tư thế chụp ở RSNA** (AP gắn với bệnh nặng): không sửa dữ liệu, chỉ đo bằng phân tích nhóm con (mục 5.5).

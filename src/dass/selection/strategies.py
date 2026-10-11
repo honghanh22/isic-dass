@@ -53,7 +53,7 @@ BALANCED = "M8_ros_balanced_synth"
 BALANCED_RANDOM = "M8r_ros_balanced_random"
 # Đối chứng CÙNG KÍCH THƯỚC với M8 / M8r: toàn ảnh THẬT nhân bản, mỗi lớp thêm đúng s ảnh như M8 (lớp thiểu số:
 # n_select + s bản sao, lớp đa số: s bản sao) -> M8 vs M0c chỉ khác "s ảnh mỗi lớp là ảnh sinh hay ảnh thật nhân bản".
-OVERSAMPLE_MATCHED = "M0c_real_oversample_matched"   # đối chứng của M8: như M8 nhưng ảnh sinh lớp thiểu số chọn NGẪU NHIÊN
+OVERSAMPLE_MATCHED = "M0c_real_oversample_matched"
 METHODS = ("M0_real_only", "M1_random", "M2_visual", "M3_disease", "M4_visual_disease", "M5_diversity", "M6_dass",
            BOTH_CLASSES)
 

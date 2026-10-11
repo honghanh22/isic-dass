@@ -11,7 +11,7 @@ import pandas as pd
 from ...analysis import figures
 from ...analysis.shortcut import probe_auc, separability_auc, shortcut_table
 from ...config import Config
-from ...data.variants import assemble_variant, balanced_synth_count, synth_budget
+from ...data.variants import assemble_variant, balanced_synth_count, selection_budget
 from ...selection import (
     BALANCED,
     BALANCED_RANDOM,
@@ -89,14 +89,11 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     init_tensorflow(cfg)
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
     source_balanced = sel.design == "source_balanced"
-    if source_balanced:   # thiết kế B: M1–M6 chọn s ảnh sinh lớp thiểu số từ ⌈k·s⌉ ảnh đầu pool
-        n_synth = balanced_synth_count(sel.balanced_synth_ratio, budget.n_real[budget.majority])
-        n_pool = int(np.ceil(sel.pool_mult * n_synth))
-        if n_pool > len(pool):
-            raise RuntimeError(f"Thiết kế source_balanced cần {n_pool} ảnh trong pool nhưng chỉ có {len(pool)} -> giảm "
-                               "selection.balanced_synth_ratio")
-    else:
-        n_synth, n_pool = synth_budget(budget.n_select, sel.synth_fraction, sel.pool_mult)
+    # thiết kế B: M1–M6 chọn s ảnh sinh lớp thiểu số từ ⌈k·s⌉ ảnh đầu pool; thiết kế A: n (hoặc f·n) từ ⌈k·n⌉ ảnh đầu
+    n_synth, n_pool = selection_budget(sel, budget.n_select, budget.n_real[budget.majority])
+    if n_pool > len(pool):
+        raise RuntimeError(f"Thiết kế {sel.design} cần {n_pool} ảnh trong pool nhưng chỉ có {len(pool)} -> giảm "
+                           "selection.balanced_synth_ratio")
     if n_pool < len(pool):   # chọn từ phần đầu của pool (giữ đúng k)
         log.info("%s: chọn %d ảnh sinh lớp thiểu số từ %d ảnh đầu của pool", sel.design, n_synth, n_pool)
         pool = pool[:n_pool]

@@ -108,7 +108,7 @@ def main() -> None:
         variant = Variant(tag=f"abl_{name}", dir=vdir, method="M6_dass", lam=f"v{lam:g}_d{lam:g}",
                           feature_space="Ev" if ed == "none" else "Ev+Ed", class_weight=False)
         log.info("=== %s | %s | seed %d ===", args.model, name, args.seed)
-        model, preprocess, best_epoch = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
+        model, preprocess, best_epoch, _ = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
         y_val, p_val, _ = predict_dir(model, preprocess, vdir / "val", cfg, ctx.channels)   # CHỈ val
         auc = float(roc_auc_score(y_val, p_val))
         write_json_atomic(res_json, {"config": name, "e_d": ed, "lambda": lam, "gamma": gamma,

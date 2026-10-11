@@ -4,11 +4,11 @@
   (mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons`), ΔAUC theo từng seed, p hiệu chỉnh Holm.
 - Nhóm con (`evaluation.subgroup_columns`, ví dụ tư thế AP / PA của RSNA): AUC trong từng nhóm, mốc "chỉ dùng thuộc
   tính", tỉ lệ thuộc tính trong ảnh sinh (xem `evaluation.subgroups`).
-- Sinh ảnh (Inception-v3): KID (chính, mean ± std), FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh
-  cho từng tập ảnh được chọn, chỉ số học thuộc (khoảng cách tới ảnh train gần nhất so với ảnh thật val); kèm hai
-  hàng tham chiếu:
+- Sinh ảnh (Inception-v3), THEO TỪNG LỚP có ảnh sinh (cột `class`; thiết kế B: cả hai lớp): KID (chính, mean ± std),
+  FID (tham khảo), đa dạng, SSIM nội bộ, AUC thật-vs-sinh (lớp thiểu số, từ `select`), chỉ số học thuộc (khoảng cách
+  tới ảnh train gần nhất so với ảnh thật val) cho từng tập ảnh được chọn; mỗi lớp kèm hai hàng tham chiếu:
     * `reference / real val vs real train` — mức nền của metric (hai tập ảnh THẬT cùng lớp),
-    * `pool / all candidates` — toàn bộ pool chưa lọc (phân phối của generator).
+    * `pool / all candidates` — đúng phần pool đã dùng để chọn, chưa lọc (phân phối của generator).
 """
 
 from __future__ import annotations
@@ -134,46 +134,59 @@ def _attribute_share(cfg: Config, layout: Layout, split: dict, attr: dict, col: 
 
 
 def evaluate_generation(cfg: Config) -> pd.DataFrame:
+    """Chất lượng ảnh sinh THEO TỪNG LỚP có ảnh sinh (cột `class`): lớp thiểu số luôn có; lớp đa số khi có pool ảnh sinh
+    lớp đa số (thiết kế B / M8). Mỗi lớp so với ảnh thật CÙNG lớp của tập train; hàng "pool" là đúng phần pool đã dùng
+    để chọn (`selection_budget`), không phải toàn bộ file pool."""
     from ...data.image_io import load_images
+    from ...data.variants import selection_budget
     from ...models.generator.inception import inception_features
     from ...models.generator.patches import ensure_stylegan_repo
+    from ..pool import resolve_balanced_majority_pool
 
     ctx = Context.create(cfg, "evaluate")
-    layout, ev, ch, minority = ctx.layout, cfg.evaluation, ctx.channels, ctx.budget.minority
+    layout, ev, ch, b, sel = ctx.layout, cfg.evaluation, ctx.channels, ctx.budget, cfg.selection
     ensure_stylegan_repo(layout.sg2_repo)          # Inception-v3 của StyleGAN2-ADA
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    selections = load_selections(ctx, pool)
+    pool = pool[:selection_budget(sel, b.n_select, b.n_real[b.majority])[1]]
+    shortcut = load_metrics(layout, "shortcut_check")
+    auc_by_method = dict(zip(shortcut["method"], shortcut["auc_5fold"])) if shortcut is not None else {}
 
     def feats(paths: list[str]) -> np.ndarray:
         return inception_features(load_images(paths, ch))
 
-    real_paths = ctx.train_paths[minority]
-    real = feats(real_paths)
-    pool_feats = feats(pool)
-    index = {Path(p).name: i for i, p in enumerate(pool)}
-    shortcut = load_metrics(layout, "shortcut_check")
-    auc_by_method = dict(zip(shortcut["method"], shortcut["auc_5fold"])) if shortcut is not None else {}
+    def class_rows(cls: str, cls_pool: list[str], selections: dict[str, list[str]], aucs: dict) -> list[dict]:
+        real = feats(ctx.train_paths[cls])
+        val_paths = ctx.val_paths[cls]
+        val_feats = feats(val_paths)   # ảnh thật chưa thấy: mốc của chỉ số học thuộc
+        pool_feats = feats(cls_pool)
+        index = {Path(p).name: i for i, p in enumerate(cls_pool)}
 
-    val_paths = ctx.val_paths[minority]
-    val_feats = feats(val_paths)   # ảnh thật chưa thấy: mốc của chỉ số học thuộc
+        def row(set_name: str, method: str, paths: list[str], fake: np.ndarray, auc: float | None) -> dict:
+            kid, kid_std = kid_with_std(real, fake, ev.kid_subsets, ev.kid_subset_size, cfg.seed)
+            return {"class": cls, "set": set_name, "method": method, "n": len(paths), "n_real": len(real),
+                    "kid": kid, "kid_std": kid_std, "fid": compute_fid(real, fake), "diversity": compute_diversity(fake),
+                    "ssim": compute_ssim(paths, ch, ev.ssim_pairs, cfg.seed),
+                    "auc_real_vs_synth": np.nan if auc is None else auc, **memorization_stats(fake, real, val_feats)}
 
-    def row(set_name: str, method: str, paths: list[str], fake: np.ndarray, auc: float | None) -> dict:
-        kid, kid_std = kid_with_std(real, fake, ev.kid_subsets, ev.kid_subset_size, cfg.seed)
-        return {"set": set_name, "method": method, "n": len(paths), "n_real": len(real), "kid": kid, "kid_std": kid_std,
-                "fid": compute_fid(real, fake), "diversity": compute_diversity(fake),
-                "ssim": compute_ssim(paths, ch, ev.ssim_pairs, cfg.seed),
-                "auc_real_vs_synth": np.nan if auc is None else auc, **memorization_stats(fake, real, val_feats)}
+        rows = [row("reference", "real val vs real train", val_paths, val_feats, None),
+                row("pool", "all candidates", cls_pool, pool_feats, None)]
+        for method, paths in selections.items():
+            if paths:
+                rows.append(row("selected", method, paths, pool_feats[[index[Path(p).name] for p in paths]],
+                                aucs.get(method)))
+        return rows
 
-    rows = [row("reference", "real val vs real train", val_paths, val_feats, None),
-            row("pool", "all candidates", pool, pool_feats, None)]
-    for method, paths in selections.items():
-        if paths:
-            rows.append(row("selected", method, paths, pool_feats[[index[Path(p).name] for p in paths]],
-                            auc_by_method.get(method)))
+    rows = class_rows(b.minority, pool, load_selections(ctx, pool), auc_by_method)
+    maj = resolve_balanced_majority_pool(ctx, generate_if_missing=False)
+    if maj is not None:
+        # lọc lớp đa số: mỗi phương pháp một tập; không lọc: mọi phương pháp dùng chung đúng cả pool (= hàng "pool").
+        # AUC thật-vs-sinh của lớp đa số không có ở bước select (E_v) -> để trống; xem scripts/shortcut_probe.py.
+        maj_sel = (load_selections(ctx, maj.final, layout.selections_majority_json) if sel.filter_majority else {})
+        rows += class_rows(b.majority, maj.final, maj_sel, {})
     df = pd.DataFrame(rows)
     save_metrics(layout, "generation_quality", df)
-    print(f"=== Chất lượng ảnh sinh (Inception-v3, {len(real)} ảnh thật {minority}) — KID chính, FID tham khảo ===\n"
-          + df.round(5).to_string(index=False))
+    print("=== Chất lượng ảnh sinh theo lớp (Inception-v3, so với ảnh thật cùng lớp của train) — KID chính, FID tham "
+          "khảo ===\n" + df.round(5).to_string(index=False))
     return df
 
 

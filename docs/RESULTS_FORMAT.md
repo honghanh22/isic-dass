@@ -14,7 +14,7 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 | `significance_by_subgroup` | (model, phương pháp, đối chứng, nhóm con) | như `significance_vs_baseline`, `p_holm` trong mỗi model × nhóm |
 | `subgroup_reference` | (thuộc tính, giá trị) trên test | `share_in_positive, share_in_negative, auc_attribute_only` (AUC khi CHỈ dùng thuộc tính) |
 | `subgroup_share` | tập ảnh (thật / pool / ảnh mỗi phương pháp chọn) | `true_share` (theo metadata), `predicted_share` (probe logistic trên E_v), `probe_auc` |
-| `generation_quality` | một tập ảnh | `set` (`reference` / `pool` / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth, nn_dist_median, nn_dist_ratio, near_copy_rate` |
+| `generation_quality` | một tập ảnh của một lớp | `class` (lớp có ảnh sinh; thiết kế B: cả hai lớp, mỗi lớp so với ảnh thật CÙNG lớp của train; file trước 1.21.1 không có cột này = lớp thiểu số), `set` (`reference` / `pool` = đúng phần pool đã dùng để chọn / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth, nn_dist_median, nn_dist_ratio, near_copy_rate` |
 | `probe_auc` | không gian đặc trưng × tập | `space, subset, auc_probe` (dòng `val` sát thực tế hơn; vẫn hơi lạc quan vì E_d dùng val để chọn epoch) |
 | `shortcut_check` | phương pháp | `auc_5fold` = AUC tách ảnh thật / sinh lớp thiểu số (E_v); dòng `reference` = hai lớp bệnh thật |
 | `selection_jaccard` | phương pháp | Jaccard giữa tập ảnh được chọn của các phương pháp |
@@ -58,7 +58,8 @@ Chú thích bảng (`caption` trong `.tex`) viết bằng tiếng Anh, cùng ng�
 - `checkpoints_<run_tag>/data/dataset_card.json`: số kênh, số ảnh mỗi tập / lớp, tham số chia, SHA-1 của split.
 - `predictions/<model>__<variant>__s<seed>.npz`: `y_val, p_val, y_test, p_test` (từ 1.18.0 thêm `y_train, p_train` trên ảnh thật
   của tập train) + metadata (`augment`, `class_weight`, `monitor`, `design`, `filter_majority`, `synth_fraction`;
-  từ 1.9.0 thêm `test_files` = tên ảnh test `lớp/tệp` đúng thứ tự dự đoán, `code_version`, `dass_version`) — nguồn
+  từ 1.21.1 thêm `hist_<metric>` = metric từng epoch: giai đoạn fine-tune (`hist_val_auc`, `hist_val_loss`,
+  `hist_auc`, `hist_loss`, …) và giai đoạn head (`hist_head_…`); từ 1.9.0 thêm `test_files` = tên ảnh test `lớp/tệp` đúng thứ tự dự đoán, `code_version`, `dass_version`) — nguồn
   của mọi bảng phân loại. `.npz` cũ không có `test_files`: phân tích nhóm con dựng lại từ split (thứ tự dự đoán =
   lớp theo cấu hình, tên file tăng dần), chỉ dùng khi nhãn khớp đúng thứ tự.
 - `predictions_superseded/<giao thức>/`: kết quả của giao thức train cũ do `train --archive-mismatched` chuyển ra

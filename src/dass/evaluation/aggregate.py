@@ -23,7 +23,7 @@ _PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float, "design": str}
 
 
 def read_protocol(d) -> dict[str, bool | str | float | None]:
-    """{augment, class_weight, monitor, synth_fraction} của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
+    """Các trường `PROTOCOL_FIELDS` của một .npz đã nạp; None nếu .npz cũ không ghi trường đó."""
     return {f: (_PROTOCOL_TYPES.get(f, bool)(d[f]) if f in d.files else None) for f in PROTOCOL_FIELDS}
 
 
@@ -64,7 +64,8 @@ def check_single_protocol(runs: pd.DataFrame) -> None:
     """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation, tiêu chí chọn epoch) — trộn thì mean ± std
     và bootstrap sai."""
     for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau"),
-                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau"), ("design", "thiết kế tập train khác nhau")):
+                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau"), ("design", "thiết kế tập train khác nhau"),
+                      ("filter_majority", "có và không lọc ảnh sinh lớp đa số")):
         if col in runs and len(set(runs[col].dropna())) > 1:
             raise ValueError(f"Thư mục dự đoán trộn lần chạy {what} -> tách bằng --tag / run_tag mới")
 

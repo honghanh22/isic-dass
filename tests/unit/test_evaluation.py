@@ -132,6 +132,8 @@ def test_mixed_protocols_rejected_and_labels_follow_class_weight():
     check_single_protocol(runs)                                        # None (npz cũ) không tính là giao thức khác
     with pytest.raises(ValueError, match="augmentation"):
         check_single_protocol(runs.assign(augment=[True, False, True, True]))
+    with pytest.raises(ValueError, match="lớp đa số"):                 # thiết kế B: lọc / không lọc lớp đa số
+        check_single_protocol(runs.assign(filter_majority=[True, True, False, None]))
     labels = reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline", "M6_dass": "DASS (Ours)"}, runs)
     assert labels == {"M0_real_only": "Imbalanced Baseline (class-weighted)", "M6_dass": "DASS (Ours)"}
     unweighted = runs.assign(class_weight=False)                       # cấu hình ISIC v9 / RSNA
@@ -209,6 +211,17 @@ def test_generation_table_bolds_lower_kid():
          "diversity": 0.35, "ssim": 0.18, "auc_real_vs_synth": 0.8}])
     table, bold = reporting.generation_table(q)
     assert table["KID×1e3"].iloc[1].startswith("10.00") and bold[(1, "KID×1e3")] and bold[(1, "Diversity")]
+
+
+def test_generation_table_per_class_blocks():
+    """Thiết kế B: ảnh sinh ở cả hai lớp -> cột Class; tô đậm KID tốt nhất trong TỪNG lớp, không so chéo lớp."""
+    rows = [("malignant", "M1_random", 0.020), ("malignant", "M6_dass", 0.018),
+            ("benign", "M1_random", 0.010), ("benign", "M6_dass", 0.012)]
+    q = pd.DataFrame([{"class": c, "set": "selected", "method": m, "n": 10, "kid": k, "kid_std": 0.001, "fid": 30.0,
+                       "diversity": 0.3, "ssim": 0.2, "auc_real_vs_synth": np.nan} for c, m, k in rows])
+    table, bold = reporting.generation_table(q)
+    assert list(table.columns[:2]) == ["Class", "Set"] and list(table["Class"]) == ["malignant"] * 2 + ["benign"] * 2
+    assert bold.get((1, "KID×1e3")) and bold.get((2, "KID×1e3")) and not bold.get((0, "KID×1e3"))
 
 
 def test_dataset_table():

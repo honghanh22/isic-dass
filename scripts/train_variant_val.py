@@ -52,7 +52,7 @@ def main() -> None:
                      majority_extra_real.get(args.method, ()))
     variant = Variant(tag=tag, dir=vdir, method=args.method, lam=f"v{sel.lambda_v:g}_d{sel.lambda_d:g}",
                       feature_space="Ev+Ed", class_weight=args.method in cw_methods)
-    model, preprocess, best_epoch = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
+    model, preprocess, best_epoch, _ = train_classifier(cfg, lay, args.model, variant, args.seed, ctx.channels)
     y_val, p_val, _ = predict_dir(model, preprocess, vdir / "val", cfg, ctx.channels)     # CHỈ val
     auc = float(roc_auc_score(y_val, p_val))
     out = lay.results_dir / "val_only" / f"{args.model}__{tag}__s{args.seed}.json"

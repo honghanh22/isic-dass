@@ -43,12 +43,13 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
                   ckpt_path: Path, head_epochs: int, ft_epochs: int, with_pr_auc: bool = True) -> tuple[int, dict]:
     """Giai đoạn 1: chỉ train head. Giai đoạn 2: fine-tune toàn bộ, giữ epoch tốt nhất theo `clf.monitor`.
 
-    Trả về (best_epoch của giai đoạn 2, history). Model đã được nạp lại trọng số tốt nhất.
+    Trả về (best_epoch của giai đoạn 2, history). `history`: metric từng epoch của giai đoạn 2 (khoá của Keras: `loss`,
+    `auc`, `val_loss`, `val_auc`, …) và của giai đoạn 1 với tiền tố `head_`. Model đã được nạp lại trọng số tốt nhất.
     """
     base.trainable = False
     model.compile(optimizer=tf.keras.optimizers.AdamW(clf.head_lr), loss="binary_crossentropy",
                   metrics=training_metrics(with_pr_auc))
-    model.fit(train_ds, validation_data=val_ds, epochs=head_epochs, class_weight=class_weight, verbose=2)
+    head = model.fit(train_ds, validation_data=val_ds, epochs=head_epochs, class_weight=class_weight, verbose=2)
 
     base.trainable = True
     model.compile(optimizer=tf.keras.optimizers.AdamW(clf.ft_lr, weight_decay=clf.weight_decay),
@@ -62,11 +63,10 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
     hist = model.fit(train_ds, validation_data=val_ds, epochs=ft_epochs, class_weight=class_weight,
                      callbacks=callbacks, verbose=2)
     model.load_weights(str(ckpt_path))
-    history = hist.history
-    best_epoch = int(np.argmax(history[clf.monitor])) + 1
+    best_epoch = int(np.argmax(hist.history[clf.monitor])) + 1
     log.info("best fine-tune epoch = %d, %s = %.4f, val AUC = %.4f", best_epoch, clf.monitor,
-             max(history[clf.monitor]), history["val_auc"][best_epoch - 1])
-    return best_epoch, history
+             max(hist.history[clf.monitor]), hist.history["val_auc"][best_epoch - 1])
+    return best_epoch, {**hist.history, **{f"head_{k}": v for k, v in head.history.items()}}
 
 
 def predict_dir(model, preprocess, data_dir: str | Path, cfg: Config,
@@ -94,11 +94,17 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"
-    best_epoch, _ = fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight, ckpt_path=ckpt,
-                                  head_epochs=clf.head_epochs, ft_epochs=clf.ft_epochs)
+    best_epoch, history = fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight,
+                                        ckpt_path=ckpt, head_epochs=clf.head_epochs, ft_epochs=clf.ft_epochs)
     if clf.save_weights_to_drive:
         shutil.copy2(ckpt, layout.clf_dir / ckpt.name)
-    return model, preprocess, best_epoch
+    return model, preprocess, best_epoch, history
+
+
+def history_arrays(history: dict[str, list[float]]) -> dict[str, np.ndarray]:
+    """Lịch sử train -> mảng `hist_<khoá>` để lưu trong .npz (chỉ thêm thông tin, không thuộc giao thức train): xem
+    đường val AUC / loss qua từng epoch, ví dụ phân biệt overfit với val phẳng khi epoch tốt nhất là 1."""
+    return {f"hist_{k}": np.asarray(v, dtype=np.float64) for k, v in history.items()}
 
 
 def prediction_path(layout: Layout, model_name: str, variant_tag: str, seed: int) -> Path:
@@ -150,7 +156,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                                                layout.superseded_pred_dir, layout.superseded_clf_dir)
                 log.warning("Giao thức cũ (%s): đã chuyển %s -> %s, train lại", mismatch, out.name, moved)
             log.info("=== %s | %s | seed %d ===", model_name, tag, seed)
-            model, preprocess, best_epoch = train_classifier(cfg, layout, model_name, variant, seed, channels)
+            model, preprocess, best_epoch, history = train_classifier(cfg, layout, model_name, variant, seed,
+                                                                      channels)
             y_val, p_val, _ = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
             y_test, p_test, test_files = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
             extra = {}
@@ -164,7 +171,7 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                             synth_fraction=cfg.selection.synth_fraction, design=cfg.selection.design,
                             filter_majority=cfg.selection.filter_majority,
                             code_version=code or "",
-                            dass_version=__version__)
+                            dass_version=__version__, **history_arrays(history))
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
             del model
             gc.collect()

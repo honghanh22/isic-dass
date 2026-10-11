@@ -70,6 +70,24 @@ def warn_if_minority_not_positive(cfg: Config, budget: ClassBudget) -> None:
                     cfg.data.classes.get(budget.minority), budget.majority)
 
 
+def log_selection_budget(cfg: Config, budget: ClassBudget) -> None:
+    """Thiết kế B: dòng "cần chọn n | pool N" ở trên là pool lớp thiểu số (giữ như thiết kế A); in thêm số ảnh sinh s
+    mỗi lớp và phần pool thực sự dùng, và báo SỚM (từ `prepare`) nếu pool lớp thiểu số không đủ ⌈k·s⌉ ảnh — tức mất
+    cân bằng < 1 / (1 − q) — thay vì để `select` dừng sau khi đã sinh ảnh."""
+    from ..data.variants import selection_budget
+
+    sel = cfg.selection
+    if sel.design != "source_balanced":
+        return
+    s, n_pool = selection_budget(sel, budget.n_select, budget.n_real[budget.majority])
+    log.info("Thiết kế B: %d ảnh sinh MỖI lớp, chọn trong %d ảnh đầu pool %s và pool %s %d ảnh%s | tập train M1–M6: "
+             "%d ảnh mỗi lớp", s, n_pool, budget.minority, budget.majority, n_pool if sel.filter_majority else s,
+             "" if sel.filter_majority else " (không lọc)", budget.n_real[budget.majority] + s)
+    if n_pool > budget.pool_size:
+        log.warning("Pool lớp thiểu số chỉ có %d ảnh nhưng thiết kế B cần %d (mất cân bằng < 1 / (1 − q)) -> `select` "
+                    "sẽ dừng; giảm selection.balanced_synth_ratio", budget.pool_size, n_pool)
+
+
 def resolve_channels(cfg: Config, layout: Layout) -> int:
     """`data.channels: auto` -> nhận diện từ ảnh gốc (ảnh xám = 1 kênh, ảnh màu = 3 kênh)."""
     if cfg.data.channels != "auto":
@@ -125,6 +143,7 @@ class Context:
                  budget.minority, budget.n_real[budget.minority], budget.majority,
                  budget.n_real[budget.majority], budget.n_select, budget.pool_size, channels)
         warn_if_minority_not_positive(cfg, budget)
+        log_selection_budget(cfg, budget)
         write_json_atomic(layout.dataset_card, build_dataset_card(cfg, split, channels, budget, test_counts))
         record_stage(layout, cfg, stage, channels=channels)
         return cls(cfg, layout, split, budget, channels)

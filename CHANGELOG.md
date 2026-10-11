@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.21.1 — rà soát code theo thiết kế B (không đổi cách chọn ảnh / cách train)
+- `evaluate`: chất lượng ảnh sinh tính **theo từng lớp** (cột `class`). Thiết kế B có ảnh sinh ở cả hai lớp nhưng trước
+  đây chỉ lớp thiểu số được đánh giá; nay thêm khối lớp đa số (KID / FID / đa dạng / SSIM / chỉ số học thuộc so với ảnh
+  thật lớp đa số; AUC thật-vs-sinh để trống, xem `scripts/shortcut_probe.py`). Bảng `generation_quality` có cột
+  `Class`, tô đậm trong từng lớp.
+- `evaluate`: hàng `pool / all candidates` là **đúng phần pool đã dùng để chọn** (thiết kế B: ⌈k·s⌉ ảnh đầu — ISIC 464,
+  RSNA 5.642), không phải cả file pool (705 / 9.695). Hàm chung `data.variants.selection_budget` cho `select` và
+  `evaluate` (refactor, lựa chọn không đổi; có test).
+- `check_single_protocol` chặn thêm việc trộn `filter_majority` trong một thư mục dự đoán (CHANGELOG 1.19.0 đã ghi
+  nhưng trước đây chỉ kiểm tra lúc train).
+- `.npz` lưu thêm `hist_<metric>`: metric từng epoch của giai đoạn fine-tune và head (`hist_head_…`) — để đọc đường val
+  AUC / loss (ví dụ ResNet50 ISIC chọn epoch 1). Chỉ thêm thông tin, không thuộc giao thức train.
+- `prepare` (thiết kế B): in s, pool mỗi lớp, kích thước tập train M1–M6; cảnh báo sớm nếu mất cân bằng < 1 / (1 − q).
+- Sửa chú thích sai của `OVERSAMPLE_MATCHED` (mô tả nhầm M8r).
+- Không đổi (đổi là đổi giao thức -> cần run_tag mới, khai báo trước): epoch 0 (chỉ head) không được chọn; val AUC lúc
+  train dùng `tf.keras.metrics.AUC` 200 ngưỡng; 3 seed; thiết kế B không có M0b. Ghi trong GUIDE mục 6–7.
+- Lần chạy đã có (`v13_srv`, `rsna_v4_srv`): chỉ cần chạy lại `evaluate` + `report` để có khối lớp đa số và hàng pool
+  đúng; không train lại.
+
 ## 1.21.0 — thiết kế B là thiết kế chính (người dùng quyết định)
 - `configs/_base_/` + schema: `selection.design: source_balanced`, `balanced_synth_ratio: 0.5`, `filter_majority:
   true`, `oversample_variant: false`; `evaluation`: họ chính H1 M6 vs M1, H2 M6 vs M0, tên hiển thị "ROS + Balanced
