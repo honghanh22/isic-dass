@@ -9,7 +9,7 @@
 - ISIC `v13_srv`: dự đoán M0b / M0c của EfficientNetV2B0 chuyển sang `results_v13_srv/predictions_archived_M0b_M0c/`
   (không xoá). Ablation trọng số M6 (chỉ val, EfficientNetV2B0, 3 seed): W0 (0,4; 0,4; 0,2) 0,8256, W1 (0,3; 0,3; 0,4)
   0,8244, W2 (0,25; 0,25; 0,5) 0,8204, W3 (0,2; 0,3; 0,5) 0,8272 -> hơn W0 < 0,01 (ngưỡng khai báo trước) -> giữ W0.
-- Đã biết, chưa sửa: (1) bảng significance liệt kê trùng "DASS vs M0" (vừa trong `comparisons` vừa so tự động với
+- Đã sửa (1.20.1): `compare_pairs` bỏ cặp có đối chứng = baseline; trước đó bảng significance liệt kê trùng "DASS vs M0" (vừa trong `comparisons` vừa so tự động với
   baseline) -> Holm tính 3 phép thử thay vì 2; (2) ResNet50 ISIC dừng ở epoch fine-tune 1 (lr 1e-5) ở hầu hết lần chạy.
 
 ## 1.19.0 — thiết kế B lọc CẢ HAI lớp (`selection.filter_majority`)

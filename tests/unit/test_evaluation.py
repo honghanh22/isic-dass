@@ -151,6 +151,10 @@ def test_compare_pairs_extra_references(runs_dir, rng):
     both = pd.concat([compare_to_baseline(probs, "M0_real_only", 100, 0), cmp], ignore_index=True)
     table = reporting.significance_table(both)
     assert list(table["vs"]) == ["M0_real_only", "M0_real_only", "M0b_real_oversample"]
+    # cặp có đối chứng = baseline đã nằm trong compare_to_baseline -> bỏ qua, không thành dòng trùng (Holm đếm thừa)
+    dup = compare_pairs(probs, [["M6_dass", "M0_real_only"], ["M6_dass", "M0b_real_oversample"]], 100, 0,
+                        baseline="M0_real_only")
+    assert list(dup["vs"]) == ["M0b_real_oversample"]
 
 
 def test_reporting_writes_csv_json_tex(runs_dir, tmp_path):

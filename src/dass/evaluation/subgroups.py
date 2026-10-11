@@ -104,7 +104,7 @@ def subgroup_comparisons(probs: dict[RunKey, tuple], files: dict[RunKey, list[st
         sub = _restrict(probs, files, attr, value)
         if not any(len(np.unique(v[0])) == 2 for v in sub.values()):
             continue
-        cmp = pd.concat([compare_to_baseline(sub, baseline, n_boot, seed), compare_pairs(sub, pairs, n_boot, seed)],
+        cmp = pd.concat([compare_to_baseline(sub, baseline, n_boot, seed), compare_pairs(sub, pairs, n_boot, seed, baseline)],
                         ignore_index=True)
         if len(cmp):
             parts.append(cmp.assign(attribute=column, group=value))

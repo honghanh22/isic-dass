@@ -170,11 +170,14 @@ def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, 
     return pd.DataFrame(rows)
 
 
-def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: int, seed: int) -> pd.DataFrame:
+def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: int, seed: int,
+                  baseline: str | None = None) -> pd.DataFrame:
     """ΔAUC cho từng cặp [phương pháp, đối chứng] (ví dụ M6 vs M0b, M6 vs M1), trong mỗi (model, k).
 
-    Cặp nào thiếu dự đoán của một trong hai phía (chưa train) thì bỏ qua.
+    Cặp nào thiếu dự đoán của một trong hai phía (chưa train) thì bỏ qua. Cặp có đối chứng = `baseline` cũng bỏ qua:
+    `compare_to_baseline` đã tính nó, tính lại sẽ thành dòng trùng và Holm đếm thừa một phép thử.
     """
+    pairs = [p for p in pairs if baseline is None or p[1] != baseline]
     rows = []
     for model, k in sorted({(m, kk) for m, _, _, kk, _ in probs}):
         for method, ref_name in pairs:
