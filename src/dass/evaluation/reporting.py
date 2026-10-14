@@ -20,7 +20,8 @@ import pandas as pd
 from .classification import KEY_METRICS, METRIC_LABELS
 
 LOWER_IS_BETTER = {"kid", "fid", "auc_real_vs_synth", "ssim"}
-SET_LABELS = {"real val vs real train": "Real (val vs train)", "all candidates": "All candidates (pool)"}
+SET_LABELS = {"real val vs real train": "Real (val vs train)", "all candidates": "All candidates (pool)",
+              "real minority train": "Real minority (train)"}
 TEXT_COLUMNS = {"Model", "Family", "Group", "Method", "vs", "Set", "Subset", "Subgroup", "Attribute", "Class"}   # căn trái trong .tex
 
 
@@ -235,14 +236,41 @@ def generation_table(quality: pd.DataFrame, labels: dict[str, str] | None = None
                         "Diversity": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["diversity"]],
                         "SSIM": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["ssim"]],
                         "AUC real/synth": [f"{v:.3f}" if pd.notna(v) else "–" for v in df["auc_real_vs_synth"]]})
-    for col, label in [("nn_dist_ratio", "NN ratio"), ("near_copy_rate", "Near-copy")]:
+    for col, label in [("nn_dist_ratio", "NN ratio"), ("near_copy_rate", "Near-copy"), ("coverage", "Coverage"),
+                       ("density", "Density")]:
         out[label] = [f"{v:.3f}" if pd.notna(v) else "–" for v in df.get(col, pd.Series(np.nan, index=df.index))]
     bold = {}
     groups = df["class"].astype(str) + "|" + df["set"] if by_class else df["set"]   # tô đậm trong từng lớp × tập
     for col, label in [("kid", "KID×1e3"), ("fid", "FID (ref.)"), ("diversity", "Diversity"), ("ssim", "SSIM"),
-                       ("auc_real_vs_synth", "AUC real/synth")]:
-        for i in _best_rows(df[col], groups, lower_is_better=col in LOWER_IS_BETTER):
-            bold[(i, label)] = True
+                       ("auc_real_vs_synth", "AUC real/synth"), ("coverage", "Coverage")]:
+        if col in df:
+            for i in _best_rows(df[col], groups, lower_is_better=col in LOWER_IS_BETTER):
+                bold[(i, label)] = True
+    return out, bold
+
+
+def selection_quality_table(quality: pd.DataFrame, labels: dict[str, str] | None = None) -> tuple[pd.DataFrame, dict]:
+    """Chỉ số của TẬP ảnh sinh lớp thiểu số được chọn: disease margin (M_d, E_d), M_v, đa dạng trong E_v, coverage /
+    density so với ảnh bệnh thật của train (E_d, E_v). Tô đậm giá trị cao nhất trong các tập được chọn (cùng số ảnh)."""
+    df = quality.reset_index(drop=True)
+    f3 = lambda v: f"{v:.3f}" if pd.notna(v) else "–"  # noqa: E731
+    f4 = lambda v: f"{v:+.4f}" if pd.notna(v) else "–"  # noqa: E731
+    col = lambda c: df.get(c, pd.Series(np.nan, index=df.index))  # noqa: E731
+    out = pd.DataFrame({
+        "Set": df["set"], "Method": [SET_LABELS.get(m, method_label(m, labels)) for m in df["method"]], "N": df["n"],
+        "M_d mean": [f4(v) for v in col("md_mean")], "M_d median": [f4(v) for v in col("md_median")],
+        "M_d > 0": [f3(v) for v in col("md_pos_share")], "M_v mean": [f4(v) for v in col("mv_mean")],
+        "Diversity (E_v)": [f3(v) for v in col("diversity_ev")], "NN dist (E_v)": [f3(v) for v in col("nn_within_ev")],
+        "Coverage (E_d)": [f3(v) for v in col("coverage_d")], "Density (E_d)": [f3(v) for v in col("density_d")],
+        "Coverage (E_v)": [f3(v) for v in col("coverage_v")], "Density (E_v)": [f3(v) for v in col("density_v")]})
+    bold = {}
+    selected = df["set"] == "selected"
+    for c, label in [("md_mean", "M_d mean"), ("md_pos_share", "M_d > 0"), ("diversity_ev", "Diversity (E_v)"),
+                     ("nn_within_ev", "NN dist (E_v)"), ("coverage_d", "Coverage (E_d)"),
+                     ("coverage_v", "Coverage (E_v)")]:
+        if c in df and selected.any():
+            for i in _best_rows(df.loc[selected, c], df.loc[selected, "set"], lower_is_better=False):
+                bold[(i, label)] = True
     return out, bold
 
 

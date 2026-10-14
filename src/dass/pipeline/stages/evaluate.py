@@ -30,6 +30,7 @@ from ...evaluation.aggregate import (
     summary_stats,
 )
 from ...evaluation.generative import compute_diversity, compute_fid, compute_ssim, kid_with_std, memorization_stats
+from ...evaluation.selection_quality import coverage_density, selection_quality
 from ...utils import read_json
 from ..context import Context, record_stage
 from ..pool import load_selections, resolve_candidate_pool
@@ -133,6 +134,21 @@ def _attribute_share(cfg: Config, layout: Layout, split: dict, attr: dict, col: 
     return df.assign(probe_auc=probe_auc)
 
 
+def evaluate_selection_sets(cfg: Config, layout: Layout) -> pd.DataFrame | None:
+    """Disease margin, đa dạng (E_v) và coverage / density (E_d, E_v) của từng tập ảnh sinh lớp thiểu số được chọn — từ
+    `embeddings.npz` + `selections.json` của bước select; không cần GPU (chạy cả khi --skip-generative)."""
+    selections, card = read_json(layout.selections_json), read_json(layout.dataset_card) or {}
+    if selections is None or not layout.embeddings_npz.exists() or card.get("minority") is None:
+        log.warning("Chưa có selections.json / embeddings.npz / dataset_card -> bỏ qua chỉ số của tập ảnh được chọn")
+        return None
+    with np.load(layout.embeddings_npz, allow_pickle=True) as e:
+        emb = {k: e[k] for k in e.files}
+    df = selection_quality(emb, selections, card["minority"], cfg.evaluation.coverage_k)
+    save_metrics(layout, "selection_quality", df)
+    log.info("Chỉ số tập ảnh được chọn (lớp %s):\n%s", card["minority"], df.round(4).to_string(index=False))
+    return df
+
+
 def evaluate_generation(cfg: Config) -> pd.DataFrame:
     """Chất lượng ảnh sinh THEO TỪNG LỚP có ảnh sinh (cột `class`): lớp thiểu số luôn có; lớp đa số khi có pool ảnh sinh
     lớp đa số (thiết kế B / M8). Mỗi lớp so với ảnh thật CÙNG lớp của tập train; hàng "pool" là đúng phần pool đã dùng
@@ -166,7 +182,8 @@ def evaluate_generation(cfg: Config) -> pd.DataFrame:
             return {"class": cls, "set": set_name, "method": method, "n": len(paths), "n_real": len(real),
                     "kid": kid, "kid_std": kid_std, "fid": compute_fid(real, fake), "diversity": compute_diversity(fake),
                     "ssim": compute_ssim(paths, ch, ev.ssim_pairs, cfg.seed),
-                    "auc_real_vs_synth": np.nan if auc is None else auc, **memorization_stats(fake, real, val_feats)}
+                    "auc_real_vs_synth": np.nan if auc is None else auc, **memorization_stats(fake, real, val_feats),
+                    **coverage_density(real, fake, ev.coverage_k)}
 
         rows = [row("reference", "real val vs real train", val_paths, val_feats, None),
                 row("pool", "all candidates", cls_pool, pool_feats, None)]
@@ -195,6 +212,7 @@ def run(cfg: Config, skip_generative: bool = False) -> None:
     layout.makedirs()
     _, probs = evaluate_classification(cfg, layout)
     evaluate_subgroups(cfg, layout, probs)
+    evaluate_selection_sets(cfg, layout)
     if not skip_generative:
         evaluate_generation(cfg)
     record_stage(layout, cfg, "evaluate")

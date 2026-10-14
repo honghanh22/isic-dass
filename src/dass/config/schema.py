@@ -216,6 +216,7 @@ class EvaluationConfig:
     kid_subsets: int = 50
     kid_subset_size: int = 1000
     ssim_pairs: int = 200
+    coverage_k: int = 5              # k láng giềng của coverage / density (Naeem et al., 2020)
     latex: bool = True
 
 
@@ -279,6 +280,8 @@ def validate(cfg: Config) -> None:
             errors.append(f"evaluation.comparisons: mỗi phần tử phải là [phương pháp, đối chứng], nhận {pair!r}")
     if not all(isinstance(k, str) and isinstance(v, str) for k, v in cfg.evaluation.method_labels.items()):
         errors.append("evaluation.method_labels phải là {mã phương pháp: tên hiển thị}")
+    if not (isinstance(cfg.evaluation.coverage_k, int) and cfg.evaluation.coverage_k >= 1):
+        errors.append(f"evaluation.coverage_k phải là số nguyên >= 1, nhận {cfg.evaluation.coverage_k!r}")
     if not all(isinstance(c, str) and c for c in cfg.evaluation.subgroup_columns):
         errors.append("evaluation.subgroup_columns phải là danh sách tên cột metadata, ví dụ [ViewPosition]")
     if not all(isinstance(v, list) for v in cfg.evaluation.method_groups.values()):

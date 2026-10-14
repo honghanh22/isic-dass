@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.22.0 — chỉ số của tập ảnh được chọn: disease margin, đa dạng, coverage
+- `evaluation/selection_quality.py` (numpy thuần, có test): `coverage_density` (Naeem et al., ICML 2020),
+  `pairwise_diversity`, `nn_within`, `selection_quality` (theo tập: M_d / M_v trung bình, trung vị, tỉ lệ M_d > 0; đa
+  dạng E_v; coverage / density so với ảnh bệnh thật của train trong E_d và E_v).
+- `evaluate`: thêm `metrics/selection_quality` (từ `embeddings.npz` + `selections.json`, không cần GPU, chạy cả khi
+  `--skip-generative`); `generation_quality` có thêm `coverage`, `density` (Inception-v3, so với ảnh thật cùng lớp).
+- `report`: bảng `tables/selection_quality`; bảng `generation_quality` có cột Coverage / Density (file cũ -> "–").
+- Config: `evaluation.coverage_k` (mặc định 5).
+- Không đổi cách chọn ảnh / train: lần chạy đã có (ISIC `v13_srv`, RSNA `rsna_v4`) chỉ cần chạy lại `evaluate` +
+  `report`. Đã kiểm tra trên dự đoán thật của `v13_srv`: các bảng phân loại / kiểm định không đổi.
+
 ## 1.21.4 — Colab chạy tự động
 - `configs/colab/*`: E_d **tự train trong lần chạy** (cùng công thức, lưu lên Drive) thay vì dùng lại E_d của server
   (file đó không có trên Drive). Khác config server ở `encoder.e_d_from_run`; test cập nhật.

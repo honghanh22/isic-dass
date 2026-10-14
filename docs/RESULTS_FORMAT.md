@@ -14,7 +14,8 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 | `significance_by_subgroup` | (model, phương pháp, đối chứng, nhóm con) | như `significance_vs_baseline`, `p_holm` trong mỗi model × nhóm |
 | `subgroup_reference` | (thuộc tính, giá trị) trên test | `share_in_positive, share_in_negative, auc_attribute_only` (AUC khi CHỈ dùng thuộc tính) |
 | `subgroup_share` | tập ảnh (thật / pool / ảnh mỗi phương pháp chọn) | `true_share` (theo metadata), `predicted_share` (probe logistic trên E_v), `probe_auc` |
-| `generation_quality` | một tập ảnh của một lớp | `class` (lớp có ảnh sinh; thiết kế B: cả hai lớp, mỗi lớp so với ảnh thật CÙNG lớp của train; file trước 1.21.1 không có cột này = lớp thiểu số), `set` (`reference` / `pool` = đúng phần pool đã dùng để chọn / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth, nn_dist_median, nn_dist_ratio, near_copy_rate` |
+| `generation_quality` | một tập ảnh của một lớp | `class` (lớp có ảnh sinh; thiết kế B: cả hai lớp, mỗi lớp so với ảnh thật CÙNG lớp của train; file trước 1.21.1 không có cột này = lớp thiểu số), `set` (`reference` / `pool` = đúng phần pool đã dùng để chọn / `selected`), `method, n, n_real, kid, kid_std, fid, diversity, ssim, auc_real_vs_synth, nn_dist_median, nn_dist_ratio, near_copy_rate`; từ 1.22.0 thêm `coverage, density` (Naeem et al., 2020, k = `evaluation.coverage_k`, so với ảnh thật train cùng lớp, đặc trưng Inception) |
+| `selection_quality` | tập ảnh sinh lớp thiểu số (mốc ảnh bệnh thật / pool / mỗi phương pháp) | `set, method, n`; **disease margin** `md_mean, md_median, md_std, md_pos_share` (tỉ lệ ảnh có M_d > 0) và `mv_mean, mv_median` (E_d / E_v, từ `embeddings.npz`); **đa dạng** `diversity_ev` (1 − cosine trung bình mọi cặp) và `nn_within_ev` (khoảng cách tới ảnh gần nhất trong tập) trong E_v; **coverage / density** `coverage_d, density_d` (E_d) và `coverage_v, density_v` (E_v) so với ảnh bệnh thật của train. Không cần GPU (tính cả khi `--skip-generative`). Coverage / density phụ thuộc số ảnh: chỉ so giữa các phương pháp cùng số ảnh |
 | `probe_auc` | không gian đặc trưng × tập | `space, subset, auc_probe` (dòng `val` sát thực tế hơn; vẫn hơi lạc quan vì E_d dùng val để chọn epoch) |
 | `shortcut_check` | phương pháp | `auc_5fold` = AUC tách ảnh thật / sinh lớp thiểu số (E_v); dòng `reference` = hai lớp bệnh thật |
 | `selection_jaccard` | phương pháp | Jaccard giữa tập ảnh được chọn của các phương pháp |
@@ -45,7 +46,8 @@ và `metrics/` giữ **mã nội bộ** (`M6_dass`, …).
 | `significance` | `metrics/significance_vs_baseline` (cột `Family`: Primary / Exploratory, họ chính xếp trước) |
 | `auc_by_split` | `metrics/classification_runs`: ROC-AUC train (ảnh **thật** của tập train, không gồm ảnh nhân bản / ảnh sinh) / val / test, mean ± std qua seed, cột Train − Test |
 | `classification_by_subgroup`, `significance_by_subgroup`, `subgroup_reference`, `subgroup_share` | `metrics/` cùng tên |
-| `generation_quality` | `metrics/generation_quality` |
+| `generation_quality` | `metrics/generation_quality` (cột Coverage / Density từ 1.22.0) |
+| `selection_quality` | `metrics/selection_quality`: M_d, M_v, đa dạng E_v, coverage / density (E_d, E_v) của từng tập được chọn |
 
 Chú thích bảng (`caption` trong `.tex`) viết bằng tiếng Anh, cùng ngôn ngữ với tên phương pháp.
 

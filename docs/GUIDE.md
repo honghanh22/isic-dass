@@ -605,6 +605,9 @@ Có hai hàng tham chiếu:
 
 | Chẩn đoán | Đo gì | Bước |
 |---|---|---|
+| **Disease margin của tập chọn** (`selection_quality`) | M_d (E_d) của từng ảnh GAN được chọn, tổng hợp theo tập: trung bình, trung vị, tỉ lệ ảnh có M_d > 0 (gần ảnh bệnh thật hơn ảnh lớp đa số thật); kèm M_v | `evaluate` |
+| **Đa dạng của tập chọn** (`selection_quality`, `generation_quality`) | 1 − cosine trung bình mọi cặp và khoảng cách tới ảnh gần nhất trong tập, trong E_v (đúng không gian của S_div); bản Inception-v3 ở `generation_quality` | `evaluate` |
+| **Coverage / density** (`selection_quality`, `generation_quality`) | Naeem và cộng sự (ICML 2020), k = 5: coverage = tỉ lệ ảnh bệnh thật (train) có ít nhất một ảnh GAN trong bán kính k láng giềng gần nhất của nó (tập chọn phủ phân phối ảnh bệnh thật đến đâu); density ≈ 1 khi ảnh GAN phân bố như ảnh thật, > 1 khi dồn vào vùng dày. Trong E_d, E_v và Inception-v3. Chỉ so giữa các phương pháp CÙNG số ảnh (M1–M6) | `evaluate` |
 | AUC probe | hai lớp bệnh tách nhau đến đâu trong E_v và E_d (logistic, CV 5 fold). Dòng **val** gần khách quan (E_d không học trên val, chỉ dùng val để chọn epoch); dòng train thì lạc quan | `select` |
 | Kiểm tra shortcut | AUC tách ảnh thật / ảnh sinh trong E_v cho từng biến thể; hàng tham chiếu là AUC tách hai lớp bệnh thật | `select` |
 | Jaccard giữa các biến thể | các tiêu chí có thật sự chọn ra các tập khác nhau không (mốc ngẫu nhiên 0,5 khi k = 1,5) | `select` |

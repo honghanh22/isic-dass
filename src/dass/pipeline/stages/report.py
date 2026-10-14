@@ -79,7 +79,17 @@ def run(cfg: Config) -> list:
         table, bold = reporting.generation_table(quality, labels)
         written += reporting.write_table(out, "generation_quality", table, quality,
                                          f"{name}: synthetic image quality (Inception-v3; KID primary, FID for "
-                                         "reference)", latex, bold)
+                                         "reference; coverage / density vs real train images of the same class)",
+                                         latex, bold)
+
+    sq = load_metrics(layout, "selection_quality")
+    if sq is not None:
+        table, bold = reporting.selection_quality_table(sq, labels)
+        written += reporting.write_table(out, "selection_quality", table, sq,
+                                         f"{name}: selected minority-class synthetic sets — disease margin M_d (E_d), "
+                                         "visual margin M_v, pairwise diversity and nearest-neighbour distance (E_v), "
+                                         "coverage / density vs real minority training images (Naeem et al., 2020)",
+                                         latex, bold)
 
     if not written:
         log.warning("Chưa có số liệu trong %s — chạy `dass evaluate` trước", layout.metrics_dir)

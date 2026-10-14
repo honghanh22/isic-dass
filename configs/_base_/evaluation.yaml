@@ -33,4 +33,7 @@ evaluation:
   kid_subsets: 50                # KID (Inception-v3): mean ± std qua các tập con
   kid_subset_size: 1000
   ssim_pairs: 200
+  # Coverage / density (Naeem et al., ICML 2020): ảnh thật được "phủ" nếu có ít nhất một ảnh sinh nằm trong bán kính
+  # k láng giềng gần nhất của nó. Tính cho tập ảnh được chọn (E_d, E_v, Inception-v3) so với ảnh thật cùng lớp.
+  coverage_k: 5
   latex: true                    # xuất thêm tables/*.tex
