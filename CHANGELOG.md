@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.22.1 — sửa phân tích nhóm con (tư thế AP / PA) của RSNA
+- Lỗi: mã ảnh RSNA là DICOM UID có dấu chấm (`1.2.276.0.7230010…`); `evaluation/subgroups.load_attribute` dùng
+  `Path(uid).stem` nên cắt mất phần sau dấu chấm cuối -> không ảnh test / train nào khớp `dicom_metadata.csv`. Ở
+  `rsna_v4` (Colab, 2026-10-14): mốc "chỉ dùng thuộc tính" rỗng, cảnh báo sai "ViewPosition không phải nhị phân", và
+  không có bảng `classification_by_subgroup`, `significance_by_subgroup`, `subgroup_reference`, `subgroup_share`.
+- Sửa: `image_key` chỉ bỏ đuôi ảnh (.png, .jpg…), dùng cho mọi phép tra metadata. Có test với mã dạng UID.
+- Không đổi cách chọn ảnh / train / dự đoán: chỉ cần chạy lại `evaluate` + `report` của `rsna_v4` (và các lần chạy
+  RSNA cũ nếu muốn có bảng nhóm con).
+
 ## 1.22.0 — chỉ số của tập ảnh được chọn: disease margin, đa dạng, coverage
 - `evaluation/selection_quality.py` (numpy thuần, có test): `coverage_density` (Naeem et al., ICML 2020),
   `pairwise_diversity`, `nn_within`, `selection_quality` (theo tập: M_d / M_v trung bình, trung vị, tỉ lệ M_d > 0; đa

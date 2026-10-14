@@ -21,6 +21,7 @@ from sklearn.model_selection import StratifiedKFold, cross_val_predict
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from ..data.sources.base import IMAGE_EXTS
 from .aggregate import GROUP_COLS, RunKey, add_holm, compare_pairs, compare_to_baseline, mark_family, summary_stats
 from .classification import binary_metrics
 
@@ -28,12 +29,19 @@ SUBGROUP_METRICS = ["roc_auc", "pr_auc"]
 _MISSING = {"", "nan", "none"}
 
 
+def image_key(name: str | Path) -> str:
+    """Tên ảnh không đuôi, dùng để tra metadata. Chỉ bỏ đuôi ẢNH (.png, .jpg…): mã ảnh RSNA là DICOM UID có dấu chấm
+    (1.2.276.0.7230010…), `Path(uid).stem` sẽ cắt mất phần sau dấu chấm cuối -> không ảnh nào khớp metadata."""
+    p = Path(str(name))
+    return p.stem if p.suffix.lower() in IMAGE_EXTS else p.name
+
+
 def load_attribute(metadata_csv: str | Path, column: str) -> dict[str, str]:
     """{tên ảnh không đuôi: giá trị thuộc tính}; cột không có -> {}."""
     df = pd.read_csv(metadata_csv, dtype=str)
     if column not in df or "image_id" not in df:
         return {}
-    return {Path(str(i)).stem: str(v).strip() for i, v in zip(df["image_id"], df[column])
+    return {image_key(i): str(v).strip() for i, v in zip(df["image_id"], df[column])
             if str(v).strip().lower() not in _MISSING}
 
 
@@ -65,13 +73,13 @@ def _restrict(probs: dict[RunKey, tuple], files: dict[RunKey, list[str]], attr: 
     for key, fs in files.items():
         y, p = probs[key][0], probs[key][1]
         order = np.argsort(fs, kind="stable")
-        keep = [i for i in order if attr.get(Path(fs[i]).stem) == value]
+        keep = [i for i in order if attr.get(image_key(fs[i])) == value]
         out[key] = (y[keep], p[keep], [fs[i] for i in keep])
     return out
 
 
 def subgroup_values(files: dict[RunKey, list[str]], attr: dict[str, str]) -> list[str]:
-    return sorted({attr[Path(f).stem] for fs in files.values() for f in fs if Path(f).stem in attr})
+    return sorted({attr[image_key(f)] for fs in files.values() for f in fs if image_key(f) in attr})
 
 
 def subgroup_runs(probs: dict[RunKey, tuple], files: dict[RunKey, list[str]], attr: dict[str, str], column: str,
@@ -117,7 +125,7 @@ def subgroup_comparisons(probs: dict[RunKey, tuple], files: dict[RunKey, list[st
 def attribute_only_auc(y: np.ndarray, test_files: list[str], attr: dict[str, str], column: str) -> pd.DataFrame:
     """Mốc: AUC khi dự đoán nhãn CHỈ bằng thuộc tính (điểm = 1 nếu ảnh thuộc nhóm, ngược lại 0), mỗi giá trị một
     dòng, kèm tỉ lệ của giá trị đó trong lớp dương / âm của test."""
-    vals = np.array([attr.get(Path(f).stem) for f in test_files], dtype=object)
+    vals = np.array([attr.get(image_key(f)) for f in test_files], dtype=object)
     known = np.array([x is not None for x in vals])
     rows = []
     for value in sorted(set(vals[known])):
@@ -141,9 +149,9 @@ def attribute_share_table(z_real: dict[str, np.ndarray], real_names: dict[str, l
     X, v, cls = [], [], []
     for c in (majority, minority):
         for z, name in zip(z_real[c], real_names[c]):
-            if Path(name).stem in attr:
+            if image_key(name) in attr:
                 X.append(z)
-                v.append(attr[Path(name).stem])
+                v.append(attr[image_key(name)])
                 cls.append(c)
     values = sorted(set(v))
     if len(values) != 2:

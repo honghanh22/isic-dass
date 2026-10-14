@@ -59,6 +59,26 @@ def test_subgroup_auc_exposes_view_shortcut(view_runs):
     assert ref.loc["AP", "auc_attribute_only"] == pytest.approx(0.75)  # (0.75 + 0.75) / 2
 
 
+def test_dicom_uid_image_ids_match_test_files(tmp_path, rng):
+    """Mã ảnh RSNA là DICOM UID có dấu chấm: không được cắt phần sau dấu chấm cuối (lỗi rsna_v4: bảng nhóm con rỗng)."""
+    uids = [f"1.2.276.0.7230010.3.1.2.8323329.{1000 + i}.1517874{i:03d}" for i in range(40)]
+    assert sg.image_key(uids[0]) == uids[0] and sg.image_key(f"positive/{uids[0]}.png") == uids[0]
+    assert sg.image_key("negative/n01.png") == "n01"
+    y = np.r_[np.zeros(20), np.ones(20)].astype(int)
+    files = [f"{CLASSES[c]}/{u}.png" for c, u in zip(y, uids)]
+    view = {u: ("AP" if (i % 2 == 0) else "PA") for i, u in enumerate(uids)}
+    meta = tmp_path / "dicom_metadata.csv"
+    pd.DataFrame({"image_id": list(view), "ViewPosition": list(view.values())}).to_csv(meta, index=False)
+    attr = sg.load_attribute(meta, "ViewPosition")
+    assert set(attr) == set(uids)
+    p = y + rng.normal(0, 0.3, len(y))
+    probs = {("ResNet50", "M0_real_only", "v1_d1", 1.5, 1): (y, p, files)}
+    runs = sg.subgroup_runs(probs, {k: v[2] for k, v in probs.items()}, attr, "ViewPosition")
+    assert set(runs["group"]) == {"AP", "PA"} and (runs["n"] == 20).all()
+    ref = sg.attribute_only_auc(y, files, attr, "ViewPosition")
+    assert set(ref["group"]) == {"AP", "PA"} and (ref["n_test"] == 40).all()
+
+
 def test_test_files_rebuilt_from_split_for_old_npz(view_runs):
     pred, meta, files, y = view_runs
     _, probs = load_all_runs(pred)
