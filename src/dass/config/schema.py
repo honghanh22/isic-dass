@@ -191,7 +191,7 @@ class ClassifierConfig:
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"
-    swin_preset: str = "hf://keras/swin_tiny_patch4_window7_224"
+    swin_preset: str = "swin_tiny_patch4_window7_224"   # preset KerasHub (Kaggle), ImageNet-1k, 224 px
 
 
 @dataclass

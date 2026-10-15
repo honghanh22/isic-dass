@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.22.2 — Swin-T dùng tên preset KerasHub chính thức
+- `classifier.swin_preset`: `hf://keras/swin_tiny_patch4_window7_224` (không xác nhận được có trên Hugging Face)
+  -> `swin_tiny_patch4_window7_224`, preset chính thức của KerasHub (Kaggle, ImageNet-1k, 224 px; tài liệu
+  `keras_hub.models.SwinTransformerImageClassifier`). Chưa có lần chạy SwinT nào, nên không ảnh hưởng kết quả cũ.
+- Notebook mục 7b: DenseNet121 / ViT-B16 / SwinT chạy được với `configs/colab/*` (dự đoán cùng thư mục, `evaluate`
+  đưa vào bảng); thêm lệnh kiểm tra nhanh preset. Backbone thêm sau khi có kết quả -> phân tích khám phá.
+
 ## 1.22.1 — sửa phân tích nhóm con (tư thế AP / PA) của RSNA
 - Lỗi: mã ảnh RSNA là DICOM UID có dấu chấm (`1.2.276.0.7230010…`); `evaluation/subgroups.load_attribute` dùng
   `Path(uid).stem` nên cắt mất phần sau dấu chấm cuối -> không ảnh test / train nào khớp `dicom_metadata.csv`. Ở

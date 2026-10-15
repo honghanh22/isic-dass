@@ -24,4 +24,4 @@ classifier:
   mixed_precision: false
   save_weights_to_drive: true
   vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px
-  swin_preset: hf://keras/swin_tiny_patch4_window7_224     # Swin-T, ImageNet-1k, 224 px
+  swin_preset: swin_tiny_patch4_window7_224                # Swin-T, ImageNet-1k, 224 px (preset KerasHub, tải từ Kaggle)

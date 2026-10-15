@@ -219,7 +219,7 @@ nội dung tập train. Chọn epoch theo `val_auc`.
   phương pháp có cùng số ảnh, chỉ khác cách chọn ảnh sinh.
 
 Cấu hình chính (`configs/colab/*`, như server): **EfficientNetV2B0, ResNet50, ConvNeXtTiny** × seed 2026, 2027,
-2028 = 9 ô dưới đây. `DenseNet121`, `ViT-B16`, `SwinT` ở mục 7b, chỉ chạy với `configs/experiments/*` (6 backbone).
+2028 = 9 ô dưới đây. `DenseNet121`, `ViT-B16`, `SwinT`: mục 7b (tuỳ chọn).
 
 Báo lỗi "được train với thiết lập khác" (dự đoán cũ theo giao thức khác): thêm `--archive-mismatched` để chuyển kết
 quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
@@ -231,9 +231,16 @@ for model in ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]:
     for seed in [2026, 2027, 2028]:
         code(f"!dass {{CFG}} train --model {model} --seeds {seed}\nok()")
 md("""
-### 7b. (Tuỳ chọn) Backbone ngoài cấu hình 3 CNN — chỉ với `configs/experiments/*`
+### 7b. (Tuỳ chọn) Backbone ngoài cấu hình 3 CNN
 
-Transformer (KerasHub) nặng hơn CNN nhiều — nên dùng GPU L4 / A100.
+Chạy được với mọi cấu hình, kể cả `configs/colab/*`: dự đoán ghi vào cùng thư mục `predictions/` và `evaluate`
+đưa backbone mới vào mọi bảng. Backbone thêm **sau khi đã có kết quả** -> báo cáo như phân tích khám phá.
+
+Bỏ dấu `#` rồi chạy: một ô train đủ 7 phương pháp × 3 seed; bị ngắt thì chạy lại ô đó, phần đã xong được bỏ qua.
+Muốn từng seed một: thêm `--seeds 2026` (rồi 2027, 2028). Transformer (KerasHub) nặng hơn CNN — nên dùng A100 / L4.
+
+Kiểm tra nhanh preset Swin-T trước khi train (tải trọng số, dựng model):
+`!python -c "import keras_hub as k; m = k.models.ImageClassifier.from_preset('swin_tiny_patch4_window7_224', num_classes=1, activation='sigmoid'); print(m.count_params())"`
 """)
 for model in ["DenseNet121", "ViT-B16", "SwinT"]:
     code(f"# Bỏ dấu # để chạy (không chạy khi bấm Run all)\n# !dass {{CFG}} train --model {model}")

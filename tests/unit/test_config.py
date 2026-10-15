@@ -123,7 +123,8 @@ def test_classifier_six_backbones_three_seeds(name):
     clf = load_config([CONFIGS / "experiments" / name]).classifier
     assert clf.models == ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "ViT-B16", "SwinT"]
     assert clf.seeds == [2026, 2027, 2028]
-    assert clf.vit_preset.startswith("hf://keras/") and clf.swin_preset.startswith("hf://keras/")
+    assert clf.vit_preset.startswith("hf://keras/")
+    assert clf.swin_preset == "swin_tiny_patch4_window7_224"            # tên preset KerasHub chính thức
 
 
 def test_unknown_backbone_rejected_at_load_time():

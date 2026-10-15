@@ -396,7 +396,7 @@ thêm một lần. ISIC: 470 = 148 × 3 + 26, nên mỗi ảnh malignant thật 
 | Backbone | Họ | Nguồn | Đầu ra |
 |---|---|---|---|
 | EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny | CNN | `keras.applications` | pooling trung bình → Dropout 0,3 → Dense(1, sigmoid) |
-| ViT-B16, SwinT | Transformer | KerasHub (preset Hugging Face) | đầu phân loại của preset, 1 đầu ra sigmoid |
+| ViT-B16, SwinT | Transformer | KerasHub (`classifier.vit_preset`, `classifier.swin_preset` = `swin_tiny_patch4_window7_224`) | đầu phân loại của preset, 1 đầu ra sigmoid |
 
 **Augmentation** của classifier: **tắt** ở cấu hình hiện tại (cả hai bộ dữ liệu). Khi bật (`classifier.augment: true`):
 chỉ tập train, giống hệt nhau cho mọi biến thể; profile `rotation_invariant` = lật
