@@ -48,11 +48,11 @@ Không còn bước nào biến đổi ảnh theo từng kênh (nguồn gốc l�
 ```
 prepare   nguồn ─► raw/ ─► pp{size}_png/ ─► split (+ test tách ra nếu cần) ─► dataset_card.json
 gan       pp train ─► zip ─► StyleGAN2-ADA (KID early stopping) ─► best.pkl
-sample    best.pkl ─► pool_<lớp>_<tag>.zip (Drive): lớp thiểu số; thiết kế B thêm pool lớp đa số (seed + 1)
-select    E_v, E_d ─► M_v, M_d ─► M1–M6 ─► selections.json (+ selections_majority.json ở thiết kế B: lớp đa số,
+sample    best.pkl ─► pool_<lớp>_<tag>.zip (Drive): lớp thiểu số và lớp đa số (seed + 1)
+select    E_v, E_d ─► M_v, M_d ─► M1–M6 ─► selections.json (+ selections_majority.json: lớp đa số,
           margin đảo chiều), embeddings.npz, shortcut_check
-train     selections.json + ảnh thật nhân bản (ROS) ghép tại đây (`variant_inputs`): thiết kế B = thật + ROS + s ảnh
-          sinh mỗi lớp cho M1–M6; thiết kế A = thật + n ảnh sinh lớp thiểu số, M0b = thật + ROS
+train     selections.json + ảnh thật nhân bản (ROS) ghép tại đây (`variant_inputs`): M1–M6 = thật + ROS + s ảnh sinh
+          mỗi lớp
           ─► variants/<M>_p<k>/{train,val}
           ─► <model>__<variant>__s<seed>.npz (dự đoán train thật + val + test)
 evaluate  .npz ─► metrics/classification_*, significance (vs M0 + cặp bổ sung, Holm theo họ chính / khám phá);
@@ -69,7 +69,7 @@ report    metrics/ ─► tables/*.csv | *.json | *.tex
 | Cách chia mới (k-fold, …) | hàm trong `data/splits/` + nhánh trong `build_split` + loại trong `SPLIT_TYPES` |
 | Backbone mới | builder trong `models/classifiers/__init__.py` (`MODEL_BUILDERS`) |
 | Biến thể chọn ảnh mới | `selection/strategies.py` (`METHODS`, `select_all_methods`) + test |
-| Baseline không dùng pool (như M0b) | hằng tên trong `selection/strategies.py` + ghép tập train trong `pipeline/stages/train.py` (`extra_real` của `prepare_variants`) + tuỳ chọn trong `selection.*` |
+| Baseline không dùng pool (ví dụ chỉ ROS) | hằng tên trong `selection/strategies.py` + ghép tập train trong `pipeline/stages/train.py` (`extra_real` của `prepare_variants`) + tuỳ chọn trong `selection.*` |
 | Phép kiểm định bổ sung | thêm cặp `[phương pháp, đối chứng]` vào `evaluation.comparisons` (không cần train lại) |
 | Tham số mới | dataclass trong `config/schema.py` **và** `configs/_base_/*.yaml` (test đối chiếu hai nơi) |
 | Stage mới | `pipeline/stages/<tên>.py` + lệnh trong `cli.py` + cell trong `scripts/build_colab_notebook.py` |

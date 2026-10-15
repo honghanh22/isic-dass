@@ -1,5 +1,4 @@
-# RSNA — THIẾT KẾ B. Từ 1.21.0 thiết kế B là cấu hình chính (configs/_base_/), nên file này chỉ còn là tên gọi cũ
-# của configs/server/rsna_pneumonia.yaml (giữ cho lệnh / script đã dùng); cấu hình resolve giống hệt.
+# Tên gọi cũ của configs/server/rsna_pneumonia.yaml (giữ cho lệnh / script đã dùng); cấu hình resolve giống hệt.
 #   dass -c configs/server/rsna_pneumonia_designB.yaml --tag srv show-config      -> run_tag rsna_v4_srv
 _base_:
   - rsna_pneumonia.yaml

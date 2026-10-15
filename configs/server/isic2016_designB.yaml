@@ -1,5 +1,4 @@
-# ISIC 2016 — THIẾT KẾ B. Từ 1.21.0 thiết kế B là cấu hình chính (configs/_base_/), nên file này chỉ còn là tên gọi
-# cũ của configs/server/isic2016.yaml (giữ cho lệnh / script đã dùng); cấu hình resolve giống hệt.
+# Tên gọi cũ của configs/server/isic2016.yaml (giữ cho lệnh / script đã dùng); cấu hình resolve giống hệt.
 #   dass -c configs/server/isic2016_designB.yaml --tag srv show-config      -> run_tag v13_srv
 _base_:
   - isic2016.yaml

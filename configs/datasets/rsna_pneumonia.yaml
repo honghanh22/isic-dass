@@ -3,11 +3,8 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia/Result_Pneumonia   # KẾT QUẢ
   gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh, split của rsna_v2): checkpoints_rsna/stylegan2ada
-  # rsna_v1 (tập con 6.000 ảnh, chưa loại "Exclude") chỉ chạy đến prepare, giữ nguyên trên Drive.
-  run_tag: rsna_v4       # THIẾT KẾ B (1.21.0): ROS + ảnh sinh cân bằng hai lớp (q = 0,5), lọc cả hai lớp; cùng
+  run_tag: rsna_v4       # lần chạy chính: ROS + ảnh sinh cân bằng hai lớp (q = 0,5), lọc cả hai lớp; cùng
                          # split / GAN với rsna_v2, chọn epoch theo val_auc. Server: rsna_v4_srv.
-                         # Thiết kế A (giữ nguyên; profile configs/experiments/design_a.yaml): rsna_v3 (val_auc),
-                         # rsna_v2 (val_macro_recall).
 
 data:
   name: rsna_pneumonia

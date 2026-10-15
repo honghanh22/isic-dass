@@ -99,11 +99,6 @@ pipeline). Internal IDs are kept in all artefacts; paper names are applied only 
 becomes a cue for the minority label: a real-vs-synthetic probe separates the two at AUC ≈ 0.99. With the same number
 of synthetic images in each class, that cue carries no label information.
 
-**Earlier design (A, `minority_only`).** Runs up to ISIC `v12` / RSNA `rsna_v3` added `n = |majority| − |minority|`
-synthetic images to the minority class only and included a random-oversampling baseline (M0b) and an optional
-both-classes control (M7). Design A is kept as a configuration profile, `configs/experiments/design_a.yaml`, and its
-results are reported separately.
-
 The full method, experimental design, statistics and threats to validity are documented in
 [docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
 
@@ -132,7 +127,7 @@ image per patient prevents patient overlap between train, validation and test. V
 - **No leakage.** The generator, DASS and `E_d` see the training split only. Validation and test sets contain real images
   only and are checked before training. A generator may only be reused with the split it was trained on (RSNA: checked
   automatically at every stage; ISIC: the split algorithm is locked by a regression test).
-- **Model selection.** Validation is used only to pick the epoch (validation ROC-AUC, `val_auc`; runs up to ISIC `v11` / RSNA `rsna_v2` used `val_macro_recall`). The test set is predicted once,
+- **Model selection.** Validation is used only to pick the epoch (validation ROC-AUC, `val_auc`). The test set is predicted once,
   after reloading the best checkpoint, with a **fixed threshold of 0.5**.
 - **Same recipe for every method and both datasets**: data, split, generator, pool, `n`, hyper-parameters and seeds
   (paired design). The classifier receives **no other data- or loss-level intervention**: no augmentation and no class
@@ -232,7 +227,6 @@ or skipped. Useful options:
 | Override one value | `--set selection.gamma=0` |
 | Separate output folder for an ablation | `--tag nodiv` (appends to `run_tag`) |
 | Reuse the main run's `E_d` in an ablation | `--set encoder.e_d_from_run=base --tag <name>` |
-| Re-evaluate an earlier design-A run | `dass -c $E -c configs/experiments/design_a.yaml --set paths.run_tag=v12 report` |
 | Lab server (3 CNNs, server paths, `E_d` reused) | `dass -c configs/server/rsna_pneumonia.yaml --tag srv run` |
 | Same configuration on Colab (Drive paths, `E_d` trained in the run) | `dass -c configs/colab/rsna_pneumonia.yaml run` |
 | Check prerequisites before a run | `dass -c $E preflight --fix` (restores a file found in a Drive duplicate folder) |
@@ -292,8 +286,8 @@ diagnostic figures in `gan/` and `selection_figures/`. Column definitions: [docs
 ├── configs/
 │   ├── _base_/                 shared recipe: generator, selection (DASS, E_d), classifier, evaluation, runtime
 │   ├── datasets/               dataset-specific settings only: isic2016, rsna_pneumonia, _template
-│   ├── experiments/            experiment = base + dataset; profiles: smoke (quick check), design_a (earlier design)
-│   ├── server/                 lab-server variants (paths, 3 CNNs, reused E_d); *_designB = aliases
+│   ├── experiments/            experiment = base + dataset; profile: smoke (quick check)
+│   ├── server/                 lab-server variants (paths, 3 CNNs, reused E_d)
 │   └── colab/                  the server configuration with Google Drive paths
 ├── src/dass/                   the Python package (all logic)
 ├── notebooks/                  Colab notebook (one cell per CLI stage), GPU check, archived original notebook
@@ -345,10 +339,10 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - `run_manifest.json` records, for every stage, the git commit, the resolved configuration and library versions.
 - Artefacts are never deleted; a new configuration gets a new `run_tag` or `--tag`.
 
-| Dataset | `gan_tag` | Main `run_tag` | Other runs kept for reporting |
-|---|---|---|---|
-| ISIC 2016 | `v5` | `v13` (design B; server `v13_srv`) | design A: `v12` / `v12_srv` (epoch by `val_auc`), `v11` (epoch by `val_macro_recall`), `v10` (augmentation, class-weighted baseline), `v9` (k = 2), `v7` (k = 4) |
-| RSNA Pneumonia | `rsna` | `rsna_v4` (design B; server `rsna_v4_srv`; split of `rsna_v2`) | design A: `rsna_v3` / `rsna_v3_srv` (epoch by `val_auc`), `rsna_v2` (epoch by `val_macro_recall`); `rsna_v1` (6,000-image subset, data preparation only) |
+| Dataset | `gan_tag` | Main `run_tag` |
+|---|---|---|
+| ISIC 2016 | `v5` | `v13` (server `v13_srv`) |
+| RSNA Pneumonia | `rsna` | `rsna_v4` (server `rsna_v4_srv`; split of `rsna_v2`) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

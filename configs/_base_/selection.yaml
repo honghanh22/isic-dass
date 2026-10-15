@@ -3,7 +3,7 @@
 #   S_DASS(x) = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)   (~ = chuẩn hoá min-max; S_div chuẩn hoá lại mỗi vòng)
 selection:
   # k = pool_mult: pool = k × số ảnh cần chọn -> DASS giữ 1/k ảnh (k = 1,5: giữ 2/3). DÙNG CHUNG cho mọi bộ dữ liệu
-  # (không ghi đè trong configs/datasets/). Lịch sử: 4 (ISIC v7) -> 3 -> 2 (ISIC v9) -> 1,5 (1.5.0): chọn càng gắt
+  # (không ghi đè trong configs/datasets/). Lịch sử: 4 -> 3 -> 2 -> 1,5 (1.5.0): chọn càng gắt
   # thì tập DASS càng lệch phân phối ảnh thật (k = 3: KID tập chọn 0,100 so với pool 0,029). CosSIF (FAGT)
   # cũng chỉ loại 15–25 % ảnh sinh (k ≈ 1,2–1,3).
   pool_mult: 1.5
@@ -15,28 +15,23 @@ selection:
   gamma: 0.5
   # Trọng số THẬT của đa dạng: nền α·M̃_v + β·M̃_d nằm trong [0, 2], γ·S̃_div trong [0, γ] -> với γ = 0,5 đa dạng chiếm
   # khoảng 1/5 biên độ điểm (không phải "50 %").
-  # Tỉ lệ ảnh SINH trong phần cần bù của lớp thiểu số (1.16.0). 1 = công thức gốc (bù hoàn toàn bằng ảnh sinh);
-  # f < 1: M1–M6 chọn round(f × n) ảnh sinh từ ⌈k × f × n⌉ ảnh ĐẦU của pool (giữ đúng k), phần còn lại bù bằng ảnh
-  # thật nhân bản (như ROS) -> mọi biến thể vẫn cùng tổng số ảnh, cân bằng 1 : 1. M0, M0b không đổi. Chỉ thiết kế A.
+  # Tuỳ chọn mở rộng (1.16.0), không dùng trong thiết kế hiện tại; 1 = tắt.
   synth_fraction: 1.0
-  # THIẾT KẾ CHÍNH = B (người dùng quyết định, 1.21.0). Thiết kế A (công thức gốc tới ISIC v12 / RSNA rsna_v3): profile
-  # configs/experiments/design_a.yaml.
-  # q = balanced_synth_ratio: số ảnh sinh MỖI lớp s = q × (ảnh thật lớp đa số). Thiết kế B: q = 0,5 (ISIC s = 309,
-  # RSNA s = 3.761). Ở thiết kế A, q > 0 thêm biến thể khám phá M8 / M8r / M0c (1.17); 0 = tắt.
+  # q = balanced_synth_ratio: số ảnh sinh MỖI lớp s = q × (ảnh thật lớp đa số); q = 0,5 (ISIC s = 309, RSNA
+  # s = 3.761).
   balanced_synth_ratio: 0.5
-  # Thiết kế tập train: source_balanced (thiết kế B, 1.18.0): MỌI biến thể M1–M6 = ảnh thật + ROS lớp thiểu số lên
-  # 1 : 1 (đúng tập nhân bản của M0b) + s ảnh sinh MỖI lớp; ảnh sinh lớp thiểu số chọn theo tiêu chí của từng biến thể
+  # Thiết kế tập train (source_balanced, người dùng quyết định, 1.21.0): MỌI biến thể M1–M6 = ảnh thật + ROS lớp
+  # thiểu số lên 1 : 1 (cùng một tập nhân bản) + s ảnh sinh MỖI lớp; ảnh sinh lớp thiểu số chọn theo tiêu chí của từng biến thể
   # trong ⌈k·s⌉ ảnh đầu pool -> cân bằng lớp VÀ nguồn ảnh (thật / sinh) độc lập với nhãn (hết đường tắt "ảnh GAN =
-  # bệnh"). minority_only (thiết kế A): ảnh sinh chỉ ở lớp thiểu số, bù tới 1 : 1.
+  # bệnh").
   design: source_balanced
-  # Lọc cả ảnh sinh lớp ĐA SỐ (1.19.0, chỉ thiết kế B): true -> pool lớp đa số ⌈k·s⌉ ảnh (seed gen_seed + 1), mỗi
+  # Lọc cả ảnh sinh lớp ĐA SỐ (1.19.0): true -> pool lớp đa số ⌈k·s⌉ ảnh (seed gen_seed + 1), mỗi
   # biến thể chọn s ảnh bằng CÙNG tiêu chí, margin ĐẢO CHIỀU (giống lớp đa số hơn lớp thiểu số), M1 ngẫu nhiên, M5 đa
   # dạng trong lớp đa số. false -> lớp đa số dùng đúng s ảnh, không lọc, chung cho mọi biến thể.
   filter_majority: true
-  # M0b (+ M0c khi q > 0): baseline ROS bằng ảnh thật nhân bản. Thiết kế B TẮT (người dùng quyết định, 1.20.0): ROS đã
-  # nằm TRONG M1–M6. Thiết kế A bật: M6 vs M0b đo đóng góp của nội dung ảnh sinh (cùng số ảnh, cùng số bước train).
+  # Baseline chỉ ROS: tắt (người dùng quyết định, 1.20.0) — ROS đã nằm TRONG M1–M6.
   oversample_variant: false
-  both_classes_variant: false   # M7 (ảnh sinh ở cả hai lớp) — ngoài bộ M0–M6 chuẩn
+  both_classes_variant: false   # tuỳ chọn mở rộng, mặc định tắt
 
 encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = model riêng, train trên ảnh thật
   e_d_model: DenseNet121

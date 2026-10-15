@@ -76,17 +76,15 @@ print("PROJECT_DIR =", PROJECT_DIR)
 md("""
 ## 1. Chọn thực nghiệm
 
-`EXPERIMENT` (cấu hình chính: **thiết kế B**, ROS + ảnh sinh cân bằng hai lớp):
+`EXPERIMENT` (cấu hình chính: ROS + ảnh sinh cân bằng hai lớp):
 
 | File | Lần chạy | Classifier | E_d |
 |---|---|---|---|
-| **`configs/colab/rsna_pneumonia.yaml`** (mặc định) | RSNA `rsna_v4` | 3 CNN × 3 seed, đúng cấu hình server | dùng lại `rsna_v3_srv` (chép từ server) |
-| `configs/colab/isic2016.yaml` | ISIC `v13` | 3 CNN × 3 seed, đúng cấu hình server | dùng lại `v12_srv` (chép từ server) |
+| **`configs/colab/rsna_pneumonia.yaml`** (mặc định) | RSNA `rsna_v4` | 3 CNN × 3 seed, đúng cấu hình server | tự train trong lần chạy (cùng công thức) |
+| `configs/colab/isic2016.yaml` | ISIC `v13` | 3 CNN × 3 seed, đúng cấu hình server | tự train trong lần chạy (cùng công thức) |
 | `configs/experiments/<bộ dữ liệu>_dass.yaml` | `rsna_v4` / `v13` | 6 backbone | train E_d mới |
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
-Xem lại kết quả **thiết kế A** cũ: `PROFILE = "configs/experiments/design_a.yaml"`,
-`EXTRA = "--set paths.run_tag=v12"` (RSNA: `rsna_v3`).
 
 **Chạy tự động:** *Run all*. Mỗi lệnh lỗi sẽ dừng notebook ngay tại ô đó (ô `preflight` dừng nếu thiếu file bắt buộc).
 Kết quả mỗi bước tự lưu lên Drive; chạy lại *Run all* sau khi Colab ngắt sẽ bỏ qua phần đã xong. Bấm Ctrl+S để lưu
@@ -187,7 +185,7 @@ show("frequency_analysis/*.png")
 md(r"""
 ## 6. Chọn ảnh sinh: E_v / E_d, chấm điểm, kiểm tra shortcut
 
-Thiết kế B: mỗi phương pháp M1–M6 chọn **s ảnh sinh cho MỖI lớp** (s = 0,5 × ảnh thật lớp đa số: ISIC 309, RSNA
+Mỗi phương pháp M1–M6 chọn **s ảnh sinh cho MỖI lớp** (s = 0,5 × ảnh thật lớp đa số: ISIC 309, RSNA
 3.761) từ pool ⌈1,5·s⌉ ảnh của lớp đó; lớp đa số dùng cùng tiêu chí với margin đảo chiều. E_d dùng lại hoặc train mới
 theo `encoder.e_d_from_run`. Log và tên file dùng **mã nội bộ**; bảng cho bài báo (`report`) dùng **tên hiển thị**:
 

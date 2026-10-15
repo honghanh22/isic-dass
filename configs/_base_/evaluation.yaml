@@ -5,16 +5,15 @@ evaluation:
   comparisons:                   # so sánh bổ sung [phương pháp, đối chứng]
     - [M6_dass, M1_random]             # chọn lọc vs chọn ngẫu nhiên — cùng thành phần dữ liệu, cùng pool, cùng số ảnh
     - [M6_dass, M0_real_only]          # (trùng phép so tự động với baseline -> compare_pairs chỉ tính một lần)
-  # Giả thuyết CHÍNH của thiết kế B (khai báo trước khi train, 1.20.0): Holm tính riêng trong họ này (mỗi model); mọi
+  # Giả thuyết CHÍNH (khai báo trước khi train, 1.20.0): Holm tính riêng trong họ này (mỗi model); mọi
   # so sánh khác là KHÁM PHÁ, Holm tính trong họ khám phá.
   #   H1: DASS vs Random (M6 vs M1) — đóng góp của CÁCH CHỌN ảnh sinh, mọi thứ khác giống hệt
   #   H2: DASS vs Imbalanced Baseline (M6 vs M0) — toàn bộ quy trình (ROS + ảnh sinh cân bằng + DASS) so với không làm gì
   primary_comparisons:
     - [M6_dass, M1_random]
     - [M6_dass, M0_real_only]
-  # Tên hiển thị trong bảng bài báo (thiết kế B); mã nội bộ (trong .npz, selections.json) giữ nguyên -> đổi tên KHÔNG
+  # Tên hiển thị trong bảng bài báo; mã nội bộ (trong .npz, selections.json) giữ nguyên -> đổi tên KHÔNG
   # cần train lại, chỉ cần chạy lại `report`. Thứ tự ở đây = thứ tự hàng trong bảng. `$...$`: công thức trong .tex.
-  # Tên của thiết kế A (Random Oversampling (ROS), Unfiltered GAN, ...): configs/experiments/design_a.yaml.
   method_labels:
     M0_real_only: Imbalanced Baseline   # `report` tự thêm " (class-weighted)" nếu .npz ghi đã train có class weight
     M1_random: "ROS + Balanced GAN: Random"

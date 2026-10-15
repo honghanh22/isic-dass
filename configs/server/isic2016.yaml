@@ -1,5 +1,5 @@
-# ISIC 2016 trên dsserver (UTEHY AI Lab) — kế thừa thực nghiệm chính (thiết kế B), chỉ đổi đường dẫn Colab -> HDD
-# của server, 3 CNN và E_d dùng lại. Thiết kế A: thêm -c configs/experiments/design_a.yaml --set paths.run_tag=v12.
+# ISIC 2016 trên dsserver (UTEHY AI Lab) — kế thừa thực nghiệm chính, chỉ đổi đường dẫn Colab -> HDD của server,
+# 3 CNN và E_d dùng lại.
 #   dass -c configs/server/isic2016.yaml show-config
 # Artefact (checkpoints_<tag>, results_<tag>) ghi vào drive_root; muốn dùng lại GAN v5 thì chép
 # checkpoints_v5/stylegan2ada từ Google Drive vào /data/honghanh/results/ISIC2016/.
@@ -24,6 +24,5 @@ classifier:
   models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]
 
 encoder:
-  # Thiết kế B (v13_srv) dùng lại E_d của v12_srv (cùng giao thức val_auc) -> chỉ thiết kế tập train thay đổi.
-  # Profile design_a.yaml đặt lại "" (lần chạy A tự train E_d).
+  # v13_srv dùng lại E_d của v12_srv (cùng công thức, chọn epoch theo val_auc).
   e_d_from_run: v12_srv

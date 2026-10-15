@@ -27,7 +27,7 @@ Quy trình gồm năm bước:
                        -> chọn s ảnh mỗi lớp (M6); các biến thể M1–M5 dùng một phần tiêu chí
                                                                 │
                                                                 ▼
-                   (4) Tập train (thiết kế B) = ảnh thật + ROS lớp bệnh lên 1 : 1 + s ảnh sinh MỖI lớp
+                   (4) Tập train = ảnh thật + ROS lớp bệnh lên 1 : 1 + s ảnh sinh MỖI lớp
                                                                 │
                                                                 ▼
                    (5) Train classifier (3 backbone × 3 seed), chọn epoch trên val thật,
@@ -40,7 +40,7 @@ Quy trình gồm năm bước:
    ảnh thật cùng lớp hơn giống ảnh thật lớp kia bao nhiêu", đo bằng $K$ láng giềng gần nhất trong **hai** không gian
    đặc trưng: hình thức chung (E_v) và đặc trưng bệnh (E_d). Kèm theo là một thành phần **đa dạng** được tối ưu bằng
    cách chọn tham lam.
-2. **Thiết kế tập huấn luyện cân bằng nguồn ảnh (thiết kế B):** sau khi cân bằng lớp bằng ROS, mỗi lớp nhận **cùng
+2. **Thiết kế tập huấn luyện cân bằng nguồn ảnh:** sau khi cân bằng lớp bằng ROS, mỗi lớp nhận **cùng
    số** ảnh sinh. Ảnh sinh chiếm cùng tỉ lệ 1/3 ở cả hai lớp, nên "ảnh thật hay ảnh sinh" không mang thông tin về nhãn.
 
 Giao thức đánh giá cô lập đúng đóng góp của **cách chọn ảnh**: mọi biến thể M1–M6 dùng cùng ảnh thật, cùng ảnh nhân
@@ -157,13 +157,13 @@ này; snapshot tốt nhất ở 800 kimg).
 Ảnh sinh được tạo từ $z \sim \mathcal{N}(0, I)$ với nhãn one-hot của lớp, **không truncation** ($\psi$ = 1) và nhiễu
 cố định (`noise_mode="const"`):
 
-| Pool | Seed | Kích thước sinh | Phần dùng để chọn (thiết kế B) |
+| Pool | Seed | Kích thước sinh | Phần dùng để chọn |
 |---|---|---|---|
 | Lớp 1 (bệnh) | 777 | ISIC 705, RSNA 9.695 | $\lceil k s\rceil$ ảnh **đầu tiên**: ISIC 464, RSNA 5.642 |
 | Lớp 0 | 778 | $\lceil k s\rceil$: ISIC 464, RSNA 5.642 | toàn bộ |
 
-Pool lớp 1 được sinh theo kích thước của thiết kế A ($\lceil k\,(n_0 - n_1)\rceil$) để dùng chung cho cả hai thiết kế.
-Thiết kế B chỉ lấy phần đầu, nên giữ đúng tỉ lệ $k$ giữa pool và số ảnh chọn.
+Pool lớp 1 trên Drive có $\lceil k\,(n_0 - n_1)\rceil$ ảnh; chỉ $\lceil k s\rceil$ ảnh đầu được dùng (pool sinh tuần tự
+cùng seed, nên phần đầu giống hệt một pool nhỏ hơn), nên giữ đúng tỉ lệ $k$ giữa pool và số ảnh chọn.
 
 *Lý do $\psi$ = 1:* truncation làm ảnh "điển hình" hơn nhưng giảm đa dạng; việc lọc ảnh để dành cho DASS.
 
@@ -201,8 +201,8 @@ chính ranh giới của M0 rồi so với M0 sẽ chỉ củng cố ranh giới
 Augmentation và class weight của E_d là **thành phần của phương pháp chọn ảnh**, độc lập với thiết lập của classifier
 (classifier không dùng cả hai, mục 6).
 
-Ở server, lần chạy thiết kế B dùng lại E_d đã train ở lần chạy thiết kế A (`v12_srv`, `rsna_v3_srv`; cùng công thức),
-để hai thiết kế chỉ khác nhau ở tập train. Trên Colab, E_d được train ngay trong lần chạy, cùng công thức.
+Ở server, E_d được dùng lại từ một lần chạy trước (`v12_srv`, `rsna_v3_srv`), cùng công thức. Trên Colab, E_d được
+train ngay trong lần chạy, cùng công thức.
 
 ---
 
@@ -297,7 +297,7 @@ $B \equiv 0$, nó trở thành k-center greedy (Sener & Savarese, 2018), chính 
 
 ### 5.5 Lớp đa số: lề đảo chiều
 
-Ở thiết kế B, ảnh sinh lớp 0 cũng được chọn bằng **cùng tiêu chí** của từng biến thể, với lề **đảo chiều**:
+Ảnh sinh lớp 0 cũng được chọn bằng **cùng tiêu chí** của từng biến thể, với lề **đảo chiều**:
 $S^{+}$ tính với $R_0$ và $S^{-}$ tính với $R_1$, tức chọn ảnh "giống bình thường hơn giống bệnh". Pool lớp 0 riêng
 (seed 778); M1 dùng seed 2027.
 
@@ -331,7 +331,7 @@ M6), và giá trị của việc chọn so với ngẫu nhiên (M6 so với M1).
 
 ---
 
-## 6. Thiết kế tập huấn luyện (thiết kế B) và huấn luyện classifier
+## 6. Thiết kế tập huấn luyện và huấn luyện classifier
 
 ### 6.1 Tập huấn luyện ([pipeline/stages/train.py](../src/dass/pipeline/stages/train.py), [data/variants.py](../src/dass/data/variants.py))
 
@@ -359,14 +359,11 @@ $$
 
 M0 dùng đúng ảnh thật (618 / 148; 7.522 / 1.059), không thêm gì.
 
-*Lý do của thiết kế B:* nếu chỉ thêm ảnh sinh vào lớp bệnh (thiết kế A), "ảnh sinh" trở thành dấu hiệu của nhãn: trong
+*Lý do:* nếu chỉ thêm ảnh sinh vào lớp bệnh, "ảnh sinh" trở thành dấu hiệu của nhãn: trong
 không gian E_v, ảnh sinh tách khỏi ảnh thật với AUC khoảng 0,99, dễ hơn nhiều so với việc tách hai lớp bệnh. Classifier
-khi đó có thể học "ảnh GAN → bệnh". Ở thiết kế B, ảnh sinh chiếm đúng 1/3 mỗi lớp, nên nguồn ảnh **độc lập** với nhãn.
+khi đó có thể học "ảnh GAN → bệnh". Ở đây ảnh sinh chiếm đúng 1/3 mỗi lớp, nên nguồn ảnh **độc lập** với nhãn.
 Mọi biến thể M1–M6 dùng **cùng** ảnh thật và **cùng** bản sao ROS, nên khác biệt giữa chúng chỉ đến từ ảnh sinh được
 chọn.
-
-Thiết kế A (ảnh sinh chỉ ở lớp 1, bù tới 1 : 1, kèm baseline ROS M0b) được giữ để tái lập các lần chạy cũ
-(`configs/experiments/design_a.yaml`) và báo cáo riêng.
 
 ### 6.2 Classifier ([models/classifiers/__init__.py](../src/dass/models/classifiers/__init__.py), [engine/trainer.py](../src/dass/engine/trainer.py))
 
@@ -426,7 +423,7 @@ có xác suất lệch về lớp đa số nên sensitivity thấp ở ngưỡng
 | RQ5 | Kết quả có nhất quán giữa backbone và bộ dữ liệu? | 3 backbone × 2 bộ dữ liệu | tiêu chí: chiều của H1, H2 giữ ở đa số cấu hình |
 | RQ6 | Tập được chọn khác pool thế nào? | chỉ số chẩn đoán (mục 8) | mô tả |
 
-H1 và H2 được **khai báo trước khi train** thiết kế B (`evaluation.primary_comparisons`).
+H1 và H2 được **khai báo trước khi train** (`evaluation.primary_comparisons`).
 
 ### 7.3 Kiểm định thống kê ([evaluation/aggregate.py](../src/dass/evaluation/aggregate.py), [evaluation/statistics.py](../src/dass/evaluation/statistics.py))
 
@@ -546,15 +543,15 @@ của bài.
 4. **Thành phần đa dạng ưu tiên ngoại lai** (tính chất của k-center).
 5. **E_d là một mô hình đơn lẻ** và học trên chính các ảnh làm mốc $R_0, R_1$, nên $S_d$ lạc quan với ảnh giống ảnh
    train. Tuỳ chọn cross-fitting (`encoder.e_d_crossfit_folds`) có sẵn nhưng không dùng trong lần chạy chính.
-6. **Checkpoint GAN được chọn theo KID lớp 1**, trong khi thiết kế B dùng ảnh sinh của cả hai lớp. KID của lớp 0 được
+6. **Checkpoint GAN được chọn theo KID lớp 1**, trong khi tập train dùng ảnh sinh của cả hai lớp. KID của lớp 0 được
    báo cáo nhưng không dùng để chọn.
 7. **Độ nhạy của H1 bị giới hạn bởi $k$.** M1 lấy ngẫu nhiên $s$ trong $1{,}5\,s$ ảnh, nên trung bình 2/3 số ảnh của
    tập DASS cũng có trong M1. Vì ảnh sinh chiếm 1/3 mỗi lớp, tập train của M6 và M1 chỉ khác nhau khoảng 11 % số ảnh
    mỗi lớp.
-8. **Thiết kế B không có baseline chỉ ROS**, nên không tách được đóng góp của **nội dung** ảnh sinh với việc **có thêm
-   dữ liệu train**. Câu hỏi này được trả lời ở thiết kế A (M6 vs M0b).
-9. **Các thay đổi sau khi xem kết quả test:** $k$ (4 → 1,5), tiêu chí chọn epoch (`val_macro_recall` → `val_auc`),
-   tắt augmentation và class weight của classifier. Mọi cấu hình đã chạy được giữ nguyên và phải được báo cáo. Việc
+8. **Không có baseline chỉ ROS**, nên không tách được đóng góp của **nội dung** ảnh sinh với việc **có thêm dữ liệu
+   train**.
+9. **Các thay đổi sau khi xem kết quả test của các lần chạy trước:** $k$ (4 → 1,5), tiêu chí chọn epoch
+   (`val_macro_recall` → `val_auc`), tắt augmentation và class weight của classifier, thiết kế tập huấn luyện và $q_s$. Mọi cấu hình đã chạy được giữ nguyên và phải được báo cáo. Việc
    lọc cả lớp 0 chưa được kiểm chứng trên val trước lần chạy chính `rsna_v4`.
 10. **Giai đoạn chỉ train đầu phân loại không được chọn làm epoch tốt nhất.** Với backbone dễ overfit (ResNet50), epoch
     fine-tune đầu tiên thường đã là tốt nhất.
@@ -575,7 +572,7 @@ của bài.
 | | $\lambda_v, \lambda_d$ | 1, 1 |
 | | $\alpha, \beta, \gamma$ | 1, 1, 0,5 |
 | | $k$ (pool / số chọn) | 1,5 |
-| Thiết kế B | $q_s$ (ảnh sinh mỗi lớp / ảnh thật lớp 0) | 0,5 |
+| Tập train | $q_s$ (ảnh sinh mỗi lớp / ảnh thật lớp 0) | 0,5 |
 | | lọc lớp 0 | có, lề đảo chiều |
 | E_v | mạng | EfficientNet-B0 ImageNet, đóng băng, 1.280 chiều |
 | E_d | mạng | DenseNet121, fine-tune trên ảnh thật, 1.024 chiều |

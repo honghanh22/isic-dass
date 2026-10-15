@@ -1,4 +1,4 @@
-# ISIC 2016 trên Colab — cấu hình của server (configs/server/isic2016.yaml: 3 CNN, 3 seed, thiết kế B), chỉ khác đường
+# ISIC 2016 trên Colab — cấu hình của server (configs/server/isic2016.yaml: 3 CNN, 3 seed), chỉ khác đường
 # dẫn (Google Drive) và E_d (Colab tự train). run_tag v13 (server: v13_srv). Có test đối chiếu hai file.
 #   dass -c configs/colab/isic2016.yaml preflight --fix
 # Cần trên Drive (…/ISBI2016_ISIC_Part3/):

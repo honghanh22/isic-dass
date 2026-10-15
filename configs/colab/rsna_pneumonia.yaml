@@ -1,4 +1,4 @@
-# RSNA Pneumonia trên Colab — cấu hình của server (configs/server/rsna_pneumonia.yaml: 3 CNN, 3 seed, thiết kế B), chỉ
+# RSNA Pneumonia trên Colab — cấu hình của server (configs/server/rsna_pneumonia.yaml: 3 CNN, 3 seed), chỉ
 # khác đường dẫn (Google Drive thay cho HDD của server) và E_d (Colab tự train). run_tag rsna_v4 (server: rsna_v4_srv).
 # Có test đối chiếu hai file.
 #   dass -c configs/colab/rsna_pneumonia.yaml preflight --fix
