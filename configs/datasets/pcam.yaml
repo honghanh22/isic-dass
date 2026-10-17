@@ -1,0 +1,36 @@
+# PatchCamelyon v1 (mô bệnh học hạch bạch huyết, 96×96, H&E) — CHỈ các thiết lập phụ thuộc dữ liệu.
+# Dữ liệu = MỘT file đã tiền xử lý bằng scripts/preprocess_pcam.py: gộp 3 split gốc, bỏ ảnh trùng, bỏ ảnh > 50 % nền
+# trắng, chia lại theo WSI 70 / 15 / 15, âm : dương = 12 (train 36.024 / 3.002, val và test 7.728 / 644).
+# Pipeline chỉ đọc file .h5 này (+ CSV chia train / val đi kèm), không đọc PCam gốc.
+paths:
+  drive_root: /data/honghanh/results/PCam
+  gan_tag: pcam          # GAN mới, train từ đầu ở 128 × 128
+  run_tag: pcam_v1
+
+data:
+  name: pcam
+  channels: 3
+  img_size: 128          # 96 -> 128 (bilinear, như mọi bộ dữ liệu); StyleGAN2-ADA cần cạnh là luỹ thừa của 2
+  augment_profile: rotation_invariant   # mô bệnh học không có hướng (E_d; classifier không augmentation)
+  classes: {negative: 0, positive: 1}
+  source:
+    type: hdf5
+    train_images: /data/honghanh/datasets/PCam/pcam_imb12.h5
+    test_images: /data/honghanh/datasets/PCam/pcam_imb12.h5     # nhóm test của cùng file
+  preprocess:
+    crop_dark_border: false
+    resize: stretch
+  split:
+    type: file           # train / val chia sẵn theo WSI trong file .h5
+    file: /data/honghanh/datasets/PCam/pcam_imb12_split.csv
+
+generator:
+  # Chọn snapshot theo Xue et al. 2021 (HistoGAN): FID trên đặc trưng của classifier miền ảnh — ở đây chính E_d
+  # (DenseNet121, người dùng chọn), làm mượt EMA α = 0,5, chấm CẢ HAI lớp (thiết kế B dùng ảnh sinh ở cả hai lớp).
+  # Dừng sớm cùng luật với ISIC / RSNA (min_kimg 400, patience 5, giảm ≥ 2 %, tối đa 3.000 kimg). Ảnh thật tham
+  # chiếu = train. Giữ mọi snapshot để vẽ lại đường FID.
+  select_metric: fid_ed
+  select_classes: all
+  select_ema_alpha: 0.5
+  kid_n_gen: 3000        # ảnh sinh mỗi lớp khi chấm (FID cần nhiều mẫu hơn KID; đặc trưng E_d 1.024 chiều)
+  keep_snapshots: true

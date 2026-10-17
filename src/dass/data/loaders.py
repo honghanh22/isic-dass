@@ -7,6 +7,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from pathlib import Path
 
+import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers
 
@@ -65,6 +66,17 @@ def build_dataset(data_dir: str | Path, class_names: list[str], image_size: int,
     ds = ds.prefetch(tf.data.AUTOTUNE)
     ds.file_paths = file_paths                # .map() làm mất thuộc tính này của Keras -> gắn lại
     return ds
+
+
+def array_dataset(images: np.ndarray, image_size: int, preprocess_fn: Callable, batch_size: int = 32) -> tf.data.Dataset:
+    """Như `paths_dataset` nhưng từ mảng uint8 NHWC trong bộ nhớ (ảnh sinh): cùng resize + tiền xử lý, không qua PNG
+    (PNG không mất dữ liệu -> kết quả như đọc lại từ file)."""
+    def _prep(img):
+        img = tf.image.resize(img, [image_size, image_size])
+        return preprocess_fn(to_backbone_input(img))
+
+    return (tf.data.Dataset.from_tensor_slices(images)
+            .map(_prep, num_parallel_calls=tf.data.AUTOTUNE).batch(batch_size).prefetch(tf.data.AUTOTUNE))
 
 
 def paths_dataset(paths: list[str], image_size: int, channels: int, preprocess_fn: Callable,

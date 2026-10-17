@@ -8,7 +8,7 @@ from dass.config import Config, Layout, load_config, parse_override
 from dass.config.loader import apply_file
 
 BASES = sorted((CONFIGS / "_base_").glob("*.yaml"))
-EXPERIMENTS = ["isic2016_dass.yaml", "rsna_pneumonia_dass.yaml"]
+EXPERIMENTS = ["isic2016_dass.yaml", "rsna_pneumonia_dass.yaml", "pcam_dass.yaml"]
 DESIGN_A = CONFIGS / "experiments" / "design_a.yaml"      # profile khôi phục thiết kế A (lần chạy tới v12 / rsna_v3)
 
 

@@ -79,7 +79,8 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive. Tuỳ chọn
   `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
-- KID dừng sớm GAN so với ảnh thật lớp thiểu số của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`).
+- Chỉ số chọn snapshot / dừng sớm GAN (`generator.select_metric`) so với ảnh thật của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`). Mặc định (ISIC, RSNA): KID-Inception lớp thiểu số, không làm mượt. PCam (1.23.0, người dùng quyết định): FID trên đặc trưng **chính E_d** của lần chạy (cùng file với M_d), cả hai lớp, làm mượt EMA α = 0,5 (Xue et al. 2021, HistoGAN), cùng luật dừng sớm; dùng chung E_d cho hai bước là giới hạn phải nêu trong bài.
+- PCam: nguồn `hdf5` đọc MỘT file đã tiền xử lý (`scripts/preprocess_pcam.py`: gộp 3 split, bỏ trùng, bỏ nền trắng, chia theo WSI 70 / 15 / 15, âm : dương = 12) + CSV chia train / val đi kèm; ảnh 128 × 128.
 - **Tách bộ dữ liệu** (có test `tests/regression/test_dataset_isolation.py`): ổ tạm `<local_root>/<data.name>` thuộc
   đúng một nguồn (`.owner.json`; trùng tên khác nguồn -> dừng); GAN train từ 1.10.1 ghi `data_name` + `split_sha1` vào
   `gan_state.json` và mọi stage dùng GAN kiểm tra (GAN cũ ISIC `v5` / RSNA `rsna` chưa ghi -> dựa vào

@@ -1,0 +1,11 @@
+# PCam trên dsserver (UTEHY AI Lab): 3 CNN, E_d train trong lần chạy (dùng cho cả chọn snapshot GAN và M_d).
+#   dass -c configs/server/pcam.yaml --tag srv show-config      -> run_tag pcam_v1_srv
+_base_:
+  - ../experiments/pcam_dass.yaml
+
+paths:
+  local_root: /data/honghanh/local_data
+  external_root: /data/honghanh/external
+
+classifier:
+  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]

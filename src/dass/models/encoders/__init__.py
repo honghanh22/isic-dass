@@ -17,7 +17,7 @@ import numpy as np
 import tensorflow as tf
 
 from ...config import Config
-from ...data.loaders import build_dataset, paths_dataset
+from ...data.loaders import array_dataset, build_dataset, paths_dataset
 from ...engine.trainer import compute_class_weight_from_dir, fit_two_stage
 from ...utils import copy_atomic, l2_normalize
 from ..classifiers import build_model
@@ -30,9 +30,15 @@ class Encoder:
         self.model, self.preprocess = model, preprocess
         self.image_size, self.channels, self.batch_size = image_size, channels, batch_size
 
-    def embed(self, paths: list[str]) -> np.ndarray:
+    def embed(self, paths: list[str], normalize: bool = True) -> np.ndarray:
         ds = paths_dataset(paths, self.image_size, self.channels, self.preprocess, self.batch_size)
-        return l2_normalize(self.model.predict(ds, verbose=0))
+        z = self.model.predict(ds, verbose=0)
+        return l2_normalize(z) if normalize else z
+
+    def embed_images(self, images: np.ndarray, normalize: bool = True) -> np.ndarray:
+        """Ảnh uint8 NHWC trong bộ nhớ (ví dụ ảnh sinh khi chấm snapshot GAN)."""
+        z = self.model.predict(array_dataset(images, self.image_size, self.preprocess, self.batch_size), verbose=0)
+        return l2_normalize(z) if normalize else z
 
 
 def visual_encoder(cfg: Config, channels: int) -> Encoder:
@@ -69,8 +75,10 @@ def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path,
                                shuffle=False)
         class_weight = compute_class_weight_from_dir(real_only_dir / "train", cfg.data.classes)
         local_ckpt = local_ckpt_dir / ckpt.name
+        # train tiếp được nếu bị ngắt (E_d của bộ dữ liệu lớn có thể dài hơn giới hạn thời gian GPU một phiên)
         fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight, ckpt_path=local_ckpt,
-                      head_epochs=enc.e_d_head_epochs, ft_epochs=enc.e_d_ft_epochs, with_pr_auc=False)
+                      head_epochs=enc.e_d_head_epochs, ft_epochs=enc.e_d_ft_epochs, with_pr_auc=False,
+                      resume_dir=local_ckpt_dir / f"{ckpt.stem}_resume")
         copy_atomic(local_ckpt, ckpt)
         log.info("Đã lưu E_d -> %s", ckpt)
 

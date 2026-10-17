@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import logging
 import sys
+from collections.abc import Callable
+from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from ...analysis.figures import plot_kid_history, plot_samples
@@ -30,7 +33,6 @@ def setup(cfg: Config, reset: bool = True, verify: bool = True, clear_cache: boo
 
 def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
     from ...models.generator.export import build_stylegan_dataset_zip
-    from ...models.generator.inception import inception_features
     from ...models.generator.patches import ensure_stylegan_repo
     from ...models.generator.trainer import StyleGanTrainer
 
@@ -45,13 +47,67 @@ def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
                      "--metrics=none", "--dry-run"], cwd=layout.sg2_repo)
         return {}
 
-    minority = ctx.budget.minority
-    real_feats = inception_features(load_images(ctx.train_paths[minority], ctx.channels))
-    log.info("Inception features %s thật (train): %s", minority, real_feats.shape)
-    state = StyleGanTrainer(layout, g, cfg.seed, real_feats, ctx.class_idx(minority), data_name=cfg.data.name,
-                            split_sha1=split_hash(ctx.split)).train(fresh_start=fresh_start)
+    scorer, info = build_scorer(cfg, ctx)
+    state = StyleGanTrainer(layout, g, cfg.seed, scorer, data_name=cfg.data.name, split_sha1=split_hash(ctx.split),
+                            metric_info=info).train(fresh_start=fresh_start)
     report(cfg, ctx, state)
     return state
+
+
+def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], float], dict]:
+    """Hàm chấm snapshot (thấp = tốt) theo `generator.select_metric` + thông tin ghi vào gan_state.json.
+
+    Ảnh thật tham chiếu = TOÀN BỘ ảnh train của mỗi lớp được chấm (không bao giờ val). Mỗi lớp sinh `kid_n_gen` ảnh
+    (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = trung bình điểm các lớp.
+    - kid_inception: KID trên Inception-v3 (giữ nguyên hành vi cũ khi select_classes = minority).
+    - fid_ed: FID trên đặc trưng backbone của E_d (chưa chuẩn hoá L2) — CHÍNH file E_d mà `select` dùng cho M_d
+      (Xue et al. 2021 chọn checkpoint bằng FID trên classifier của miền ảnh).
+    """
+    import torch
+
+    from ...evaluation.generative import compute_fid, kid_from_features
+    from ...models.generator.inception import generate_class_images, inception_features, load_generator
+
+    g = cfg.generator
+    classes = [ctx.budget.minority] if g.select_classes == "minority" else list(cfg.data.class_names)
+    info = {"metric": g.select_metric, "select_classes": classes, "select_ema_alpha": g.select_ema_alpha}
+    if g.select_metric == "kid_inception":
+        def extract(images: np.ndarray) -> np.ndarray:
+            return inception_features(images)
+
+        real = {c: inception_features(load_images(ctx.train_paths[c], ctx.channels)) for c in classes}
+
+        def distance(r: np.ndarray, f: np.ndarray) -> float:
+            return kid_from_features(r, f, num_subsets=g.kid_subsets, seed=g.kid_seed)
+    else:
+        from . import init_tensorflow
+        from .select import load_disease_encoder
+
+        init_tensorflow(cfg)
+        ed, _ = load_disease_encoder(cfg, ctx)
+        info.update(e_d_ckpt=str(ctx.layout.e_d_ckpt), e_d_run=ctx.layout.e_d_run)
+
+        def extract(images: np.ndarray) -> np.ndarray:
+            return ed.embed_images(images, normalize=False).astype(np.float64)
+
+        real = {c: ed.embed(ctx.train_paths[c], normalize=False).astype(np.float64) for c in classes}
+        distance = compute_fid
+    for c in classes:
+        log.info("Đặc trưng ảnh thật %s (train) cho %s: %s", c, g.select_metric, real[c].shape)
+
+    def scorer(pkl: Path) -> float:
+        G = load_generator(pkl)
+        per_class = {}
+        for c in classes:
+            fake = generate_class_images(G, g.kid_n_gen, ctx.class_idx(c), psi=g.trunc_psi, seed=g.kid_seed)
+            per_class[c] = float(distance(real[c], extract(fake)))
+        del G
+        torch.cuda.empty_cache()
+        if len(per_class) > 1:
+            log.info("            %s theo lớp: %s", g.select_metric, {c: round(v, 5) for c, v in per_class.items()})
+        return float(np.mean(list(per_class.values())))
+
+    return scorer, info
 
 
 def report(cfg: Config, ctx: Context, state: dict) -> None:
@@ -63,7 +119,8 @@ def report(cfg: Config, ctx: Context, state: dict) -> None:
     if len(hist):
         hist.to_csv(layout.metrics_dir / "gan_kid_history.csv", index=False)
         if cfg.save_figures:
-            plot_kid_history(hist, state["best_cum_kimg"], layout.gan_fig_dir / "kid_history.png")
+            plot_kid_history(hist, state["best_cum_kimg"], layout.gan_fig_dir / "kid_history.png",
+                             state.get("metric", "kid_inception"))
     if cfg.save_figures and layout.gan_best_pkl.exists():
         G = load_generator(layout.gan_best_pkl)
         samples = {c: generate_class_images(G, 8, i, psi=cfg.generator.trunc_psi, seed=1)

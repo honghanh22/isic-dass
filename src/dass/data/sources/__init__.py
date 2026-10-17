@@ -7,6 +7,7 @@ from .base import IMAGE_EXTS, DatasetSource
 from .csv_source import CsvSource, normalize_label
 from .dicom_source import DicomCsvSource
 from .folder_source import FolderSource
+from .hdf5_source import Hdf5Source
 
 
 def build_source(cfg: Config, layout: Layout) -> DatasetSource:
@@ -20,8 +21,10 @@ def build_source(cfg: Config, layout: Layout) -> DatasetSource:
         return DicomCsvSource(classes, layout.drive_train_images, layout.drive_train_labels, s.id_column,
                               s.label_column, s.subset_size, cfg.seed, layout.source_extract_dir,
                               layout.dicom_metadata_csv, s.positive_labels, s.one_per_patient, s.exclude_labels)
+    if s.type == "hdf5":
+        return Hdf5Source(classes, layout.drive_train_images)
     raise ValueError(f"Nguồn không hỗ trợ: {s.type!r}")
 
 
-__all__ = ["IMAGE_EXTS", "CsvSource", "DatasetSource", "DicomCsvSource", "FolderSource", "build_source",
+__all__ = ["IMAGE_EXTS", "CsvSource", "DatasetSource", "DicomCsvSource", "FolderSource", "Hdf5Source", "build_source",
            "normalize_label"]

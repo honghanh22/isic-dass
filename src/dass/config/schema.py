@@ -25,7 +25,7 @@ METHOD_GROUPS = {
     "ROS + Class-balanced GAN (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
                                                  "M4_visual_disease", "M6_dass"),
 }
-SOURCE_TYPES = ("csv", "folders", "dicom_csv")
+SOURCE_TYPES = ("csv", "folders", "dicom_csv", "hdf5")
 AUGMENT_PROFILES = ("rotation_invariant", "upright")
 SPLIT_TYPES = ("holdout_val", "stratified", "file")
 RESIZE_MODES = ("stretch", "pad_square")
@@ -111,7 +111,7 @@ class DataConfig:
 
 @dataclass
 class GeneratorConfig:
-    """StyleGAN2-ADA có điều kiện + early stopping theo KID của lớp thiểu số."""
+    """StyleGAN2-ADA có điều kiện + early stopping theo chỉ số chọn snapshot (mặc định KID lớp thiểu số)."""
 
     cfg: str = "paper256"
     batch: int = 16
@@ -132,6 +132,12 @@ class GeneratorConfig:
     poll_seconds: int = 30
     channel_tolerance: int = 0       # GAN 3 kênh cho dữ liệu 1 kênh: chênh lệch kênh tối đa (mức xám) khi gộp
     match_resize_chain: bool = False  # cho ảnh sinh đi qua cùng chuỗi nội suy với ảnh thật
+    # Chọn snapshot / dừng sớm. kid_inception = KID trên Inception-v3 (mặc định, ISIC / RSNA); fid_ed = FID trên đặc
+    # trưng E_d (backbone, chưa chuẩn hoá L2) theo Xue et al. 2021 (HistoGAN). Ảnh thật tham chiếu luôn là TRAIN.
+    select_metric: str = "kid_inception"
+    select_classes: str = "minority"  # minority | all (trung bình điểm của các lớp; kid_n_gen ảnh sinh / ảnh thật mỗi lớp)
+    select_ema_alpha: float = 1.0     # điểm chọn = α·điểm + (1 − α)·điểm mượt trước; 1 = không làm mượt (HistoGAN: 0,5)
+    keep_snapshots: bool = False      # giữ mọi snapshot ở stylegan2ada/snapshots/ (ngoài best / latest)
 
 
 @dataclass
@@ -249,6 +255,11 @@ def validate(cfg: Config) -> None:
             resolve_model_name(m)
         except KeyError as e:
             errors.append(str(e).strip("'\""))
+    g = cfg.generator
+    if g.select_metric not in ("kid_inception", "fid_ed") or g.select_classes not in ("minority", "all"):
+        errors.append("generator.select_metric phải là kid_inception | fid_ed, select_classes là minority | all")
+    if not 0 < g.select_ema_alpha <= 1:
+        errors.append("generator.select_ema_alpha phải trong (0, 1] (1 = không làm mượt)")
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
     if cfg.encoder.e_d_crossfit_folds == 1 or cfg.encoder.e_d_crossfit_folds < 0:
@@ -307,6 +318,9 @@ def validate(cfg: Config) -> None:
     if s.type == "dicom_csv" and (not s.id_column or not s.label_column or s.has_test_set or s.subset_size < 0):
         errors.append("data.source.type = dicom_csv cần id_column, label_column, subset_size >= 0 và không có "
                       "test_images (test tách bằng split)")
+    if s.type == "hdf5" and (s.test_images != s.train_images or d.split.type != "file" or s.train_labels):
+        errors.append("data.source.type = hdf5: test_images phải trùng train_images (cùng file .h5, nhóm test), "
+                      "split.type = file (CSV chia sẵn đi kèm file .h5), không dùng *_labels")
     if s.exclude_labels and s.type != "dicom_csv":
         errors.append("data.source.exclude_labels chỉ dùng cho nguồn dicom_csv (nhãn JSON MD.ai)")
     overlap = {n.strip().lower() for n in s.exclude_labels} & {n.strip().lower() for n in s.positive_labels}

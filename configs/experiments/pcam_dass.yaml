@@ -1,0 +1,9 @@
+# Thực nghiệm chính — PCam: DASS (M6) so với M0–M5 (thiết kế B, như ISIC / RSNA).
+#   dass -c configs/experiments/pcam_dass.yaml show-config
+_base_:
+  - ../_base_/runtime.yaml
+  - ../_base_/generator.yaml
+  - ../_base_/selection.yaml
+  - ../_base_/classifier.yaml
+  - ../_base_/evaluation.yaml
+  - ../datasets/pcam.yaml

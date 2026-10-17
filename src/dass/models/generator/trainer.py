@@ -1,9 +1,13 @@
-"""Train StyleGAN2-ADA có điều kiện với early stopping theo KID của lớp thiểu số.
+"""Train StyleGAN2-ADA có điều kiện với early stopping theo chỉ số chọn snapshot (`generator.select_metric`).
 
 - `train.py` chính thức chạy trong tiến trình con; cứ `kimg_per_snap` kimg lưu một snapshot.
-- Mỗi snapshot được đánh giá KID; snapshot tốt nhất copy lên Drive (`best.pkl`), mới nhất lưu `latest.pkl`.
-- Sau `min_kimg`, nếu KID không giảm ≥ `min_rel_delta` trong `patience` snapshot liên tiếp -> dừng.
-- Colab ngắt: gọi lại `train()` -> resume từ `latest.pkl`, giữ lịch sử KID và bộ đếm patience.
+- Mỗi snapshot được chấm bằng `scorer(pkl)` (thấp = tốt): mặc định KID-Inception lớp thiểu số; `fid_ed` = FID trên
+  đặc trưng E_d, trung bình các lớp (theo Xue et al. 2021, HistoGAN). Điểm dùng để chọn = EMA của điểm thô
+  (`select_ema_alpha`; 1 = không làm mượt). Snapshot tốt nhất copy lên Drive (`best.pkl`), mới nhất `latest.pkl`;
+  `keep_snapshots` -> giữ mọi snapshot trong `snapshots/`.
+- Sau `min_kimg`, nếu điểm không giảm ≥ `min_rel_delta` trong `patience` snapshot liên tiếp -> dừng.
+- Colab ngắt: gọi lại `train()` -> resume từ `latest.pkl`, giữ lịch sử điểm và bộ đếm patience.
+Khoá trong `gan_state.json` giữ tên cũ (`best_kid`, `history[].kid`) để GAN cũ đọc được; `metric` ghi chỉ số thật.
 """
 
 from __future__ import annotations
@@ -13,15 +17,12 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-
-import numpy as np
 
 from ...config import Layout
 from ...config.schema import GeneratorConfig
-from ...evaluation.generative import kid_from_features
 from ...utils import copy_atomic, read_json, write_json_atomic
-from .inception import generate_class_images, inception_features, load_generator
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +30,20 @@ log = logging.getLogger(__name__)
 def default_state() -> dict:
     return {"cum_kimg": 0, "history": [], "best_kid": None, "best_cum_kimg": None,
             "bad_count": 0, "finished": False, "stop_reason": None, "data_name": None, "split_sha1": None}
+
+
+def update_selection(state: dict, raw: float, cum: int, gan: GeneratorConfig) -> tuple[bool, float]:
+    """Cập nhật điểm làm mượt + bộ đếm patience cho snapshot `cum` kimg (điểm thô `raw`, thấp = tốt).
+    Trả về (snapshot này có thành tốt nhất không, điểm làm mượt). Không ghi lịch sử / file."""
+    prev = state["history"][-1].get("smoothed", state["history"][-1]["kid"]) if state["history"] else None
+    a = gan.select_ema_alpha
+    smoothed = raw if prev is None else a * raw + (1 - a) * prev
+    improved = state["best_kid"] is None or smoothed < state["best_kid"] * (1 - gan.min_rel_delta)
+    if improved:
+        state.update(best_kid=smoothed, best_cum_kimg=cum, bad_count=0)
+    elif cum >= gan.min_kimg:
+        state["bad_count"] += 1
+    return improved, smoothed
 
 
 def load_state(path: str | Path) -> dict:
@@ -74,14 +89,14 @@ def _last_tick_line(log_path: Path) -> str:
 
 
 class StyleGanTrainer:
-    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int, real_features: np.ndarray, eval_class_idx: int,
-                 data_name: str | None = None, split_sha1: str | None = None):
+    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int, scorer: Callable[[Path], float],
+                 data_name: str | None = None, split_sha1: str | None = None, metric_info: dict | None = None):
         self.layout = layout
         self.gan = gan
         self.seed = seed
-        self.real_features = real_features      # Inception features của ảnh thật lớp thiểu số (train)
-        self.eval_class_idx = eval_class_idx
+        self.scorer = scorer                    # pkl -> điểm thô (thấp = tốt), so với ảnh thật của TRAIN
         self.data_name, self.split_sha1 = data_name, split_sha1
+        self.metric_info = metric_info or {"metric": gan.select_metric}
 
     # ------------------------------------------------------------------ public
     def train(self, fresh_start: bool = False) -> dict:
@@ -93,10 +108,14 @@ class StyleGanTrainer:
         state = load_state(self.layout.gan_state_json)
         check_gan_owner(state, self.data_name, self.split_sha1)
         if state["cum_kimg"] == 0 and not state.get("split_sha1"):     # GAN mới: ghi lại dữ liệu + split dùng để train
-            state.update(data_name=self.data_name, split_sha1=self.split_sha1)
+            state.update(data_name=self.data_name, split_sha1=self.split_sha1, **self.metric_info)
             self._save(state)
+        saved_metric = state.get("metric", "kid_inception")
+        if state["history"] and saved_metric != self.gan.select_metric:
+            raise ValueError(f"GAN này đang chọn snapshot theo {saved_metric!r}, config là "
+                             f"{self.gan.select_metric!r} -> không trộn hai thước đo trong một lịch sử (đổi gan_tag).")
         if state["finished"]:
-            log.info("GAN đã train xong (%s). Best KID = %.5f tại %s kimg.",
+            log.info("GAN đã train xong (%s). Điểm tốt nhất = %.5g tại %s kimg.",
                      state["stop_reason"], state["best_kid"], state["best_cum_kimg"])
             return state
 
@@ -125,21 +144,9 @@ class StyleGanTrainer:
             if state["cum_kimg"] == offset:
                 raise RuntimeError(f"train.py kết thúc nhưng không có snapshot mới. Xem log: {log_path}")
 
-        log.info("Kết thúc. Best KID = %.5f tại %s kimg -> %s",
+        log.info("Kết thúc. Điểm tốt nhất = %.5g tại %s kimg -> %s",
                  state["best_kid"], state["best_cum_kimg"], self.layout.gan_best_pkl)
         return state
-
-    def evaluate_snapshot(self, pkl_path: Path) -> float:
-        import torch
-
-        G = load_generator(pkl_path)
-        # cùng ψ với lúc sinh pool (`sample`) -> chọn snapshot theo đúng phân phối ảnh sẽ được dùng
-        fake = generate_class_images(G, self.gan.kid_n_gen, self.eval_class_idx, psi=self.gan.trunc_psi,
-                                     seed=self.gan.kid_seed)
-        del G
-        torch.cuda.empty_cache()
-        return kid_from_features(self.real_features, inception_features(fake),
-                                 num_subsets=self.gan.kid_subsets, seed=self.gan.kid_seed)
 
     # ----------------------------------------------------------------- private
     def _save(self, state: dict) -> None:
@@ -234,21 +241,23 @@ class StyleGanTrainer:
                 return False
             evaluated.add(pkl)
             cum = offset + kimg
-            kid = self.evaluate_snapshot(pkl)
-            improved = state["best_kid"] is None or kid < state["best_kid"] * (1 - g.min_rel_delta)
+            raw = float(self.scorer(pkl))
+            improved, smoothed = update_selection(state, raw, cum, g)
             if improved:
                 copy_atomic(pkl, self.layout.gan_best_pkl)
-                state.update(best_kid=kid, best_cum_kimg=cum, bad_count=0)
-            elif cum >= g.min_kimg:
-                state["bad_count"] += 1
+            if g.keep_snapshots:
+                copy_atomic(pkl, self.layout.gan_snapshots_dir / f"snapshot-{cum:06d}kimg.pkl")
             copy_atomic(pkl, self.layout.gan_latest_pkl)
             state["cum_kimg"] = cum
-            state["history"].append({"cum_kimg": cum, "kid": kid, "improved": bool(improved)})
+            entry = {"cum_kimg": cum, "kid": raw, "improved": bool(improved)}
+            if g.select_ema_alpha < 1:
+                entry["smoothed"] = smoothed
+            state["history"].append(entry)
             self._save(state)
             pkl.unlink()                           # đã lưu best/latest trên Drive, xoá bản cục bộ cho nhẹ đĩa
             self._backup_logs(run_dir, log_path)
-            log.info("[snapshot] %5d kimg | KID = %7.3fe-3 | best = %7.3fe-3 @ %s kimg | patience %d/%d%s",
-                     cum, kid * 1e3, state["best_kid"] * 1e3, state["best_cum_kimg"],
+            log.info("[snapshot] %5d kimg | %s = %.5g (mượt %.5g) | best = %.5g @ %s kimg | patience %d/%d%s",
+                     cum, g.select_metric, raw, smoothed, state["best_kid"], state["best_cum_kimg"],
                      state["bad_count"], g.patience, "  <-- tốt nhất" if improved else "")
             log.info("            %s", _last_tick_line(log_path))
             if state["bad_count"] >= g.patience:

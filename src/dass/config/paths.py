@@ -44,6 +44,7 @@ class Layout:
         self.gan_best_pkl = self.gan_dir / "best.pkl"
         self.gan_latest_pkl = self.gan_dir / "latest.pkl"
         self.gan_logs_dir = self.gan_dir / "logs_and_samples"
+        self.gan_snapshots_dir = self.gan_dir / "snapshots"           # generator.keep_snapshots
         self.clf_dir = drive / f"checkpoints_{p.run_tag}" / "classifiers"
         self.superseded_clf_dir = drive / f"checkpoints_{p.run_tag}" / "classifiers_superseded"
         # E_d: của chính lần chạy, hoặc dùng lại của lần chạy khác (encoder.e_d_from_run)

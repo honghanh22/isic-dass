@@ -53,7 +53,7 @@ def test_gan_is_bound_to_its_dataset_and_split(tmp_path):
     cfg = _config(tmp_path, "ds", _folder_dataset(tmp_path / "A", 1))
     lay = Layout(cfg)
     lay.gan_dir.mkdir(parents=True)
-    trainer = StyleGanTrainer(lay, cfg.generator, 0, np.zeros((2, 4)), 1, data_name="ds", split_sha1="abc")
+    trainer = StyleGanTrainer(lay, cfg.generator, 0, lambda pkl: 0.0, data_name="ds", split_sha1="abc")
 
     def fake_segment(cmd, offset, state):                  # thay cho train.py: một snapshot rồi dừng sớm
         state.update(cum_kimg=100, best_kid=0.01, best_cum_kimg=100, finished=True, stop_reason="test")
@@ -67,7 +67,7 @@ def test_gan_is_bound_to_its_dataset_and_split(tmp_path):
     check_gan_owner(state, "ds", "abc")
     check_gan_owner(state, None, None)
     with pytest.raises(ValueError, match="split_sha1"):
-        StyleGanTrainer(lay, cfg.generator, 0, np.zeros((2, 4)), 1, data_name="ds", split_sha1="xyz").train()
+        StyleGanTrainer(lay, cfg.generator, 0, lambda pkl: 0.0, data_name="ds", split_sha1="xyz").train()
     with pytest.raises(ValueError, match="data_name"):
         check_gan_owner(state, "other_dataset", "abc")
     check_gan_owner({"split_sha1": None, "data_name": None}, "ds", "xyz")  # GAN cũ chưa ghi: bỏ qua

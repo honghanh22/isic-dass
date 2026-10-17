@@ -58,6 +58,22 @@ def crossfit_md_scores(cfg: Config, ctx: Context, pool: list[str], ckpt_dir: Pat
     return {"M_d": m, "S_d_pos": s_pos, "S_d_neg": s_neg}
 
 
+def load_disease_encoder(cfg: Config, ctx: Context):
+    """E_d của lần chạy (train trên ảnh thật nếu chưa có) hoặc E_d dùng lại (`encoder.e_d_from_run`). Dùng chung cho
+    `select` và `gan` (chọn snapshot theo FID-E_d) -> cùng MỘT file trọng số. Trả về (encoder, có dùng lại không)."""
+    from ...models.encoders import disease_encoder
+
+    layout = ctx.layout
+    shared = bool(cfg.encoder.e_d_from_run) and layout.e_d_run != cfg.paths.run_tag
+    if shared:
+        log.info("Dùng lại E_d của lần chạy '%s' (không train E_d mới)", layout.e_d_run)
+    else:
+        assemble_variant(layout.real_only, layout.train_pp, ctx.split, ctx.budget.minority, [])
+    ed = disease_encoder(cfg, ctx.channels, layout.real_only, layout.e_d_ckpt, layout.clf_ckpt,
+                         train_if_missing=not shared)
+    return ed, shared
+
+
 def _select_balanced(cfg: Config, scores: dict[str, np.ndarray], z_v_pool: np.ndarray,
                      n_majority_real: int) -> tuple[list[int], list[int]]:
     """Ảnh sinh lớp thiểu số của M8r / M8: s = q × ảnh thật lớp đa số, trong ⌈k·s⌉ ảnh ĐẦU của pool (giữ đúng k).
@@ -78,7 +94,7 @@ def _select_balanced(cfg: Config, scores: dict[str, np.ndarray], z_v_pool: np.nd
 
 def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     """`force`: chọn lại dù đã có selections.json (dự đoán đã train với lựa chọn cũ sẽ không còn khớp)."""
-    from ...models.encoders import disease_encoder, visual_encoder
+    from ...models.encoders import visual_encoder
 
     ctx = Context.create(cfg, "select")
     layout, sel, budget, ch = ctx.layout, cfg.selection, ctx.budget, ctx.channels
@@ -104,12 +120,7 @@ def run(cfg: Config, force: bool = False) -> dict[str, list[int]] | None:
     z_v_real = {c: ev.embed(train_paths[c]) for c in classes}
     z_v_pool = ev.embed(pool)
 
-    shared = bool(cfg.encoder.e_d_from_run) and layout.e_d_run != cfg.paths.run_tag
-    if shared:
-        log.info("Dùng lại E_d của lần chạy '%s' (không train E_d mới)", layout.e_d_run)
-    else:
-        assemble_variant(layout.real_only, layout.train_pp, ctx.split, budget.minority, [])
-    ed = disease_encoder(cfg, ch, layout.real_only, layout.e_d_ckpt, layout.clf_ckpt, train_if_missing=not shared)
+    ed, shared = load_disease_encoder(cfg, ctx)
     z_d_real = {c: ed.embed(train_paths[c]) for c in classes}
     z_d_pool = ed.embed(pool)
 

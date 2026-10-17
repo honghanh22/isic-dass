@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.23.0 — PCam (nguồn HDF5) và chọn snapshot GAN theo FID-E_d làm mượt
+- `scripts/preprocess_pcam.py`: PCam v1 -> một file `pcam_imb12.h5` + `pcam_imb12_split.csv`. Gộp train / valid /
+  test gốc, bỏ ảnh trùng hệt (PCam lấy mẫu lặp lớp dương: 41.955 ảnh thừa ở train gốc; 34 ảnh train trùng test), bỏ
+  ảnh > 50 % nền trắng (30 % ảnh âm, 5 % ảnh dương -> đường tắt), chia 399 WSI 70 / 15 / 15, âm : dương = 12 (người
+  dùng quyết định): train 36.024 / 3.002, val 7.728 / 644, test 7.728 / 644; không WSI / ảnh nào ở hai phần.
+- Nguồn `data.source.type: hdf5` (`data/sources/hdf5_source.py`): ghi PNG không mất dữ liệu `<src_split>_<idx>.png`,
+  ổ tạm ghi md5 của file .h5 (tạo lại file khác -> dừng). `configs/datasets/pcam.yaml`, `experiments/pcam_dass.yaml`,
+  `server/pcam.yaml` (run_tag `pcam_v1_srv`, gan_tag `pcam`, ảnh 128). Tham số DASS / classifier giống ISIC, RSNA.
+- Chọn snapshot GAN (`generator.select_metric`, `select_classes`, `select_ema_alpha`, `keep_snapshots`; mặc định giữ
+  nguyên hành vi cũ: KID-Inception lớp thiểu số, không làm mượt). PCam: `fid_ed` = FID trên đặc trưng backbone của
+  CHÍNH E_d (người dùng chọn), cả hai lớp, 3.000 ảnh sinh mỗi lớp so với toàn bộ ảnh train của lớp, EMA α = 0,5
+  (Xue et al. 2021, HistoGAN, MedIA 67:101816); dừng sớm cùng luật ISIC / RSNA (min 400 kimg, patience 5, giảm ≥ 2 %,
+  tối đa 3.000 kimg), giữ mọi snapshot. E_d train trong stage `gan` nếu chưa có (`load_disease_encoder`, dùng chung
+  với `select`). Lịch sử trong `gan_state.json` giữ khoá cũ (`kid` = điểm thô) + `smoothed`, `metric`; đổi thước đo
+  giữa chừng -> dừng. Giới hạn: cùng E_d chọn snapshot và tính M_d (nêu trong bài; báo cáo độ phân tán M_d của pool).
+- `fit_two_stage(resume_dir=...)` (E_d dùng): lưu trạng thái mỗi epoch (`BackupAndRestore` + `ResumableBest` = cùng
+  luật EarlyStopping / ModelCheckpoint) -> bị ngắt (giới hạn 2 giờ GPU) thì train tiếp. Chạy liền một mạch cho kết quả
+  giống hệt bản cũ (đã kiểm tra); sau khi train tiếp, thứ tự xáo trộn dữ liệu khác bản chạy liền. Classifier không đổi.
+  Lý do: E_d PCam khoảng 2,2 giờ (fine-tune 344 s / epoch). GAN PCam 128: khoảng 13 s / kimg, chấm FID-E_d ~1 phút.
+
 ## 1.22.2 — Swin-T dùng tên preset KerasHub chính thức
 - `classifier.swin_preset`: `hf://keras/swin_tiny_patch4_window7_224` (không xác nhận được có trên Hugging Face)
   -> `swin_tiny_patch4_window7_224`, preset chính thức của KerasHub (Kaggle, ImageNet-1k, 224 px; tài liệu

@@ -70,15 +70,20 @@ def plot_label_samples(rows: dict[str, list[tuple[np.ndarray, list, str]]], coun
     save_figure(fig, path)
 
 
-def plot_kid_history(history: pd.DataFrame, best_kimg: int, path: Path) -> None:
+def plot_kid_history(history: pd.DataFrame, best_kimg: int, path: Path, metric: str = "kid_inception") -> None:
+    """Điểm chọn snapshot GAN theo kimg: điểm thô (+ đường làm mượt EMA nếu có), vạch đỏ = snapshot được chọn."""
     import matplotlib.pyplot as plt
 
+    fid = metric == "fid_ed"
+    scale, name = (1.0, "FID trên E_d") if fid else (1e3, "KID lớp thiểu số (×1e-3)")
     fig = plt.figure(figsize=(8, 4))
-    plt.plot(history["cum_kimg"], history["kid"] * 1e3, marker="o")
+    plt.plot(history["cum_kimg"], history["kid"] * scale, marker="o", alpha=0.6, label="thô")
+    if "smoothed" in history:
+        plt.plot(history["cum_kimg"], history["smoothed"] * scale, marker=".", label="làm mượt EMA (dùng để chọn)")
     plt.axvline(best_kimg, color="red", ls="--", label=f"best @ {best_kimg} kimg")
     plt.xlabel("kimg")
-    plt.ylabel("KID lớp thiểu số (×1e-3, thấp hơn = tốt hơn)")
-    plt.title("StyleGAN2-ADA — KID theo snapshot")
+    plt.ylabel(f"{name}, thấp hơn = tốt hơn")
+    plt.title(f"StyleGAN2-ADA — {name} theo snapshot")
     plt.legend()
     plt.grid(alpha=0.3)
     save_figure(fig, path)

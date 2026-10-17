@@ -15,6 +15,7 @@ Các bước (cố định, seed --seed):
    3.000 dương tổng, âm : dương = 12), ngẫu nhiên phân tầng theo WSI (mỗi WSI góp theo tỉ lệ số ảnh của nó).
 Ảnh giữ nguyên 96×96×3 uint8 (resize khi nạp). File ra: nhóm train / valid / test, mỗi nhóm có x, y, wsi, coord_x,
 coord_y, src_split, src_index (vị trí trong file PCam gốc); attrs ghi tham số, số lượng và md5 của từng mảng x.
+Kèm `<out>_split.csv` (image_id,split = train | val) cho `split.type: file` của pipeline (nguồn `hdf5`).
 """
 
 from __future__ import annotations
@@ -76,6 +77,19 @@ def stratified_by_wsi(df: pd.DataFrame, n: int, rng: np.random.Generator) -> pd.
                       for w, g in df.groupby("wsi") if take[w] > 0])
 
 
+def write_split_csv(h5_path: Path) -> Path:
+    """CSV `image_id,split` (train | val) đi kèm file .h5 cho split.type = file của pipeline; image_id giống tên PNG
+    mà nguồn `hdf5` ghi ra (`<src_split>_<src_index:06d>`)."""
+    out = h5_path.with_name(h5_path.stem + "_split.csv")
+    rows = []
+    with h5py.File(h5_path, "r") as f:
+        for group, split in (("train", "train"), ("valid", "val")):
+            g = f[group]
+            rows += [(f"{s}_{int(i):06d}", split) for s, i in zip(g["src_split"][:].astype(str), g["src_index"][:])]
+    pd.DataFrame(rows, columns=["image_id", "split"]).to_csv(out, index=False)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", type=Path, required=True)
@@ -85,7 +99,11 @@ def main() -> None:
     ap.add_argument("--fractions", type=float, nargs=3, default=[0.70, 0.15, 0.15])
     ap.add_argument("--max-white", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=2026)
+    ap.add_argument("--split-csv-only", action="store_true", help="chỉ ghi lại CSV chia train / val từ --out có sẵn")
     args = ap.parse_args()
+    if args.split_csv_only:
+        print("->", write_split_csv(args.out))
+        return
     rng = np.random.default_rng(args.seed)
 
     df = pd.concat([scan_split(args.raw, s) for s in SRC_SPLITS], ignore_index=True)
@@ -132,6 +150,7 @@ def main() -> None:
             g.create_dataset("wsi", data=sel.wsi.to_numpy().astype("S"))
             g.attrs["md5_x"] = hashlib.md5(xs.tobytes()).hexdigest()
     tmp.replace(args.out)
+    write_split_csv(args.out)
     print(json.dumps(stats, indent=1, ensure_ascii=False))
     print("->", args.out)
 
