@@ -49,9 +49,13 @@ def test_rsna_config_and_augment_profiles():
     # đánh giá theo tư thế chụp (đăng ký trước) chỉ ở RSNA; ISIC không có metadata
     assert rsna.evaluation.subgroup_columns == ["ViewPosition"] and isic.evaluation.subgroup_columns == []
     assert dataclasses.replace(rsna.evaluation, subgroup_columns=[]) == isic.evaluation
-    # GAN: chỉ khác mirror (X-quang ngực không đối xứng trái / phải), mọi tham số khác giống ISIC
+    # GAN: RSNA không lật (X-quang ngực không đối xứng trái / phải); ISIC train lại với luật chọn snapshot trên E_d
+    # (2.1.0); mọi tham số train GAN khác giống nhau
     assert isic.generator.mirror is True and rsna.generator.mirror is False
-    assert dataclasses.replace(rsna.generator, mirror=True) == isic.generator
+    sel = dict(select_metric="kid_ed", select_classes="all", select_aggregate="max", select_ema_alpha=0.5,
+               keep_snapshots=True)
+    assert (isic.generator.select_metric, isic.generator.select_aggregate) == ("kid_ed", "max")
+    assert dataclasses.replace(rsna.generator, mirror=True, **sel) == isic.generator
     with pytest.raises(ValueError, match="augment_profile"):
         load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["data.augment_profile=random"])
     with pytest.raises(ValueError, match="dicom_csv"):

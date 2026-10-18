@@ -10,6 +10,10 @@ lựa chọn, 5 / 10 dự đoán ConvNeXt-Tiny) đã bị XOÁ theo yêu cầu; 
   ảnh sinh ở cả hai lớp; thiết kế chỉ thêm ảnh sinh vào lớp dương dùng luật FID lớp dương, phát lại trên
   `history[].per_class` (mọi snapshot được giữ). Cùng E_d, EMA 0,5, cùng luật dừng sớm.
 - Config PCam: `data.name: pcam6`, `gan_tag: pcam6`, `run_tag: pcam6_v1` (server `_srv`), E_d train trong lần chạy.
+- **ISIC: train lại GAN** (người dùng quyết định) với gan_tag `isic_v6` (GAN cũ `checkpoints_v5/` giữ nguyên, không
+  dùng), cùng luật với PCam (chấm cả hai lớp trên CHÍNH E_d của lần chạy `v14`, gộp max, EMA 0,5, cùng luật dừng sớm,
+  giữ mọi snapshot) nhưng `select_metric: kid_ed` (KID trên đặc trưng E_d, người dùng chọn) vì lớp ác tính chỉ có 148
+  ảnh train: FID 1.024 chiều chệch mạnh với ít mẫu, KID không chệch.
 
 ## 2.0.0 — thiết kế thí nghiệm mới: B0–B3 + Balanced GAN M1–M6 (thiết kế cũ bị xoá khỏi code)
 Người dùng quyết định (2026-10-18). Kết quả cũ (ISIC `v13_srv`, RSNA `rsna_v2/v3`) giữ nguyên trên ổ đĩa; tái lập bằng

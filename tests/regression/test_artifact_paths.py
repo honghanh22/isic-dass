@@ -1,4 +1,4 @@
-"""Đường dẫn artefact trên Drive: ISIC dùng lại GAN cũ (checkpoints_v5), RSNA dùng GAN mới (checkpoints_rsna, gắn với
+"""Đường dẫn artefact trên Drive: ISIC dùng GAN train lại (checkpoints_isic_v6), RSNA dùng GAN mới (checkpoints_rsna, gắn với
 split rsna_v2); kết quả của cấu hình hiện tại ghi vào thư mục MỚI (ISIC v14, RSNA rsna_v5 — thiết kế 2.0.0) — không đụng kết quả cũ."""
 
 from pathlib import Path
@@ -16,8 +16,8 @@ def _layout(name: str, tag: str | None = None) -> Layout:
 
 def test_isic_artifact_paths():
     lay = _layout("isic2016_dass.yaml")
-    assert lay.gan_best_pkl == ISIC_ROOT / "checkpoints_v5/stylegan2ada/best.pkl"
-    assert lay.gan_state_json == ISIC_ROOT / "checkpoints_v5/stylegan2ada/gan_state.json"
+    assert lay.gan_best_pkl == ISIC_ROOT / "checkpoints_isic_v6/stylegan2ada/best.pkl"
+    assert lay.gan_state_json == ISIC_ROOT / "checkpoints_isic_v6/stylegan2ada/gan_state.json"
     assert lay.split_json == ISIC_ROOT / "checkpoints_v14/data/real_val_split.json"
     assert lay.selections_json == ISIC_ROOT / "checkpoints_v14/data/selections.json"
     assert lay.pred_dir == ISIC_ROOT / "results_v14/predictions"

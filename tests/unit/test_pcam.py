@@ -108,6 +108,6 @@ def test_selection_rule_cannot_change_mid_history():
 
 
 def test_select_aggregate_validation():
-    assert load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator.select_aggregate == "mean"
+    assert load_config([CONFIGS / "server" / "rsna_pneumonia.yaml"], tag="srv").generator.select_aggregate == "mean"
     with pytest.raises(ValueError, match="select_aggregate"):
         load_config([CONFIGS / "server" / "pcam.yaml"], ["generator.select_aggregate=min"])

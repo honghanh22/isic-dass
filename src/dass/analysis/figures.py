@@ -74,8 +74,8 @@ def plot_kid_history(history: pd.DataFrame, best_kimg: int, path: Path, metric: 
     """Điểm chọn snapshot GAN theo kimg: điểm thô (+ đường làm mượt EMA nếu có), vạch đỏ = snapshot được chọn."""
     import matplotlib.pyplot as plt
 
-    fid = metric == "fid_ed"
-    scale, name = (1.0, "FID trên E_d") if fid else (1e3, "KID lớp thiểu số (×1e-3)")
+    scale, name = {"fid_ed": (1.0, "FID trên E_d"), "kid_ed": (1e3, "KID trên E_d (×1e-3)")}.get(
+        metric, (1e3, "KID Inception (×1e-3)"))
     fig = plt.figure(figsize=(8, 4))
     plt.plot(history["cum_kimg"], history["kid"] * scale, marker="o", alpha=0.6, label="thô")
     if "smoothed" in history:

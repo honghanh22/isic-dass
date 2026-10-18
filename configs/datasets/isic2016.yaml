@@ -1,7 +1,7 @@
 # ISIC 2016 Part 3 (dermoscopy, benign / malignant) — CHỈ các thiết lập phụ thuộc dữ liệu.
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
-  gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
+  gan_tag: isic_v6       # GAN train lại trên server (2.1.0); GAN cũ checkpoints_v5/ giữ nguyên, không dùng
   run_tag: v14           # thiết kế 2.0.0: B0–B3 + Balanced GAN M1–M6, k = 2. Server: v14_srv.
 
 data:
@@ -23,3 +23,15 @@ data:
   split:
     type: holdout_val    # có tập test riêng -> chỉ tách val 15 % từ train (phân tầng, seed toàn cục)
     val: 0.15
+
+generator:
+  # Train lại GAN (người dùng quyết định, 2026-10-18), CÙNG luật với PCam được khai báo trước khi train: chấm mọi lớp
+  # trên đặc trưng CHÍNH E_d của lần chạy, gộp bằng max (lớp kém nhất quyết định dừng sớm và thiết kế ảnh sinh ở cả hai
+  # lớp; thiết kế chỉ thêm ảnh sinh vào lớp thiểu số dùng điểm lớp thiểu số, phát lại trên lịch sử), làm mượt EMA α = 0,5,
+  # cùng luật dừng sớm. Khác PCam: KID thay FID, vì lớp ác tính chỉ có 148 ảnh train (FID 1.024 chiều chệch mạnh với
+  # ít mẫu, KID không chệch). Giữ mọi snapshot.
+  select_metric: kid_ed
+  select_classes: all
+  select_aggregate: max
+  select_ema_alpha: 0.5
+  keep_snapshots: true

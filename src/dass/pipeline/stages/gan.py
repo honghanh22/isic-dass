@@ -61,8 +61,8 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
     (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = gộp điểm các lớp trong `select_classes` (minority = chỉ lớp
     thiểu số; all = mọi lớp) bằng `select_aggregate` (mean | max = lớp kém nhất). fid_ed luôn chấm mọi lớp và trả về điểm từng lớp (lưu vào lịch sử).
     - kid_inception: KID trên Inception-v3 (giữ nguyên hành vi cũ khi select_classes = minority).
-    - fid_ed: FID trên đặc trưng backbone của E_d (chưa chuẩn hoá L2) — CHÍNH file E_d mà `select` dùng cho M_d
-      (Xue et al. 2021 chọn checkpoint bằng FID trên classifier của miền ảnh).
+    - fid_ed / kid_ed: FID / KID trên đặc trưng backbone của E_d (chưa chuẩn hoá L2) — CHÍNH file E_d mà `select` dùng
+      cho M_d (Xue et al. 2021 chọn checkpoint bằng FID trên classifier của miền ảnh); kid_ed cho lớp thiểu số nhỏ.
     """
     import torch
 
@@ -71,8 +71,9 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
 
     g = cfg.generator
     classes = [ctx.budget.minority] if g.select_classes == "minority" else list(cfg.data.class_names)
-    # fid_ed chấm MỌI lớp (ghi vào lịch sử để báo cáo), điểm chọn chỉ lấy các lớp trong `classes`
-    scored = list(cfg.data.class_names) if g.select_metric == "fid_ed" else classes
+    on_ed = g.select_metric in ("fid_ed", "kid_ed")
+    # thước đo trên E_d chấm MỌI lớp (ghi vào lịch sử để báo cáo), điểm chọn chỉ lấy các lớp trong `classes`
+    scored = list(cfg.data.class_names) if on_ed else classes
     agg = max if g.select_aggregate == "max" else (lambda v: float(np.mean(v)))
     info = {"metric": g.select_metric, "select_classes": classes, "select_aggregate": g.select_aggregate,
             "select_ema_alpha": g.select_ema_alpha}
@@ -96,7 +97,11 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
             return ed.embed_images(images, normalize=False).astype(np.float64)
 
         real = {c: ed.embed(ctx.train_paths[c], normalize=False).astype(np.float64) for c in scored}
-        distance = compute_fid
+        if g.select_metric == "fid_ed":
+            distance = compute_fid
+        else:
+            def distance(r: np.ndarray, f: np.ndarray) -> float:
+                return kid_from_features(r, f, num_subsets=g.kid_subsets, seed=g.kid_seed)
     for c in scored:
         log.info("Đặc trưng ảnh thật %s (train) cho %s: %s", c, g.select_metric, real[c].shape)
 

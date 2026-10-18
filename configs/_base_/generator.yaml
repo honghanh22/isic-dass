@@ -20,8 +20,8 @@ generator:
   poll_seconds: 30
   channel_tolerance: 0   # GAN 3 kênh cho dữ liệu 1 kênh: chỉ gộp khi 3 kênh giống hệt nhau
   match_resize_chain: false
-  # Chọn snapshot / dừng sớm (1.23.0). kid_inception: KID Inception-v3 (ISIC, RSNA); fid_ed: FID trên đặc trưng E_d
-  # (Xue et al. 2021, HistoGAN). Ảnh thật tham chiếu luôn là TRAIN (không dùng val).
+  # Chọn snapshot / dừng sớm. kid_inception: KID Inception-v3; fid_ed / kid_ed: FID / KID trên đặc trưng E_d
+  # (Xue et al. 2021, HistoGAN; kid_ed khi lớp thiểu số ít ảnh). Ảnh thật tham chiếu luôn là TRAIN (không dùng val).
   select_metric: kid_inception
   select_classes: minority     # minority | all
   select_aggregate: mean       # select_classes = all: gộp điểm các lớp bằng mean | max (lớp kém nhất)

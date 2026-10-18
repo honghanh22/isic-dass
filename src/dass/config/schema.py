@@ -149,8 +149,9 @@ class GeneratorConfig:
     poll_seconds: int = 30
     channel_tolerance: int = 0       # GAN 3 kênh cho dữ liệu 1 kênh: chênh lệch kênh tối đa (mức xám) khi gộp
     match_resize_chain: bool = False  # cho ảnh sinh đi qua cùng chuỗi nội suy với ảnh thật
-    # Chọn snapshot / dừng sớm. kid_inception = KID trên Inception-v3 (mặc định, ISIC / RSNA); fid_ed = FID trên đặc
-    # trưng E_d (backbone, chưa chuẩn hoá L2) theo Xue et al. 2021 (HistoGAN). Ảnh thật tham chiếu luôn là TRAIN.
+    # Chọn snapshot / dừng sớm. kid_inception = KID trên Inception-v3 (mặc định); fid_ed / kid_ed = FID / KID trên đặc
+    # trưng E_d (backbone, chưa chuẩn hoá L2) theo Xue et al. 2021 (HistoGAN); kid_ed khi lớp thiểu số ít ảnh (KID không
+    # chệch theo số mẫu). Ảnh thật tham chiếu luôn là TRAIN.
     select_metric: str = "kid_inception"
     select_classes: str = "minority"  # minority | all (kid_n_gen ảnh sinh / ảnh thật mỗi lớp)
     select_aggregate: str = "mean"    # all: gộp điểm các lớp bằng mean | max (lớp kém nhất quyết định)
@@ -265,8 +266,8 @@ def validate(cfg: Config) -> None:
         except KeyError as e:
             errors.append(str(e).strip("'\""))
     g = cfg.generator
-    if g.select_metric not in ("kid_inception", "fid_ed") or g.select_classes not in ("minority", "all"):
-        errors.append("generator.select_metric phải là kid_inception | fid_ed, select_classes là minority | all")
+    if g.select_metric not in ("kid_inception", "fid_ed", "kid_ed") or g.select_classes not in ("minority", "all"):
+        errors.append("generator.select_metric phải là kid_inception | fid_ed | kid_ed, select_classes là minority | all")
     if g.select_aggregate not in ("mean", "max"):
         errors.append("generator.select_aggregate phải là mean | max")
     if not 0 < g.select_ema_alpha <= 1:
