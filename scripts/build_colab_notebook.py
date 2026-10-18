@@ -76,13 +76,12 @@ print("PROJECT_DIR =", PROJECT_DIR)
 md("""
 ## 1. Chọn thực nghiệm
 
-`EXPERIMENT` (cấu hình chính: ROS + ảnh sinh cân bằng hai lớp):
+`EXPERIMENT` (thiết kế 2.0.0: B0–B3 + Balanced GAN M1–M6):
 
 | File | Lần chạy | Classifier | E_d |
 |---|---|---|---|
-| **`configs/colab/rsna_pneumonia.yaml`** (mặc định) | RSNA `rsna_v4` | 3 CNN × 3 seed, đúng cấu hình server | tự train trong lần chạy (cùng công thức) |
-| `configs/colab/isic2016.yaml` | ISIC `v13` | 3 CNN × 3 seed, đúng cấu hình server | tự train trong lần chạy (cùng công thức) |
-| `configs/experiments/<bộ dữ liệu>_dass.yaml` | `rsna_v4` / `v13` | 6 backbone | train E_d mới |
+| **`configs/colab/rsna_pneumonia.yaml`** (mặc định) | RSNA `rsna_v5` | ResNet50, ConvNeXt-Tiny, Swin-T × 3 seed | tự train trong lần chạy |
+| `configs/colab/isic2016.yaml` | ISIC `v14` | ResNet50, ConvNeXt-Tiny, Swin-T × 3 seed | tự train trong lần chạy |
 `PROFILE = "configs/experiments/smoke.yaml"` để chạy thử nhanh (ghi vào thư mục `*_smoke`). Ghi đè thêm:
 `EXTRA = "--set selection.gamma=0.25 --tag gamma025"`.
 
@@ -185,18 +184,9 @@ show("frequency_analysis/*.png")
 md(r"""
 ## 6. Chọn ảnh sinh: E_v / E_d, chấm điểm, kiểm tra shortcut
 
-Mỗi phương pháp M1–M6 chọn **s ảnh sinh cho MỖI lớp** (s = 0,5 × ảnh thật lớp đa số: ISIC 309, RSNA
-3.761) từ pool ⌈1,5·s⌉ ảnh của lớp đó; lớp đa số dùng cùng tiêu chí với margin đảo chiều. E_d dùng lại hoặc train mới
-theo `encoder.e_d_from_run`. Log và tên file dùng **mã nội bộ**; bảng cho bài báo (`report`) dùng **tên hiển thị**:
-
-| Mã nội bộ | Tên trong bài báo |
-|---|---|
-| `M1_random` | ROS + Balanced GAN: Random |
-| `M2_visual` | ROS + Balanced GAN: Visual margin ($M_v$) |
-| `M3_disease` | ROS + Balanced GAN: Disease margin ($M_d$) |
-| `M5_diversity` | ROS + Balanced GAN: Diversity ($S_{\text{div}}$) |
-| `M4_visual_disease` | ROS + Balanced GAN: Dual margin ($M_v + M_d$) |
-| `M6_dass` | **ROS + Balanced GAN: DASS (Ours)** |
+Mỗi phương pháp M1–M6 chọn **g = n_đa số − n_thiểu số ảnh sinh lớp thiểu số** (ISIC 470, RSNA 6.463) từ cùng pool
+⌈2g⌉ ảnh: M1 Random, M2 $M_v$, M3 $M_d$, M4 Diversity/Coverage, M5 $M_v + M_d$, M6 DASS. E_d dùng lại hoặc train mới
+theo `encoder.e_d_from_run`.
 """)
 code("""
 !dass {CFG} select
@@ -208,18 +198,15 @@ show("selection_figures/grid_M6_dass_*.png")
 """)
 
 md("""
-## 7. Train classifier — 7 phương pháp × 3 seed mỗi backbone
+## 7. Train classifier — 10 phương pháp × 3 seed mỗi backbone
 
-**Chạy lần lượt từng ô** (mỗi ô một backbone × một seed, train cả 7 phương pháp). Colab ngắt thì chạy lại đúng ô
-đang dở: lần chạy đã có dự đoán trên Drive được bỏ qua. Mọi phương pháp, ở cả hai bộ dữ liệu: **không augmentation, không class weight** — chỉ khác
-nội dung tập train. Chọn epoch theo `val_auc`.
+**Chạy lần lượt từng ô** (mỗi ô một backbone × một seed, train cả 10 phương pháp). Colab ngắt thì chạy lại đúng ô
+đang dở: lần chạy đã có dự đoán trên Drive được bỏ qua. Chọn epoch theo `val_auc`.
 
-- **Real Data Baseline:** Imbalanced Baseline (`M0_real_only`): chỉ ảnh thật, mất cân bằng thật.
-- **ROS + Class-balanced GAN:** M1–M6 = ảnh thật + ROS lớp thiểu số lên 1 : 1 + s ảnh sinh MỖI lớp (mục 6); sáu
-  phương pháp có cùng số ảnh, chỉ khác cách chọn ảnh sinh.
+- B0 Imbalanced (ảnh thật), B1 class-weighted loss, B2 ROS 1 : 1, B3 augmentation (dữ liệu mất cân bằng).
+- M1–M6 (Balanced GAN): ảnh thật + g ảnh sinh lớp thiểu số (mục 6); B4 = M1, B5 = M6.
 
-Cấu hình chính (`configs/colab/*`, như server): **EfficientNetV2B0, ResNet50, ConvNeXtTiny** × seed 2026, 2027,
-2028 = 9 ô dưới đây. `DenseNet121`, `ViT-B16`, `SwinT`: mục 7b (tuỳ chọn).
+Cấu hình chính: **ResNet50, ConvNeXtTiny, SwinT** × seed 2026, 2027, 2028 = 9 ô dưới đây.
 
 Báo lỗi "được train với thiết lập khác" (dự đoán cũ theo giao thức khác): thêm `--archive-mismatched` để chuyển kết
 quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
@@ -227,7 +214,7 @@ quả cũ sang `predictions_superseded/` (không xoá) rồi train lại.
 Thử nhanh các backbone mới trước khi chạy thật (1 epoch, 1 seed):
 `!dass {CFG} -c configs/experiments/smoke.yaml run --from train --to train --models ConvNeXtTiny ViT-B16 SwinT`
 """)
-for model in ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]:
+for model in ["ResNet50", "ConvNeXtTiny", "SwinT"]:
     for seed in [2026, 2027, 2028]:
         code(f"!dass {{CFG}} train --model {model} --seeds {seed}\nok()")
 md("""
@@ -236,21 +223,19 @@ md("""
 Chạy được với mọi cấu hình, kể cả `configs/colab/*`: dự đoán ghi vào cùng thư mục `predictions/` và `evaluate`
 đưa backbone mới vào mọi bảng. Backbone thêm **sau khi đã có kết quả** -> báo cáo như phân tích khám phá.
 
-Bỏ dấu `#` rồi chạy: một ô train đủ 7 phương pháp × 3 seed; bị ngắt thì chạy lại ô đó, phần đã xong được bỏ qua.
+Bỏ dấu `#` rồi chạy: một ô train đủ 10 phương pháp × 3 seed; bị ngắt thì chạy lại ô đó, phần đã xong được bỏ qua.
 Muốn từng seed một: thêm `--seeds 2026` (rồi 2027, 2028). Transformer (KerasHub) nặng hơn CNN — nên dùng A100 / L4.
 
-Kiểm tra nhanh preset Swin-T trước khi train (tải trọng số, dựng model):
-`!python -c "import keras_hub as k; m = k.models.ImageClassifier.from_preset('swin_tiny_patch4_window7_224', num_classes=1, activation='sigmoid'); print(m.count_params())"`
 """)
-for model in ["DenseNet121", "ViT-B16", "SwinT"]:
+for model in ["EfficientNetV2B0", "ViT-B16"]:
     code(f"# Bỏ dấu # để chạy (không chạy khi bấm Run all)\n# !dass {{CFG}} train --model {model}")
 
 md("""
 ## 8. Đánh giá và bảng cho bài báo (`tables/*.csv`, `*.json`, `*.tex`)
 
-Bảng dùng tên hiển thị và cột `Group` (Real Data Baseline / ROS + Class-balanced GAN (StyleGAN2-ADA)). Họ giả thuyết
-chính (Holm riêng): **H1** DASS vs Random (M6 vs M1), **H2** DASS vs Imbalanced Baseline (M6 vs M0); mọi so sánh
-khác vs M0 là khám phá. Bảng `auc_by_split` (AUC train / val / test) đọc bằng `table("auc_by_split")`.
+Hai bảng của bài: `table("table_comparison")` (B0–B5) và `table("table_ablation")` (M1–M6). Họ giả thuyết chính
+(Holm riêng): **H1** M6 vs M1, **H2** M6 vs B2, **H3** M6 vs B0; còn lại là khám phá. Shortcut probe: chạy
+`!python scripts/shortcut_probe.py {CFG} --model ResNet50` (bắt buộc, mỗi backbone).
 """)
 code("""
 !dass {CFG} evaluate

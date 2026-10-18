@@ -1,5 +1,8 @@
-"""Ghép thư mục train/val cho từng biến thể (ảnh thật theo split + ảnh sinh đã chọn, hoặc ảnh thật nhân bản cho
-M0b). Val / test luôn 100 % ảnh thật."""
+"""Ghép thư mục train/val cho từng phương pháp (thiết kế 2.0.0). Val / test luôn 100 % ảnh thật.
+
+Train của mỗi phương pháp = ảnh thật theo split + (tuỳ phương pháp) bản sao ảnh thật lớp thiểu số (B2, ROS) hoặc ảnh
+sinh lớp thiểu số đã chọn (M1–M6). Class weight (B1) và augmentation (B3) là thiết lập khi train, không đổi dữ liệu.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +10,7 @@ import hashlib
 import json
 import logging
 import shutil
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import numpy as np
@@ -17,16 +20,15 @@ from .splits import Split
 log = logging.getLogger(__name__)
 
 SYNTH_PREFIX = "synth_"
-DUP_PREFIX = "dup_"          # bản sao ảnh THẬT lớp thiểu số (M0b, oversampling)
+DUP_PREFIX = "dup_"          # bản sao ảnh THẬT lớp thiểu số (B2, random oversampling)
 _MARKER = ".complete.json"
 
 
 def oversample_indices(n_real: int, n_extra: int, seed: int) -> list[int]:
-    """Chỉ số các ảnh thật lớp thiểu số được nhân bản thêm, tổng cộng `n_extra` bản sao (M0b).
+    """Chỉ số các ảnh thật lớp thiểu số được nhân bản thêm, tổng cộng `n_extra` bản sao (B2).
 
     Chia đều nhất có thể: mọi ảnh được lặp q = n_extra // n_real lần, cộng thêm r = n_extra % n_real ảnh (chọn
-    ngẫu nhiên theo `seed`, không lặp) lặp thêm 1 lần -> số lần xuất hiện của các ảnh chênh nhau tối đa 1
-    (ít biến thiên hơn lấy mẫu có hoàn lại, nhưng vẫn là random oversampling tới đúng 1 : 1).
+    ngẫu nhiên theo `seed`, không lặp) lặp thêm 1 lần -> số lần xuất hiện của các ảnh chênh nhau tối đa 1.
     """
     if n_extra <= 0:
         return []
@@ -37,40 +39,13 @@ def oversample_indices(n_real: int, n_extra: int, seed: int) -> list[int]:
     return [i for i in range(n_real) for _ in range(q)] + sorted(int(i) for i in extra)
 
 
-def synth_budget(n_select: int, fraction: float, pool_mult: float) -> tuple[int, int]:
-    """(số ảnh sinh cần chọn, số ảnh ĐẦU của pool được dùng) khi chỉ `fraction` phần cần bù là ảnh sinh (giữ đúng k)."""
-    n_synth = int(round(n_select * fraction))
-    return n_synth, int(np.ceil(pool_mult * n_synth))
-
-
-def balanced_synth_count(ratio: float, n_majority_real: int) -> int:
-    """M8: số ảnh sinh thêm vào MỖI lớp = q × số ảnh thật lớp đa số."""
-    return int(round(ratio * n_majority_real))
-
-
-def selection_budget(sel, n_select: int, n_majority_real: int) -> tuple[int, int]:
-    """(số ảnh sinh lớp thiểu số mỗi phương pháp chọn, số ảnh ĐẦU của pool lớp thiểu số được dùng để chọn).
-
-    Thiết kế B (`source_balanced`): s = q × ảnh thật lớp đa số, chọn trong ⌈k·s⌉ ảnh đầu. Thiết kế A: n_select (hoặc
-    phần ảnh sinh khi `synth_fraction` < 1), chọn trong ⌈k·n⌉ ảnh đầu. Dùng chung cho `select` (chọn ảnh) và `evaluate`
-    (hàng tham chiếu "pool" phải là đúng phần pool đã dùng để chọn)."""
-    if sel.design == "source_balanced":
-        n_synth = balanced_synth_count(sel.balanced_synth_ratio, n_majority_real)
-        return n_synth, int(np.ceil(sel.pool_mult * n_synth))
-    return synth_budget(n_select, sel.synth_fraction, sel.pool_mult)
-
-
-def ros_fill(selections: dict[str, list[str]], real_minority: list[str], n_select: int, seed: int,
-             skip: set[str] | tuple[str, ...] = ()) -> dict[str, list[str]]:
-    """Ảnh THẬT lớp thiểu số nhân bản bù cho các biến thể có ít hơn `n_select` ảnh sinh (`selection.synth_fraction`
-    < 1) -> mọi biến thể cùng tổng số ảnh. Biến thể không có ảnh sinh (M0, M0b) hoặc trong `skip` thì bỏ qua. Cùng
-    `seed` -> mọi biến thể dùng CÙNG tập ảnh nhân bản (khác biệt chỉ còn ở ảnh sinh)."""
-    out = {}
-    for method, synth in selections.items():
-        n_extra = n_select - len(synth)
-        if synth and n_extra > 0 and method not in skip:
-            out[method] = [real_minority[i] for i in oversample_indices(len(real_minority), n_extra, seed)]
-    return out
+@dataclass
+class VariantSpec:
+    """Đầu vào ghép tập train của một phương pháp."""
+    synth: list[str] = field(default_factory=list)        # ảnh sinh lớp thiểu số (M1–M6)
+    extra_real: list[str] = field(default_factory=list)   # bản sao ảnh thật lớp thiểu số (B2)
+    class_weight: bool = False                            # B1
+    augment: bool = False                                 # B3
 
 
 @dataclass
@@ -78,47 +53,31 @@ class Variant:
     tag: str
     dir: Path
     method: str
-    lam: str
-    feature_space: str
     class_weight: bool
+    augment: bool
 
 
 def variant_tag(method: str, pool_mult: float) -> str:
-    return f"{method}_p{pool_mult:g}"
+    return f"{method}_k{pool_mult:g}"
 
 
-def _signature(split: Split, minority: str, synth_paths: list[str], majority: str | None,
-               majority_synth: list[str], extra_real: list[str], majority_extra_real: list[str] = ()) -> str:
+def _signature(split: Split, minority: str, synth: list[str], extra_real: list[str]) -> str:
     data = {"split": {c: {s: parts[s] for s in ("train", "val")} for c, parts in split.items()},
-            "minority": minority, "synth": synth_paths}
-    if majority_synth:
-        data.update(majority=majority, majority_synth=majority_synth)
-    if extra_real:
-        data.update(extra_real=extra_real)
-    if majority_extra_real:   # chỉ thêm khi dùng -> chữ ký của các biến thể cũ không đổi
-        data.update(majority=majority, majority_extra_real=list(majority_extra_real))
+            "minority": minority, "synth": synth, "extra_real": extra_real}
     return hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
 def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split, minority: str,
-                     synth_paths: list[str], majority: str | None = None,
-                     majority_synth: list[str] | tuple[str, ...] = (),
-                     extra_real: list[str] | tuple[str, ...] = (),
-                     majority_extra_real: list[str] | tuple[str, ...] = ()) -> dict[str, dict[str, int]]:
+                     synth_paths: list[str] | tuple[str, ...] = (),
+                     extra_real: list[str] | tuple[str, ...] = ()) -> dict[str, dict[str, int]]:
     """out_dir/{train,val}/<lớp>/: ảnh thật theo split (không lấy phần test) + ảnh sinh vào
-    train/<minority>/synth_XXXXX.png (và train/<majority>/ nếu có `majority_synth`) + bản sao ảnh thật lớp thiểu số
-    vào train/<minority>/dup_XXXXX_<tên gốc> (`extra_real`, M0b) + bản sao ảnh thật lớp đa số vào
-    train/<majority>/dup_XXXXX_<tên gốc> (`majority_extra_real`, đối chứng cùng kích thước M0c).
+    train/<minority>/synth_XXXXX.png + bản sao ảnh thật vào train/<minority>/dup_XXXXX_<tên gốc>.
 
     Bỏ qua nếu thư mục đã được ghép với đúng cùng đầu vào (đánh dấu bằng file .complete.json).
     """
     out_dir = Path(out_dir)
-    majority_synth, extra_real, majority_extra_real = list(majority_synth), list(extra_real), list(majority_extra_real)
-    if (majority_synth or majority_extra_real) and majority is None:
-        raise ValueError("majority_synth / majority_extra_real cần tên lớp đa số")
-    signature = _signature(split, minority, [Path(p).name for p in synth_paths], majority,
-                           [Path(p).name for p in majority_synth], [Path(p).name for p in extra_real],
-                           [Path(p).name for p in majority_extra_real])
+    synth_paths, extra_real = list(synth_paths), list(extra_real)
+    signature = _signature(split, minority, [Path(p).name for p in synth_paths], [Path(p).name for p in extra_real])
     marker = out_dir / _MARKER
     if marker.exists() and json.loads(marker.read_text()).get("signature") == signature:
         return json.loads(marker.read_text())["counts"]
@@ -130,13 +89,10 @@ def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split
             dst.mkdir(parents=True, exist_ok=True)
             for f in parts[subset]:
                 shutil.copy2(Path(train_pp_dir) / label / f, dst / f)
-    for label, srcs in [(minority, synth_paths), (majority, majority_synth)]:
-        for i, src in enumerate(srcs):
-            shutil.copy2(src, out_dir / "train" / label / f"{SYNTH_PREFIX}{i:05d}.png")
+    for i, src in enumerate(synth_paths):
+        shutil.copy2(src, out_dir / "train" / minority / f"{SYNTH_PREFIX}{i:05d}.png")
     for i, src in enumerate(extra_real):
         shutil.copy2(src, out_dir / "train" / minority / f"{DUP_PREFIX}{i:05d}_{Path(src).name}")
-    for i, src in enumerate(majority_extra_real):
-        shutil.copy2(src, out_dir / "train" / majority / f"{DUP_PREFIX}{i:05d}_{Path(src).name}")
 
     counts = {s: {c: len(list((out_dir / s / c).iterdir())) for c in split} for s in ["train", "val"]}
     marker.write_text(json.dumps({"signature": signature, "counts": counts}))
@@ -144,27 +100,17 @@ def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split
 
 
 def prepare_variants(variants_root: str | Path, train_pp_dir: str | Path, split: Split, minority: str,
-                     selections: dict[str, list[str]], pool_mult: float, lam: str,
-                     class_weight_methods: set[str] | tuple[str, ...], majority: str | None = None,
-                     majority_synth: dict[str, list[str]] | None = None,
-                     extra_real: dict[str, list[str]] | None = None,
-                     majority_extra_real: dict[str, list[str]] | None = None) -> dict[str, Variant]:
-    """`selections`: {phương pháp: [ảnh sinh lớp thiểu số]}; `majority_synth`: {phương pháp: [ảnh sinh lớp đa số]};
-    `extra_real`: {phương pháp: [ảnh thật lớp thiểu số được nhân bản thêm]} (M0b).
-
-    Phương pháp trong `class_weight_methods` (baseline, biến thể có ảnh sinh ở cả hai lớp) train với class weight.
-    """
-    majority_synth, extra_real, majority_extra_real = majority_synth or {}, extra_real or {}, majority_extra_real or {}
+                     specs: dict[str, VariantSpec], pool_mult: float) -> dict[str, Variant]:
+    """Ghép thư mục cho mọi phương pháp trong `specs` (giữ thứ tự)."""
     variants = {}
-    for method, synth_paths in selections.items():
+    for method, spec in specs.items():
         tag = variant_tag(method, pool_mult)
         out_dir = Path(variants_root) / tag
-        counts = assemble_variant(out_dir, train_pp_dir, split, minority, synth_paths, majority,
-                                  majority_synth.get(method, ()), extra_real.get(method, ()),
-                                  majority_extra_real.get(method, ()))
-        log.info("%s: %s", tag, counts)
-        variants[tag] = Variant(tag=tag, dir=out_dir, method=method, lam=lam, feature_space="Ev+Ed",
-                                class_weight=method in class_weight_methods)
+        counts = assemble_variant(out_dir, train_pp_dir, split, minority, spec.synth, spec.extra_real)
+        log.info("%s: %s%s%s", tag, counts, " | class weight" if spec.class_weight else "",
+                 " | augmentation" if spec.augment else "")
+        variants[tag] = Variant(tag=tag, dir=out_dir, method=method, class_weight=spec.class_weight,
+                                augment=spec.augment)
     return variants
 
 
@@ -172,8 +118,8 @@ def assert_clean_eval_sets(variants: dict[str, Variant], test_dir: str | Path, c
     """Val và test phải 100 % ảnh thật."""
     for tag, v in variants.items():
         for c in class_names:
-            bad = [f.name for f in (v.dir / "val" / c).iterdir() if f.name.startswith(SYNTH_PREFIX)]
-            assert not bad, f"{tag}/val/{c}: có {len(bad)} ảnh sinh"
+            bad = [f.name for f in (v.dir / "val" / c).iterdir() if f.name.startswith((SYNTH_PREFIX, DUP_PREFIX))]
+            assert not bad, f"{tag}/val/{c}: có {len(bad)} ảnh sinh / nhân bản"
     for c in class_names:
-        bad = [f.name for f in (Path(test_dir) / c).iterdir() if f.name.startswith(SYNTH_PREFIX)]
-        assert not bad, f"test/{c}: có {len(bad)} ảnh sinh"
+        bad = [f.name for f in (Path(test_dir) / c).iterdir() if f.name.startswith((SYNTH_PREFIX, DUP_PREFIX))]
+        assert not bad, f"test/{c}: có {len(bad)} ảnh sinh / nhân bản"

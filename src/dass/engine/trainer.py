@@ -1,11 +1,11 @@
 """Train classifier 2 giai đoạn (head -> fine-tune) và lưu dự đoán val / test.
 
-- Augmentation theo `classifier.augment` (mặc định tắt từ 1.11.0 -> train trên đúng ảnh đã lưu; bật thì như nhau cho
-  mọi biến thể).
+- Augmentation chỉ ở phương pháp có `Variant.augment` (B3, profile `data.augment_profile`); class weight chỉ ở
+  `Variant.class_weight` (B1). Mọi phương pháp khác train trên đúng ảnh đã ghép.
 - Val chỉ dùng để chọn epoch (EarlyStopping + ModelCheckpoint theo `classifier.monitor`, mode = max).
 - Test chỉ được dự đoán MỘT lần, sau khi đã nạp lại checkpoint tốt nhất.
 - Mỗi (model, biến thể, seed) lưu một .npz trên Drive (ghi nguyên tử); file đã có -> bỏ qua (chạy lại được), nhưng
-  nếu thiết lập train lưu trong file (augment, class_weight, monitor, synth_fraction) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại
+  nếu thiết lập train lưu trong file (augment, class_weight, monitor) khác cấu hình hiện tại thì báo lỗi thay vì dùng lại
   (`--archive-mismatched`: chuyển kết quả cũ sang thư mục *_superseded/ rồi train lại).
 """
 
@@ -173,7 +173,7 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     names = cfg.data.class_names
     train_dir, val_dir = variant.dir / "train", variant.dir / "val"
     train_ds = build_dataset(train_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=True,
-                             augment=clf.augment, seed=seed, augment_profile=cfg.data.augment_profile)
+                             augment=variant.augment, seed=seed, augment_profile=cfg.data.augment_profile)
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"
@@ -214,19 +214,17 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
     (y_train / p_train trong .npz) để so AUC train với val / test."""
     model_name = resolve_model_name(model_name)
     code = code_version()
-    log.info("Giao thức train %s | code %s (dass %s) | augment = %s (%s) | class weight: %s | seeds %s",
-             model_name, code or "?", __version__, cfg.classifier.augment, cfg.data.augment_profile,
+    log.info("Giao thức train %s | code %s (dass %s) | augmentation (%s): %s | class weight: %s | seeds %s",
+             model_name, code or "?", __version__, cfg.data.augment_profile,
+             [v.method for v in variants.values() if v.augment] or "không",
              [v.method for v in variants.values() if v.class_weight] or "không", list(seeds))
     for tag, variant in variants.items():
         for seed in seeds:
             out = prediction_path(layout, model_name, tag, seed)
             if out.exists():
-                mismatch = protocol_mismatch(out, {"augment": cfg.classifier.augment,
+                mismatch = protocol_mismatch(out, {"augment": variant.augment,
                                                    "class_weight": variant.class_weight,
-                                                   "monitor": cfg.classifier.monitor,
-                                                   "synth_fraction": cfg.selection.synth_fraction,
-                                                   "design": cfg.selection.design,
-                                                   "filter_majority": cfg.selection.filter_majority})
+                                                   "monitor": cfg.classifier.monitor})
                 if not mismatch:
                     log.info("[bỏ qua, đã có] %s", out.name)
                     continue
@@ -248,11 +246,8 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                 extra["y_train"], extra["p_train"] = predict_paths(model, preprocess, train_real, cfg, channels)
             save_npz_atomic(out, y_val=y_val, p_val=p_val, y_test=y_test, p_test=p_test, **extra,
                             test_files=np.array(test_files), model=model_name, method=variant.method,
-                            k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, lam=variant.lam,
-                            feature_space=variant.feature_space, augment=cfg.classifier.augment,
+                            k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, augment=variant.augment,
                             class_weight=variant.class_weight, monitor=cfg.classifier.monitor,
-                            synth_fraction=cfg.selection.synth_fraction, design=cfg.selection.design,
-                            filter_majority=cfg.selection.filter_majority,
                             code_version=code or "",
                             dass_version=__version__, **history_arrays(history))
             log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)

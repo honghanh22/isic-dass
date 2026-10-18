@@ -7,14 +7,20 @@ Official implementation of **DASS**, a selection method for synthetic training i
 images of their own class and far from the other class**, measured both in a generic ImageNet feature space and in a
 disease-aware feature space, while keeping the selected set **diverse**.
 
-In the main experimental design (*source-balanced*), every generative method trains on the real images, random
-oversampling (ROS) of the minority class up to 1 : 1, and **the same number of selected synthetic images in each class**.
-Whether an image is real or synthetic therefore carries no information about its label, and the methods differ only in
-how the synthetic images are selected. They are compared with each other and with the imbalanced real-data baseline
-under a fixed, leakage-free protocol.
+The paper compares two groups of experiments under a fixed, leakage-free protocol:
 
-**Benchmarks:** ISIC 2016 (dermoscopy, melanoma vs. benign) and RSNA Pneumonia (chest X-ray, lung opacity vs. none).
-Both datasets run on the same code and the same selection formulas; only `configs/datasets/*.yaml` differs.
+1. **Class-imbalance methods** (table `comparison`): B0 imbalanced baseline, B1 cost-sensitive (class-weighted loss),
+   B2 random oversampling, B3 traditional augmentation, B4 Balanced GAN with random selection, B5 Balanced GAN with
+   **DASS**.
+2. **DASS ablation** (table `ablation`): M1–M6, all drawn from the same candidate pool with the same training-set
+   composition, differing only in the selection criterion (M1 = B4, M6 = B5).
+
+"Balanced GAN" adds `g = |majority| − |minority|` selected synthetic images to the minority class (1 : 1). Because
+synthetic images appear in the minority class only, a **shortcut probe** ("does the classifier call unseen synthetic
+majority-class images diseased?") is reported for every method.
+
+**Benchmarks:** ISIC 2016 (dermoscopy), RSNA Pneumonia (chest X-ray) and PatchCamelyon (H&E histopathology, 12 : 1
+imbalance). All datasets run on the same code and the same selection formulas; only `configs/datasets/*.yaml` differs.
 
 **Contents:**
 [Overview](#overview) ·
@@ -37,11 +43,11 @@ Both datasets run on the same code and the same selection formulas; only `config
 
 ```mermaid
 flowchart LR
-    A["Raw data<br/>(ISIC 2016 / RSNA DICOM)"] --> B["prepare<br/>preprocess · split"]
-    B --> C["gan<br/>conditional StyleGAN2-ADA<br/>KID early stopping"]
-    C --> D["sample<br/>candidate pool N = k·n"]
-    D --> E["select<br/>E_v / E_d margins + diversity<br/>DASS and controls"]
-    E --> F["train<br/>backbones × 7 methods × 3 seeds"]
+    A["Raw data<br/>(ISIC 2016 / RSNA DICOM / PCam HDF5)"] --> B["prepare<br/>preprocess · split"]
+    B --> C["gan<br/>conditional StyleGAN2-ADA<br/>early stopping"]
+    C --> D["sample<br/>minority pool ⌈k·g⌉"]
+    D --> E["select<br/>E_v / E_d margins + diversity<br/>M1–M6"]
+    E --> F["train<br/>3 backbones × 10 methods × 3 seeds"]
     B --> F
     F --> G["evaluate<br/>AUC · bootstrap · Holm · KID · subgroups"]
     G --> H["report<br/>paper tables"]
@@ -49,12 +55,12 @@ flowchart LR
 
 | Step | What happens |
 |---|---|
-| Generator | Class-conditional StyleGAN2-ADA, trained on the training split only; the snapshot with the lowest minority-class KID is kept. |
-| Candidate pools | One pool per class of `⌈k · s⌉` synthetic images, with `s = q · |majority|`, `q = 0.5` and `k = 1.5`. |
-| Selection | Every generative method picks exactly `s` images per class from the **same pools**; methods differ only in the selection criterion. |
-| Training sets | Real images + ROS of the minority class to 1 : 1 + `s` selected synthetic images in **each** class. |
-| Classifiers | ImageNet-pretrained backbones (Colab: 4 CNNs + 2 Transformers; server: 3 CNNs), 3 seeds each, identical training recipe for every method. |
-| Evaluation | Real-only validation and test sets; fixed threshold 0.5; paired bootstrap ΔAUC with Holm adjustment; KID for image quality. |
+| Generator | Class-conditional StyleGAN2-ADA, trained on the training split only; snapshot chosen on the minority class (ISIC, RSNA: KID on Inception-v3; PCam: EMA-smoothed FID on `E_d` features, following Xue et al. 2021). |
+| Candidate pool | `⌈k · g⌉` synthetic minority images, `g = |majority| − |minority|`, `k = 2`. |
+| Selection | M1–M6 pick exactly `g` images from the **same pool**; they differ only in the selection criterion. |
+| Training sets | B0/B1/B3: real images; B2: real + `g` duplicated minority images; M1–M6: real + `g` selected synthetic minority images. |
+| Classifiers | ResNet-50, ConvNeXt-Tiny and Swin-T (ImageNet), same head, 3 seeds each. Augmentation only in B3, class weights only in B1. |
+| Evaluation | Real-only validation and test sets; fixed threshold 0.5; paired bootstrap ΔAUC with Holm adjustment; shortcut probe; KID for image quality. |
 
 ## Method
 
@@ -70,8 +76,6 @@ S_DASS(x) = α · M̃_v(x) + β · M̃_d(x) + γ · S̃_div(x)      ~ : min-max 
 ```
 
 Selection is greedy: at each step the candidate with the highest `S_DASS` is added (`α = β = 1`, `γ = 0.5`, `λ = 1`).
-Majority-class candidates are selected with the same criterion and **reversed margins** (`S⁺` measured against the real
-majority images, `S⁻` against the real minority images).
 
 | Feature space | Model | Training |
 |---|---|---|
@@ -80,42 +84,40 @@ majority images, `S⁻` against the real minority images).
 
 ### Compared methods
 
-| Group | Method (paper name) | ID | Training set |
-|---|---|---|---|
-| Real Data Baseline | **Imbalanced Baseline** | M0 | real images only, imbalanced (no reweighting, no resampling) |
-| ROS + Class-balanced GAN (StyleGAN2-ADA) | **ROS + Balanced GAN: Random** | M1 | real + ROS + `s` random synthetic images per class |
-| | **ROS + Balanced GAN: Visual margin (M_v)** | M2 | real + ROS + top-`s` by `M̃_v` per class |
-| | **ROS + Balanced GAN: Disease margin (M_d)** | M3 | real + ROS + top-`s` by `M̃_d` per class |
-| | **ROS + Balanced GAN: Diversity (S_div)** | M5 | real + ROS + k-center greedy per class (no margin) |
-| | **ROS + Balanced GAN: Dual margin (M_v + M_d)** | M4 | real + ROS + top-`s` by `α·M̃_v + β·M̃_d` per class |
-| | **ROS + Balanced GAN: DASS (Ours)** | M6 | real + ROS + greedy `S_DASS` per class |
+**Group 1 — class-imbalance methods** (`table_comparison`)
 
-M1–M6 share the real images, the same duplicated minority images, the training-set size and the number of optimisation
-steps; only the selected synthetic images differ. The pre-registered primary hypotheses are **H1: DASS vs. Random**
-(M6 vs. M1, the contribution of the *selection*) and **H2: DASS vs. Imbalanced Baseline** (M6 vs. M0, the full
-pipeline). Internal IDs are kept in all artefacts; paper names are applied only when tables are written.
+| ID | Method | Minority class | Majority class | Training |
+|---|---|---|---|---|
+| B0 | Imbalanced Baseline | real | real | — |
+| B1 | Cost-sensitive | real | real | class-weighted loss |
+| B2 | Random Oversampling | real + `g` duplicates | real | — |
+| B3 | Traditional Augmentation | real | real | flips / rotation / brightness / contrast |
+| B4 (= M1) | Balanced GAN: Random | real + `g` random synthetic | real | — |
+| B5 (= M6) | Balanced GAN: **DASS (Ours)** | real + `g` DASS-selected synthetic | real | — |
 
-**Why synthetic images in both classes.** When synthetic images are added to the minority class only, "looks synthetic"
-becomes a cue for the minority label: a real-vs-synthetic probe separates the two at AUC ≈ 0.99. With the same number
-of synthetic images in each class, that cue carries no label information.
+**Group 2 — DASS ablation** (`table_ablation`): M1 Random, M2 visual margin `M_v`, M3 disease margin `M_d`,
+M4 diversity/coverage (k-center greedy), M5 `M_v + M_d`, M6 `M_v + M_d` + diversity (DASS).
 
-The full method, experimental design, statistics and threats to validity are documented in
-[docs/GUIDE.md](docs/GUIDE.md) (Vietnamese).
+Pre-registered primary hypotheses: **H1** DASS vs. Random (M6 vs. M1), **H2** DASS vs. ROS (M6 vs. B2), **H3** DASS vs.
+Imbalanced (M6 vs. B0). Internal IDs are kept in all artefacts; paper names are applied only when tables are written.
+
+The full method, experimental design, statistics and limitations are documented in [docs/METHOD.md](docs/METHOD.md)
+(Vietnamese).
 
 ## Datasets
 
-| | ISIC 2016 Part 3 [2] | RSNA Pneumonia Detection Challenge 2018 [3, 4] |
-|---|---|---|
-| Modality | dermoscopy, RGB | chest X-ray, DICOM, grayscale (1 channel) |
-| Classes (0 / **1**) | benign / **malignant** | no lung opacity / **lung opacity** (adjudicated radiologist label) |
-| Images used | 900 train (727 / 173), official test set 379 (304 / 75) | 12,249 (10,738 / 1,511): one image per patient, "Exclude"-flagged images removed |
-| Split | official test; 15 % of train → validation | stratified 70 / 15 / 15 |
-| Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 |
-| Imbalance (train) | 4.2 : 1 | 7.1 : 1 |
-| Generator | reused checkpoint (3 channels, x-flips on) | trained from scratch (1 channel, **no x-flips**: chest anatomy is not left–right symmetric) |
-| Synthetic images per class `s` (pool `⌈1.5 s⌉`) | 309 (464) | 3,761 (5,642) |
-| Training set per class, M1–M6 | 927 + 927 | 11,283 + 11,283 |
-| Classifier augmentation | none | none |
+| | ISIC 2016 Part 3 [2] | RSNA Pneumonia 2018 [3, 4] | PatchCamelyon v1 |
+|---|---|---|---|
+| Modality | dermoscopy, RGB | chest X-ray, DICOM, grayscale | H&E histopathology patches, RGB, 96 px |
+| Classes (0 / **1**) | benign / **malignant** | no opacity / **lung opacity** | normal / **tumour** |
+| Split | official test; 15 % of train → val | stratified 70 / 15 / 15 | pooled, de-duplicated, WSI-grouped 70 / 15 / 15 |
+| Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 | 36,024 + 3,002 / 7,728 + 644 / 7,728 + 644 |
+| Imbalance (train) | 4.2 : 1 | 7.1 : 1 | 12 : 1 (sub-sampled) |
+| Image size | 256 | 256 | 128 |
+| `g` synthetic images (pool `⌈2g⌉`) | 470 (940) | 6,463 (12,926) | 33,022 (66,044) |
+
+PCam is pre-processed once by `scripts/preprocess_pcam.py` (exact-duplicate removal, background-dominated patches
+removed, WSI-grouped split, 12 : 1 sampling) into a single HDF5 file read by the `hdf5` source.
 
 **RSNA specifics.** Patient identities come from the NIH ChestX-ray mapping released with the dataset; keeping one
 image per patient prevents patient overlap between train, validation and test. View position is a known confounder
@@ -129,15 +131,16 @@ image per patient prevents patient overlap between train, validation and test. V
   automatically at every stage; ISIC: the split algorithm is locked by a regression test).
 - **Model selection.** Validation is used only to pick the epoch (validation ROC-AUC, `val_auc`). The test set is predicted once,
   after reloading the best checkpoint, with a **fixed threshold of 0.5**.
-- **Same recipe for every method and both datasets**: data, split, generator, pool, `n`, hyper-parameters and seeds
-  (paired design). The classifier receives **no other data- or loss-level intervention**: no augmentation and no class
-  weights for any method, so the only difference between methods is the content of the training set.
+- **Same recipe for every method and dataset**: data, split, generator, pool, hyper-parameters and seeds (paired
+  design). Augmentation is used only by B3 and class weights only by B1.
 - **Metrics.** ROC-AUC (primary), PR-AUC, sensitivity, specificity, balanced accuracy, G-mean, MCC, F1 — mean ± std over
   three seeds.
 - **Statistics.** Paired, class-stratified bootstrap of ΔAUC (2,000 resamples) on seed-averaged predictions, with 95 % CI;
   seed-paired ΔAUC (mean ± std) reported alongside. Primary family (pre-registered): H1 DASS vs. Random, H2 DASS vs.
-  Imbalanced Baseline; every other method vs. the Imbalanced Baseline is exploratory. p-values are Holm-adjusted
-  within each family and backbone.
+  ROS, H3 DASS vs. Imbalanced; every other comparison is exploratory. p-values are Holm-adjusted within each family
+  and backbone.
+- **Shortcut probe.** Unseen synthetic majority-class images vs. real majority-class validation images, scored by every
+  trained classifier (`scripts/shortcut_probe.py`).
 - **Overfitting check.** ROC-AUC on the real training images, validation and test for every run.
 - **Synthetic image quality.** KID (primary, mean ± std over 50 subsets) and FID (reference) on the StyleGAN2-ADA
   Inception-v3 features, intra-set diversity and SSIM, and real-vs-synthetic separability (logistic probe on `E_v`).
@@ -341,8 +344,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Dataset | `gan_tag` | Main `run_tag` |
 |---|---|---|
-| ISIC 2016 | `v5` | `v13` (server `v13_srv`) |
-| RSNA Pneumonia | `rsna` | `rsna_v4` (server `rsna_v4_srv`; split of `rsna_v2`) |
+| ISIC 2016 | `v5` | `v14` (server `v14_srv`) |
+| RSNA Pneumonia | `rsna` | `rsna_v5` (server `rsna_v5_srv`; split of `rsna_v2`) |
+| PatchCamelyon | `pcam` | `pcam_v2` (server `pcam_v2_srv`; `E_d` of `pcam_v1_srv`) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

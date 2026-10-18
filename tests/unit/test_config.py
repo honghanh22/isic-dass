@@ -9,7 +9,6 @@ from dass.config.loader import apply_file
 
 BASES = sorted((CONFIGS / "_base_").glob("*.yaml"))
 EXPERIMENTS = ["isic2016_dass.yaml", "rsna_pneumonia_dass.yaml", "pcam_dass.yaml"]
-DESIGN_A = CONFIGS / "experiments" / "design_a.yaml"      # profile khôi phục thiết kế A (lần chạy tới v12 / rsna_v3)
 
 
 def test_base_yaml_matches_schema_defaults():
@@ -23,67 +22,19 @@ def test_experiments_load_and_validate(name):
     assert cfg.data.name and cfg.paths.drive_root
     # công thức chuẩn hoá (ISIC v5), giống nhau cho mọi bộ dữ liệu
     assert (cfg.selection.lambda_v, cfg.selection.gamma, cfg.classifier.monitor) == (1.0, 0.5, "val_auc")
-    assert cfg.selection.both_classes_variant is False and cfg.evaluation.threshold == 0.5
+    assert cfg.evaluation.threshold == 0.5
 
 
-@pytest.mark.parametrize("name", EXPERIMENTS)
-def test_design_b_is_the_main_design(name):
-    """Thiết kế B là cấu hình chính (người dùng quyết định, 1.21.0): ROS + s = 0,5 × (ảnh thật lớp đa số) ảnh sinh mỗi
-    lớp, lọc cả hai lớp, không M0b / M0c; họ chính H1 DASS vs Random, H2 DASS vs M0."""
-    cfg = load_config([CONFIGS / "experiments" / name])
-    s = cfg.selection
-    assert (s.design, s.balanced_synth_ratio, s.filter_majority, s.oversample_variant) == \
-        ("source_balanced", 0.5, True, False)
-    assert (s.pool_mult, s.synth_fraction, s.both_classes_variant) == (1.5, 1.0, False)
-    b_pairs = [["M6_dass", "M1_random"], ["M6_dass", "M0_real_only"]]
-    assert cfg.evaluation.primary_comparisons == b_pairs and cfg.evaluation.comparisons == b_pairs
-    assert cfg.encoder.e_d_from_run == ""                  # Colab: lần chạy B tự train E_d
 
 
-@pytest.mark.parametrize("name", EXPERIMENTS)
-def test_design_a_profile_restores_original_recipe(name):
-    """Profile design_a.yaml: ảnh sinh chỉ ở lớp thiểu số, M0b, họ chính M6 vs M0b / M1 / M0 (như tới 1.20.x)."""
-    cfg = load_config([CONFIGS / "experiments" / name, DESIGN_A])
-    s = cfg.selection
-    assert (s.design, s.balanced_synth_ratio, s.filter_majority, s.oversample_variant) == \
-        ("minority_only", 0.0, False, True)
-    assert cfg.evaluation.comparisons == [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"]]
-    assert cfg.evaluation.primary_comparisons == [["M6_dass", "M0b_real_oversample"], ["M6_dass", "M1_random"],
-                                                  ["M6_dass", "M0_real_only"]]
-    assert cfg.evaluation.method_labels["M1_random"] == "Unfiltered GAN (Random Selection)"
-    assert cfg.encoder.e_d_from_run == ""
-    b = load_config([CONFIGS / "experiments" / name]).to_dict()
-    a = cfg.to_dict()
-    assert {k for k in a if a[k] != b[k]} == {"selection", "evaluation"}   # chỉ khác thiết kế, không khác dữ liệu / train
 
 
-@pytest.mark.parametrize("name", EXPERIMENTS)
-def test_classifier_no_data_intervention(name):
-    """Người dùng quyết định (1.11.0): không can thiệp dữ liệu ở classifier, cho MỌI bộ dữ liệu — không augmentation,
-    M0 không class weight (baseline mất cân bằng thật; ROS là baseline cân bằng)."""
-    clf = load_config([CONFIGS / "experiments" / name]).classifier
-    assert clf.augment is False and clf.baseline_class_weight is False
 
 
-def test_display_names_and_groups():
-    ev = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).evaluation
-    assert list(ev.method_labels.values()) == [
-        "Imbalanced Baseline", "ROS + Balanced GAN: Random", "ROS + Balanced GAN: Visual margin ($M_v$)",
-        "ROS + Balanced GAN: Disease margin ($M_d$)", r"ROS + Balanced GAN: Diversity ($S_{\text{div}}$)",
-        "ROS + Balanced GAN: Dual margin ($M_v + M_d$)", "ROS + Balanced GAN: DASS (Ours)"]
-    assert ev.method_groups["Real Data Baseline"] == ["M0_real_only"]
-    a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0], DESIGN_A]).evaluation
-    assert list(a.method_labels.values()) == [
-        "Imbalanced Baseline", "Random Oversampling (ROS)", "ROS (size-matched)",
-        "Unfiltered GAN (Random Selection)",
-        "Visual-only Filter ($M_v$)", "Disease-only Filter ($M_d$)", r"Diversity-only Filter ($S_{\text{div}}$)",
-        "Dual-Margin Filter ($M_v + M_d$)", "DASS (Ours)", "ROS + Class-balanced Synthetic (Random)",
-        "ROS + Class-balanced Synthetic (DASS)"]
-    assert a.method_groups["Real Data Baselines"] == ["M0_real_only", "M0b_real_oversample",
-                                                      "M0c_real_oversample_matched"]
-    for e in (ev, a):
-        grouped = [m for members in e.method_groups.values() for m in members]
-        assert sorted(grouped) == sorted(e.method_labels)        # mỗi phương pháp thuộc đúng một nhóm
+
+
+
+
 
 
 def test_rsna_config_and_augment_profiles():
@@ -118,13 +69,7 @@ def test_bad_comparison_rejected():
         load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["evaluation.comparisons=[[M6_dass]]"])
 
 
-@pytest.mark.parametrize("name", EXPERIMENTS)
-def test_classifier_six_backbones_three_seeds(name):
-    clf = load_config([CONFIGS / "experiments" / name]).classifier
-    assert clf.models == ["EfficientNetV2B0", "ResNet50", "DenseNet121", "ConvNeXtTiny", "ViT-B16", "SwinT"]
-    assert clf.seeds == [2026, 2027, 2028]
-    assert clf.vit_preset.startswith("hf://keras/")
-    assert clf.swin_preset == "swin_tiny_patch4_window7_224"            # tên preset KerasHub chính thức
+
 
 
 def test_unknown_backbone_rejected_at_load_time():
@@ -143,11 +88,11 @@ def test_experiments_differ_only_in_allowed_sections():
 
 
 def test_k_is_identical_across_datasets():
-    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa các bộ dữ liệu; k = 1,5."""
+    """k (pool_mult) và mọi tham số DASS phải giống nhau giữa các bộ dữ liệu; k = 2 (2.0.0)."""
     a = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     b = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]])
     assert a.selection == b.selection and a.encoder == b.encoder
-    assert a.selection.pool_mult == b.selection.pool_mult == 1.5
+    assert a.selection.pool_mult == b.selection.pool_mult == 2.0
     for ds in (CONFIGS / "datasets").glob("*.yaml"):          # không file dataset nào được ghi đè tham số chọn ảnh
         text = ds.read_text(encoding="utf-8")
         assert "selection:" not in text and "pool_mult" not in text and "encoder:" not in text, ds.name
@@ -156,8 +101,8 @@ def test_k_is_identical_across_datasets():
 def test_e_d_reuse_from_main_run():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"], tag="x")
     lay = Layout(cfg)
-    assert lay.e_d_run == "rsna_v4" and lay.results_dir.name == "results_rsna_v4_x"
-    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_rsna_v4" / "classifiers" / \
+    assert lay.e_d_run == "rsna_v5" and lay.results_dir.name == "results_rsna_v5_x"
+    assert lay.e_d_ckpt == Path(cfg.paths.drive_root) / "checkpoints_rsna_v5" / "classifiers" / \
         "Ed_DenseNet121_s4242.weights.h5"
     with pytest.raises(ValueError, match="--tag"):          # "base" mà không có --tag -> lỗi
         load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["encoder.e_d_from_run=base"])
@@ -165,7 +110,7 @@ def test_e_d_reuse_from_main_run():
 
 def test_main_run_trains_its_own_e_d():
     lay = Layout(load_config([CONFIGS / "experiments" / EXPERIMENTS[1]]))
-    assert lay.e_d_run == "rsna_v4" and lay.e_d_ckpt.parent == lay.clf_dir
+    assert lay.e_d_run == "rsna_v5" and lay.e_d_ckpt.parent == lay.clf_dir
 
 
 def test_smoke_profile_composes_with_any_dataset():
@@ -178,7 +123,7 @@ def test_overrides_and_tag():
     cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
                       ["generator.batch=32", "classifier.ft_lr=1e-5", "classifier.seeds=[1, 2]"], tag="abl")
     assert cfg.generator.batch == 32 and isinstance(cfg.classifier.ft_lr, float)
-    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v13_abl"
+    assert cfg.classifier.seeds == [1, 2] and cfg.paths.run_tag == "v14_abl"
 
 
 def test_unknown_key_and_bad_override():
@@ -235,59 +180,45 @@ def test_run_chain_trains_one_seed_per_process():
     assert cmds[3][-4:] == ["--model", "ResNet50", "--seeds", "2026"]
 
 
-def test_synth_fraction_default_and_validation():
-    cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
-    assert cfg.selection.synth_fraction == 1.0
-    with pytest.raises(ValueError, match="synth_fraction"):
-        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]], ["selection.synth_fraction=0"])
-    with pytest.raises(ValueError, match="M7"):
-        load_config([CONFIGS / "experiments" / EXPERIMENTS[0]],
-                    ["selection.synth_fraction=0.5", "selection.both_classes_variant=true"])
+@pytest.mark.parametrize("name", EXPERIMENTS)
+def test_design_2_0(name):
+    """Thiết kế 2.0.0 (người dùng quyết định): B0–B3 + Balanced GAN (ảnh sinh chỉ ở lớp thiểu số, cân bằng 1 : 1) M1–M6,
+    k = 2; họ chính H1 DASS vs Random, H2 DASS vs ROS, H3 DASS vs Imbalanced; 3 backbone (cùng head), 3 seed."""
+    cfg = load_config([CONFIGS / "experiments" / name])
+    s, ev, clf = cfg.selection, cfg.evaluation, cfg.classifier
+    assert (s.pool_mult, s.sim_topk, s.lambda_v, s.lambda_d, s.alpha, s.beta, s.gamma) == (2.0, 5, 1, 1, 1, 1, 0.5)
+    assert ev.baseline_method == "B0_imbalanced"
+    assert ev.primary_comparisons == [["M6_dass", "M1_random"], ["M6_dass", "B2_ros"], ["M6_dass", "B0_imbalanced"]]
+    assert clf.models == ["ResNet50", "ConvNeXtTiny", "SwinT"] and clf.seeds == [2026, 2027, 2028]
+    assert clf.swin_preset == "swin_tiny_patch4_window7_224"            # tên preset KerasHub chính thức
 
 
-def test_balanced_synth_ratio_default_and_validation():
-    cfg = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
-    assert cfg.selection.balanced_synth_ratio == 0.5                      # thiết kế B
-    a = [CONFIGS / "experiments" / EXPERIMENTS[0], DESIGN_A]
-    assert load_config(a).selection.balanced_synth_ratio == 0.0           # thiết kế A: M8 tắt
-    assert load_config(a, ["selection.balanced_synth_ratio=0.5"]).selection.balanced_synth_ratio == 0.5
-    with pytest.raises(ValueError, match="balanced_synth_ratio"):
-        load_config(a, ["selection.balanced_synth_ratio=-1"])
-    with pytest.raises(ValueError, match="synth_fraction"):
-        load_config(a, ["selection.balanced_synth_ratio=0.5", "selection.synth_fraction=0.5"])
+def test_result_tables():
+    """Hai bảng của bài: so sánh (B0–B3, B4 = M1, B5 = M6) và ablation (M1–M6); mọi mã đều có tên hiển thị chung."""
+    from dass.selection import METHODS, SELECTION_METHODS
+
+    ev = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]]).evaluation
+    assert list(ev.method_labels) == list(METHODS)
+    assert list(ev.result_tables["comparison"]) == ["B0_imbalanced", "B1_class_weight", "B2_ros", "B3_augment",
+                                                    "M1_random", "M6_dass"]
+    assert list(ev.result_tables["ablation"]) == list(SELECTION_METHODS)
+    assert ev.result_tables["comparison"]["M6_dass"].startswith("B5:")
 
 
-def test_design_b_server_config():
-    cfg = load_config([CONFIGS / "server" / "rsna_pneumonia_designB.yaml"], tag="srv")
-    s = cfg.selection
-    assert (s.design, s.balanced_synth_ratio, s.pool_mult, s.synth_fraction) == ("source_balanced", 0.5, 1.5, 1.0)
-    assert cfg.paths.run_tag == "rsna_v4_srv" and cfg.encoder.e_d_from_run == "rsna_v3_srv"
-    assert cfg.paths.gan_tag == "rsna" and cfg.classifier.monitor == "val_auc"
-    assert cfg.evaluation.primary_comparisons == [["M6_dass", "M1_random"], ["M6_dass", "M0_real_only"]]
-    assert not s.oversample_variant   # M0b / M0c tắt; ROS vẫn nằm trong M1–M6
-    with pytest.raises(ValueError, match="source_balanced"):          # thiết kế B cần q > 0
-        load_config([CONFIGS / "experiments" / EXPERIMENTS[1]], ["selection.balanced_synth_ratio=0"])
-    # 1.21.0: thiết kế B là cấu hình chính -> config server thường và tên cũ *_designB resolve giống hệt
-    for ds in ("rsna_pneumonia", "isic2016"):
-        main = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv").to_dict()
-        assert load_config([CONFIGS / "server" / f"{ds}_designB.yaml"], tag="srv").to_dict() == main
+@pytest.mark.parametrize("ds,run,ed", [("isic2016", "v14_srv", ""), ("rsna_pneumonia", "rsna_v5_srv", ""),
+                                       ("pcam", "pcam_v2_srv", "pcam_v1_srv")])
+def test_server_configs(ds, run, ed):
+    """Server: run_tag mới của thiết kế 2.0.0; ISIC / RSNA train lại E_d, PCam dùng CHÍNH E_d đã chọn snapshot GAN."""
+    cfg = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv")
+    assert cfg.paths.run_tag == run and cfg.encoder.e_d_from_run == ed
+    assert cfg.classifier.models == ["ResNet50", "ConvNeXtTiny", "SwinT"]
 
 
 @pytest.mark.parametrize("ds", ["rsna_pneumonia", "isic2016"])
 def test_colab_config_matches_server_except_paths(ds):
-    """configs/colab/*: cấu hình server (3 CNN, 3 seed, thiết kế B), chỉ khác đường dẫn Drive / HDD, hậu tố _srv của
-    run_tag và E_d (Colab tự train trong lần chạy, server dùng lại E_d của lần chạy A)."""
+    """configs/colab/*: cấu hình server, chỉ khác đường dẫn Drive / HDD và hậu tố _srv của run_tag."""
     colab = load_config([CONFIGS / "colab" / f"{ds}.yaml"]).to_dict()
     server = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv").to_dict()
-    assert {k for k in colab if k not in ("paths", "data") and colab[k] != server[k]} == {"encoder"}
-    assert colab["encoder"] == {**server["encoder"], "e_d_from_run": ""}
+    assert {k for k in colab if k not in ("paths", "data") and colab[k] != server[k]} == set()
     assert {k for k in colab["data"] if colab["data"][k] != server["data"][k]} == {"source"}
-    assert colab["classifier"]["models"] == ["EfficientNetV2B0", "ResNet50", "ConvNeXtTiny"]
-    assert colab["classifier"]["seeds"] == [2026, 2027, 2028]
     assert server["paths"]["run_tag"] == colab["paths"]["run_tag"] + "_srv"
-
-
-def test_filter_majority_requires_design_b():
-    assert load_config([CONFIGS / "server" / "rsna_pneumonia_designB.yaml"], tag="srv").selection.filter_majority
-    with pytest.raises(ValueError, match="filter_majority"):
-        load_config([CONFIGS / "experiments" / EXPERIMENTS[1], DESIGN_A], ["selection.filter_majority=true"])

@@ -126,19 +126,16 @@ def test_archive_superseded_run_moves_never_deletes(tmp_path):
     assert again != moved and moved.exists() and list(np.load(moved)["y"]) == [0, 1, 2]
 
 
-def test_mixed_protocols_rejected_and_labels_follow_class_weight():
-    runs = pd.DataFrame({"method": ["M0_real_only"] * 2 + ["M6_dass"] * 2, "augment": [True, True, True, None],
-                         "class_weight": [True, True, False, None]})
-    check_single_protocol(runs)                                        # None (npz cũ) không tính là giao thức khác
-    with pytest.raises(ValueError, match="augmentation"):
-        check_single_protocol(runs.assign(augment=[True, False, True, True]))
-    with pytest.raises(ValueError, match="lớp đa số"):                 # thiết kế B: lọc / không lọc lớp đa số
-        check_single_protocol(runs.assign(filter_majority=[True, True, False, None]))
-    labels = reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline", "M6_dass": "DASS (Ours)"}, runs)
-    assert labels == {"M0_real_only": "Imbalanced Baseline (class-weighted)", "M6_dass": "DASS (Ours)"}
-    unweighted = runs.assign(class_weight=False)                       # cấu hình ISIC v9 / RSNA
-    assert reporting.labels_for_runs({"M0_real_only": "Imbalanced Baseline"}, unweighted)["M0_real_only"] == \
-        "Imbalanced Baseline"
+def test_mixed_protocols_rejected():
+    """Mỗi phương pháp một thiết lập augmentation / class weight ở mọi lần chạy; khác giữa các phương pháp là hợp lệ
+    (B3 có augmentation, B1 có class weight); tiêu chí chọn epoch phải chung."""
+    runs = pd.DataFrame({"method": ["B3_augment"] * 2 + ["M6_dass"] * 2, "augment": [True, True, False, None],
+                         "class_weight": [False, False, False, None], "monitor": ["val_auc"] * 4})
+    check_single_protocol(runs)                                        # None (thiếu trường) không tính là khác
+    with pytest.raises(ValueError, match="augment"):
+        check_single_protocol(runs.assign(augment=[True, False, False, False]))
+    with pytest.raises(ValueError, match="chọn epoch"):
+        check_single_protocol(runs.assign(monitor=["val_auc", "val_auc", "val_loss", "val_auc"]))
 
 
 def test_compare_pairs_extra_references(runs_dir, rng):

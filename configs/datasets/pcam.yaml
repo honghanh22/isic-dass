@@ -5,7 +5,7 @@
 paths:
   drive_root: /data/honghanh/results/PCam
   gan_tag: pcam          # GAN mới, train từ đầu ở 128 × 128
-  run_tag: pcam_v1
+  run_tag: pcam_v2       # thiết kế 2.0.0 (pcam_v1: lần chạy train E_d + GAN). Server: pcam_v2_srv.
 
 data:
   name: pcam

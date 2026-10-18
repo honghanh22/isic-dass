@@ -42,14 +42,22 @@ def _keras_app(app_name: str, preprocess_module: str | None):
 
 
 def _keras_hub(preset_attr: str):
-    """ViT / Swin từ KerasHub: preprocessor của preset tự resize + chuẩn hoá -> preprocess ở tf.data là identity."""
+    """ViT / Swin từ KerasHub: CHỈ lấy backbone + bộ chuyển ảnh (resize + chuẩn hoá) của preset, rồi gắn CÙNG head với
+    các CNN (pooling trung bình + dropout + Dense sigmoid) -> mọi model cùng giao thức. Ảnh vào giữ [0, 255]."""
     def build(image_size: int, dropout: float, cfg) -> Built:
         import keras_hub
         import tensorflow as tf
+        from tensorflow.keras import layers
 
-        model = keras_hub.models.ImageClassifier.from_preset(getattr(cfg, preset_attr), num_classes=1,
-                                                             activation="sigmoid")
-        return model, model.backbone, (lambda x: tf.cast(x, tf.float32))
+        preset = getattr(cfg, preset_attr)
+        backbone = keras_hub.models.Backbone.from_preset(preset)
+        converter = keras_hub.layers.ImageConverter.from_preset(preset)
+        inputs = tf.keras.Input(shape=(image_size, image_size, 3))
+        x = backbone(converter(inputs), training=False)
+        x = layers.GlobalAveragePooling2D()(x) if len(x.shape) == 4 else layers.GlobalAveragePooling1D()(x)
+        x = layers.Dropout(dropout)(x)
+        outputs = layers.Dense(1, activation="sigmoid", dtype="float32")(x)
+        return tf.keras.Model(inputs, outputs), backbone, (lambda t: tf.cast(t, tf.float32))
 
     return build
 

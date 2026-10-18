@@ -55,12 +55,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("sample", help="sinh (hoặc khôi phục) candidate pool")
     sub.add_parser("fingerprint", help="(tuỳ chọn) fingerprint miền tần số của ảnh sinh — Frank et al.")
-    p = sub.add_parser("select", help="E_v / E_d, chấm điểm, chọn ảnh M0–M6, kiểm tra shortcut")
+    p = sub.add_parser("select", help="E_v / E_d, chấm điểm, chọn ảnh sinh cho M1–M6, kiểm tra shortcut")
     p.add_argument("--force", action="store_true", help="chọn lại dù đã có selections.json")
 
-    p = sub.add_parser("train", help="train một backbone trên mọi biến thể (--seeds: chỉ các seed này)")
+    p = sub.add_parser("train", help="train một backbone trên mọi phương pháp B0–B3, M1–M6 (--seeds, --methods: "
+                                     "chỉ các seed / phương pháp này)")
     p.add_argument("--model", required=True, help=f"một trong {', '.join(MODEL_NAMES)} (không phân biệt hoa thường)")
     p.add_argument("--seeds", type=int, nargs="+", help="mặc định: classifier.seeds")
+    p.add_argument("--methods", nargs="+", help="mặc định: tất cả (B0_imbalanced ... M6_dass)")
     p.add_argument("--archive-mismatched", action="store_true",
                    help="dự đoán đã có nhưng train theo giao thức khác (augmentation / class weight) -> chuyển sang "
                         "predictions_superseded/ (không xoá) rồi train lại")
@@ -190,7 +192,7 @@ def main(argv: list[str] | None = None) -> None:
         select.run(cfg, force=args.force)
     elif cmd == "train":
         from .pipeline.stages import train
-        train.run(cfg, args.model, args.seeds, args.archive_mismatched)
+        train.run(cfg, args.model, args.seeds, args.archive_mismatched, args.methods)
     elif cmd == "evaluate":
         from .pipeline.stages import evaluate
         evaluate.run(cfg, skip_generative=args.skip_generative)

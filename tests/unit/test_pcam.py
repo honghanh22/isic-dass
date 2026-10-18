@@ -63,7 +63,7 @@ def test_pcam_config():
     isic = load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator
     assert (g.min_kimg, g.patience, g.min_rel_delta, g.max_kimg) == \
         (isic.min_kimg, isic.patience, isic.min_rel_delta, isic.max_kimg)
-    assert cfg.paths.run_tag == "pcam_v1_srv" and cfg.encoder.e_d_from_run == ""        # E_d của chính lần chạy
+    assert cfg.paths.run_tag == "pcam_v2_srv" and cfg.encoder.e_d_from_run == "pcam_v1_srv"   # E_d đã chọn GAN
     with pytest.raises(ValueError, match="hdf5"):
         load_config([CONFIGS / "server" / "pcam.yaml"], ["data.split.type=stratified"])
 

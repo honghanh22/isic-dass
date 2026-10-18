@@ -17,9 +17,9 @@ data:
     train_images: /data/honghanh/datasets/RSNA   # tìm *.dcm + CSV / JSON nhãn đệ quy
 
 classifier:
-  # Server: 3 CNN (bỏ DenseNet121 — cùng kiến trúc với E_d; ViT-B16, SwinT — transformer, nặng). Thứ tự = thứ tự chạy.
-  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]
+  # Server (2.0.0): ResNet50, ConvNeXt-Tiny, Swin-T (cùng head). Thứ tự = thứ tự chạy.
+  models: [ResNet50, ConvNeXtTiny, SwinT]
 
 encoder:
-  # rsna_v4_srv dùng lại E_d của rsna_v3_srv (cùng công thức, chọn epoch theo val_auc).
-  e_d_from_run: rsna_v3_srv
+  # E_d train lại trong lần chạy (E_d của rsna_v3_srv đã bị xoá).
+  e_d_from_run: ""

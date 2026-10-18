@@ -1,7 +1,8 @@
 # Classifier downstream: train 2 giai đoạn (head -> fine-tune), chọn epoch theo val, test dự đoán một lần.
 classifier:
-  # CNN: keras.applications | ViT-B16, SwinT: KerasHub (preset Hugging Face bên dưới, cần `pip install keras-hub`)
-  models: [EfficientNetV2B0, ResNet50, DenseNet121, ConvNeXtTiny, ViT-B16, SwinT]
+  # ResNet50, ConvNeXtTiny: keras.applications | SwinT: backbone KerasHub; cả ba dùng CÙNG head (GAP + dropout +
+  # Dense sigmoid). Thứ tự = thứ tự chạy.
+  models: [ResNet50, ConvNeXtTiny, SwinT]
   seeds: [2026, 2027, 2028]     # mỗi backbone × mỗi biến thể × 3 seed -> báo cáo mean ± std
   size: 224
   batch_size: 16
@@ -16,11 +17,8 @@ classifier:
   # không phụ thuộc ngưỡng (công bằng giữa M0 mất cân bằng và biến thể cân bằng), ít nhiễu hơn val_macro_recall
   # (ISIC val chỉ 25 ca dương).
   monitor: val_auc
-  # Người dùng quyết định (1.11.0): KHÔNG can thiệp dữ liệu ở classifier của bất kỳ phương pháp nào, cho MỌI bộ dữ
-  # liệu: không augmentation, M0 không class weight (baseline mất cân bằng thật; việc cân bằng chỉ đến từ dữ liệu
-  # của M1–M6).
-  augment: false                # true: lật / xoay / zoom / sáng / tương phản (chỉ tập train, trực tuyến mỗi batch)
-  baseline_class_weight: false  # true: M0 train với class weight (cân bằng trong loss)
+  # Augmentation chỉ ở B3 (Traditional Augmentation, profile `data.augment_profile`), class weight chỉ ở B1; mọi
+  # phương pháp khác train trên đúng ảnh đã ghép (2.0.0).
   mixed_precision: false
   save_weights_to_drive: true
   vit_preset: hf://keras/vit_base_patch16_224_imagenet     # ViT-B/16, ImageNet, 224 px

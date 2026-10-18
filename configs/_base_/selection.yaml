@@ -1,37 +1,15 @@
-# DASS — công thức chuẩn (ISIC v5), dùng chung mọi bộ dữ liệu.
+# DASS — chọn g ảnh sinh lớp thiểu số (g = n_đa số − n_thiểu số, cân bằng 1 : 1) từ pool ⌈k·g⌉ ảnh; dùng chung mọi
+# bộ dữ liệu (không ghi đè trong configs/datasets/).
 #   M(x)      = S⁺(x) − λ·S⁻(x)          S± = trung bình cosine với TOP-K ảnh thật gần nhất (lớp thiểu số / đa số)
 #   S_DASS(x) = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)   (~ = chuẩn hoá min-max; S_div chuẩn hoá lại mỗi vòng)
 selection:
-  # k = pool_mult: pool = k × số ảnh cần chọn -> DASS giữ 1/k ảnh (k = 1,5: giữ 2/3). DÙNG CHUNG cho mọi bộ dữ liệu
-  # (không ghi đè trong configs/datasets/). Lịch sử: 4 -> 3 -> 2 -> 1,5 (1.5.0): chọn càng gắt
-  # thì tập DASS càng lệch phân phối ảnh thật (k = 3: KID tập chọn 0,100 so với pool 0,029). CosSIF (FAGT)
-  # cũng chỉ loại 15–25 % ảnh sinh (k ≈ 1,2–1,3).
-  pool_mult: 1.5
+  pool_mult: 2.0       # k (2.0.0, người dùng chọn): pool = k × g -> mỗi phương pháp giữ 1/k = 50 % pool
   sim_topk: 5
   lambda_v: 1.0
   lambda_d: 1.0
-  alpha: 1.0
+  alpha: 1.0           # (α, β, γ) = (1; 1; 0,5) ≡ (0,4; 0,4; 0,2): chỉ tỉ lệ có ý nghĩa
   beta: 1.0
   gamma: 0.5
-  # Trọng số THẬT của đa dạng: nền α·M̃_v + β·M̃_d nằm trong [0, 2], γ·S̃_div trong [0, γ] -> với γ = 0,5 đa dạng chiếm
-  # khoảng 1/5 biên độ điểm (không phải "50 %").
-  # Tuỳ chọn mở rộng (1.16.0), không dùng trong thiết kế hiện tại; 1 = tắt.
-  synth_fraction: 1.0
-  # q = balanced_synth_ratio: số ảnh sinh MỖI lớp s = q × (ảnh thật lớp đa số); q = 0,5 (ISIC s = 309, RSNA
-  # s = 3.761).
-  balanced_synth_ratio: 0.5
-  # Thiết kế tập train (source_balanced, người dùng quyết định, 1.21.0): MỌI biến thể M1–M6 = ảnh thật + ROS lớp
-  # thiểu số lên 1 : 1 (cùng một tập nhân bản) + s ảnh sinh MỖI lớp; ảnh sinh lớp thiểu số chọn theo tiêu chí của từng biến thể
-  # trong ⌈k·s⌉ ảnh đầu pool -> cân bằng lớp VÀ nguồn ảnh (thật / sinh) độc lập với nhãn (hết đường tắt "ảnh GAN =
-  # bệnh").
-  design: source_balanced
-  # Lọc cả ảnh sinh lớp ĐA SỐ (1.19.0): true -> pool lớp đa số ⌈k·s⌉ ảnh (seed gen_seed + 1), mỗi
-  # biến thể chọn s ảnh bằng CÙNG tiêu chí, margin ĐẢO CHIỀU (giống lớp đa số hơn lớp thiểu số), M1 ngẫu nhiên, M5 đa
-  # dạng trong lớp đa số. false -> lớp đa số dùng đúng s ảnh, không lọc, chung cho mọi biến thể.
-  filter_majority: true
-  # Baseline chỉ ROS: tắt (người dùng quyết định, 1.20.0) — ROS đã nằm TRONG M1–M6.
-  oversample_variant: false
-  both_classes_variant: false   # tuỳ chọn mở rộng, mặc định tắt
 
 encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = model riêng, train trên ảnh thật
   e_d_model: DenseNet121
@@ -39,8 +17,4 @@ encoder:                 # E_v = EfficientNet-B0 ImageNet (đóng băng); E_d = 
   e_d_head_epochs: 5
   e_d_ft_epochs: 20
   embed_batch_size: 32
-  # Cross-fitting E_d (1.14.0, tuỳ chọn): K >= 2 -> train K E_d, mỗi cái bỏ ra 1/K ảnh train; margin M_d của pool
-  # = trung bình qua K không gian, mỗi không gian so với đúng phần ảnh thật mà E_d đó KHÔNG học (tránh tham chiếu bị
-  # học thuộc: E_d tách train AUC ≈ 0,9 nhưng val ≈ 0,78). 0 = tắt (công thức gốc). Tốn K lần train E_d.
-  e_d_crossfit_folds: 0
-  e_d_from_run: ""       # "" = E_d của lần chạy này | <run_tag> hoặc "base" (cùng --tag) = dùng lại E_d đã train
+  e_d_from_run: ""       # "" = E_d của lần chạy này | <run_tag> = dùng lại E_d đã train (vd PCam: E_d đã chọn GAN)

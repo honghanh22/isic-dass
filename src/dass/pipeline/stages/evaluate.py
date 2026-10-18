@@ -150,20 +150,16 @@ def evaluate_selection_sets(cfg: Config, layout: Layout) -> pd.DataFrame | None:
 
 
 def evaluate_generation(cfg: Config) -> pd.DataFrame:
-    """Chất lượng ảnh sinh THEO TỪNG LỚP có ảnh sinh (cột `class`): lớp thiểu số luôn có; lớp đa số khi có pool ảnh sinh
-    lớp đa số (thiết kế B / M8). Mỗi lớp so với ảnh thật CÙNG lớp của tập train; hàng "pool" là đúng phần pool đã dùng
-    để chọn (`selection_budget`), không phải toàn bộ file pool."""
+    """Chất lượng ảnh sinh lớp thiểu số (cột `class`; chỉ lớp này có ảnh sinh): pool ⌈k·g⌉ ảnh và tập được chọn của
+    từng phương pháp M1–M6, so với ảnh thật cùng lớp của tập train."""
     from ...data.image_io import load_images
-    from ...data.variants import selection_budget
     from ...models.generator.inception import inception_features
     from ...models.generator.patches import ensure_stylegan_repo
-    from ..pool import resolve_balanced_majority_pool
 
     ctx = Context.create(cfg, "evaluate")
-    layout, ev, ch, b, sel = ctx.layout, cfg.evaluation, ctx.channels, ctx.budget, cfg.selection
+    layout, ev, ch, b = ctx.layout, cfg.evaluation, ctx.channels, ctx.budget
     ensure_stylegan_repo(layout.sg2_repo)          # Inception-v3 của StyleGAN2-ADA
     pool = resolve_candidate_pool(ctx, generate_if_missing=False).final
-    pool = pool[:selection_budget(sel, b.n_select, b.n_real[b.majority])[1]]
     shortcut = load_metrics(layout, "shortcut_check")
     auc_by_method = dict(zip(shortcut["method"], shortcut["auc_5fold"])) if shortcut is not None else {}
 
@@ -193,14 +189,7 @@ def evaluate_generation(cfg: Config) -> pd.DataFrame:
                                 aucs.get(method)))
         return rows
 
-    rows = class_rows(b.minority, pool, load_selections(ctx, pool), auc_by_method)
-    maj = resolve_balanced_majority_pool(ctx, generate_if_missing=False)
-    if maj is not None:
-        # lọc lớp đa số: mỗi phương pháp một tập; không lọc: mọi phương pháp dùng chung đúng cả pool (= hàng "pool").
-        # AUC thật-vs-sinh của lớp đa số không có ở bước select (E_v) -> để trống; xem scripts/shortcut_probe.py.
-        maj_sel = (load_selections(ctx, maj.final, layout.selections_majority_json) if sel.filter_majority else {})
-        rows += class_rows(b.majority, maj.final, maj_sel, {})
-    df = pd.DataFrame(rows)
+    df = pd.DataFrame(class_rows(b.minority, pool, load_selections(ctx, pool), auc_by_method))
     save_metrics(layout, "generation_quality", df)
     print("=== Chất lượng ảnh sinh theo lớp (Inception-v3, so với ảnh thật cùng lớp của train) — KID chính, FID tham "
           "khảo ===\n" + df.round(5).to_string(index=False))

@@ -3,8 +3,7 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia/Result_Pneumonia   # KẾT QUẢ
   gan_tag: rsna          # GAN MỚI (train từ đầu trên ảnh 1 kênh, split của rsna_v2): checkpoints_rsna/stylegan2ada
-  run_tag: rsna_v4       # lần chạy chính: ROS + ảnh sinh cân bằng hai lớp (q = 0,5), lọc cả hai lớp; cùng
-                         # split / GAN với rsna_v2, chọn epoch theo val_auc. Server: rsna_v4_srv.
+  run_tag: rsna_v5       # thiết kế 2.0.0: B0–B3 + Balanced GAN M1–M6, k = 2. Server: rsna_v5_srv.
 
 data:
   name: rsna_pneumonia

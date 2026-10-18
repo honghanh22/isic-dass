@@ -2,8 +2,7 @@
 paths:
   drive_root: /content/drive/MyDrive/Colab Notebooks/ColabData/ISBI2016_ISIC_Part3
   gan_tag: v5            # dùng lại GAN đã train: checkpoints_v5/stylegan2ada
-  run_tag: v13           # lần chạy chính: ROS + ảnh sinh cân bằng hai lớp (q = 0,5), lọc cả hai lớp; k = 1,5,
-                         # không augmentation, M0 không class weight, chọn epoch theo val_auc. Server: v13_srv.
+  run_tag: v14           # thiết kế 2.0.0: B0–B3 + Balanced GAN M1–M6, k = 2. Server: v14_srv.
 
 data:
   name: isic2016

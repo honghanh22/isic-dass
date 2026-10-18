@@ -8,7 +8,7 @@ Mọi file nằm trên Drive dưới `<drive_root>/results_<run_tag>/`.
 |---|---|---|
 | `classification_runs` | một lần chạy (model × phương pháp × seed) | `model, method, lam, k, seed, best_epoch, n_test, train_roc_auc, val_roc_auc, roc_auc, pr_auc, f1, macro_f1, sensitivity, specificity, balanced_accuracy, g_mean, mcc, precision, accuracy` |
 | `classification_summary` | (model, phương pháp) | `<metric>_mean`, `<metric>_std` (độ lệch chuẩn mẫu qua seed), `n_seeds` |
-| `significance_vs_baseline` | (model, phương pháp, đối chứng): mọi phương pháp vs M0, cộng các cặp trong `evaluation.comparisons` (M6 vs M1; cặp trùng phép so với M0 chỉ tính một lần) | `vs` (đối chứng), `family` (`primary` = cặp trong `evaluation.primary_comparisons`, còn lại `exploratory`), `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung — dao động do mẫu test); `p_holm` (Holm trong mỗi model × họ `family`); `delta_auc_seed_mean, delta_auc_seed_std` (ΔAUC ghép cặp theo seed — dao động giữa các lần train) |
+| `significance_vs_baseline` | (model, phương pháp, đối chứng): mọi phương pháp vs B0, cộng các cặp trong `evaluation.comparisons` (M6 vs M1, M6 vs B2; cặp trùng phép so với B0 chỉ tính một lần) | `vs` (đối chứng), `family` (`primary` = cặp trong `evaluation.primary_comparisons`, còn lại `exploratory`), `delta_auc, ci95_low, ci95_high, p_value, n_seeds` (paired bootstrap trên xác suất trung bình qua seed chung — dao động do mẫu test); `p_holm` (Holm trong mỗi model × họ `family`); `delta_auc_seed_mean, delta_auc_seed_std` (ΔAUC ghép cặp theo seed — dao động giữa các lần train) |
 | `classification_by_subgroup_runs` | (lần chạy, nhóm con) — chỉ khi `evaluation.subgroup_columns` | `attribute, group` (ví dụ `ViewPosition`, `AP`), `n, n_pos` + metric |
 | `classification_by_subgroup` | (model, phương pháp, nhóm con) | `roc_auc_*`, `pr_auc_*` (mean / std qua seed), `n, n_pos, n_seeds` |
 | `significance_by_subgroup` | (model, phương pháp, đối chứng, nhóm con) | như `significance_vs_baseline`, `p_holm` trong mỗi model × nhóm |
@@ -35,7 +35,7 @@ Mỗi bảng: `.csv` (đã định dạng `mean ± std`), `.json` (số thô), `
 trong từng model / nhóm; KID, FID, SSIM, AUC thật-vs-sinh: thấp hơn là tốt hơn).
 
 Bảng dùng **tên hiển thị** của phương pháp (`evaluation.method_labels`, ví dụ "ROS + Balanced GAN: DASS (Ours)")
-theo đúng thứ tự khai báo, kèm cột `Group` (`evaluation.method_groups`) trong bảng `classification`. Công thức
+theo đúng thứ tự khai báo. Hai bảng của bài: `table_comparison`, `table_ablation` (+ `_auc_by_split`), theo `evaluation.result_tables`. Công thức
 `$...$` trong tên được giữ trong `.tex` và bỏ ký hiệu LaTeX trong `.csv` (`$S_{\text{div}}$` -> `S_div`). File `.json`
 và `metrics/` giữ **mã nội bộ** (`M6_dass`, …).
 
@@ -55,11 +55,10 @@ Chú thích bảng (`caption` trong `.tex`) viết bằng tiếng Anh, cùng ng�
 
 - `run_manifest.json`: cấp trên cùng = lần ghi gần nhất (config, phiên bản, commit); `stages.<stage>` lưu riêng thời
   điểm, lệnh, `dass_version`, `code_version` (commit git) và config của **từng** stage (ví dụ `train:ResNet50`).
-- `checkpoints_<run_tag>/data/selections.json`: tên ảnh sinh lớp thiểu số mỗi phương pháp chọn;
-  `selections_majority.json` (`filter_majority`): ảnh sinh lớp đa số mỗi phương pháp chọn.
+- `checkpoints_<run_tag>/data/selections.json`: tên ảnh sinh lớp thiểu số mỗi phương pháp M1–M6 chọn.
 - `checkpoints_<run_tag>/data/dataset_card.json`: số kênh, số ảnh mỗi tập / lớp, tham số chia, SHA-1 của split.
 - `predictions/<model>__<variant>__s<seed>.npz`: `y_val, p_val, y_test, p_test` (từ 1.18.0 thêm `y_train, p_train` trên ảnh thật
-  của tập train) + metadata (`augment`, `class_weight`, `monitor`, `design`, `filter_majority`, `synth_fraction`;
+  của tập train) + metadata (`augment`, `class_weight`, `monitor`;
   từ 1.21.1 thêm `hist_<metric>` = metric từng epoch: giai đoạn fine-tune (`hist_val_auc`, `hist_val_loss`,
   `hist_auc`, `hist_loss`, …) và giai đoạn head (`hist_head_…`); từ 1.9.0 thêm `test_files` = tên ảnh test `lớp/tệp` đúng thứ tự dự đoán, `code_version`, `dass_version`) — nguồn
   của mọi bảng phân loại. `.npz` cũ không có `test_files`: phân tích nhóm con dựng lại từ split (thứ tự dự đoán =

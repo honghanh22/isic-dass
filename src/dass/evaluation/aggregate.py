@@ -17,9 +17,8 @@ from .statistics import holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "synth_fraction", "design", "filter_majority")   # thiết lập train ghi trong .npz (augment /
-# class_weight từ 1.4.0, monitor từ 1.12.0, synth_fraction từ 1.16.0, design từ 1.18.0; .npz cũ không có -> None)
-_PROTOCOL_TYPES = {"monitor": str, "synth_fraction": float, "design": str}
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor")   # thiết lập train ghi trong .npz (None nếu không có)
+_PROTOCOL_TYPES = {"monitor": str}
 
 
 def read_protocol(d) -> dict[str, bool | str | float | None]:
@@ -61,13 +60,16 @@ def archive_superseded_run(npz_path: str | Path, weights_path: str | Path, pred_
 
 
 def check_single_protocol(runs: pd.DataFrame) -> None:
-    """Một thư mục dự đoán chỉ được chứa MỘT giao thức train (augmentation, tiêu chí chọn epoch) — trộn thì mean ± std
-    và bootstrap sai."""
-    for col, what in (("augment", "có và không có augmentation"), ("monitor", "chọn epoch theo tiêu chí khác nhau"),
-                      ("synth_fraction", "tỉ lệ ảnh sinh khác nhau"), ("design", "thiết kế tập train khác nhau"),
-                      ("filter_majority", "có và không lọc ảnh sinh lớp đa số")):
-        if col in runs and len(set(runs[col].dropna())) > 1:
-            raise ValueError(f"Thư mục dự đoán trộn lần chạy {what} -> tách bằng --tag / run_tag mới")
+    """Một thư mục dự đoán chỉ được chứa MỘT giao thức train: cùng tiêu chí chọn epoch cho mọi lần chạy, và mỗi phương
+    pháp cùng một thiết lập augmentation / class weight ở mọi lần chạy (B3 có augmentation, B1 có class weight là
+    thiết kế) — trộn thì mean ± std và bootstrap sai."""
+    if "monitor" in runs and len(set(runs["monitor"].dropna())) > 1:
+        raise ValueError("Thư mục dự đoán trộn lần chạy chọn epoch theo tiêu chí khác nhau -> tách bằng run_tag mới")
+    for col in ("augment", "class_weight"):
+        if col in runs:
+            mixed = sorted(m for m, v in runs.groupby("method")[col] if len(set(v.dropna())) > 1)
+            if mixed:
+                raise ValueError(f"{mixed}: trộn lần chạy có và không có {col} -> tách bằng run_tag mới")
 
 
 def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
@@ -173,7 +175,7 @@ def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, 
 
 def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: int, seed: int,
                   baseline: str | None = None) -> pd.DataFrame:
-    """ΔAUC cho từng cặp [phương pháp, đối chứng] (ví dụ M6 vs M0b, M6 vs M1), trong mỗi (model, k).
+    """ΔAUC cho từng cặp [phương pháp, đối chứng] (ví dụ M6 vs B2, M6 vs M1), trong mỗi (model, k).
 
     Cặp nào thiếu dự đoán của một trong hai phía (chưa train) thì bỏ qua. Cặp có đối chứng = `baseline` cũng bỏ qua:
     `compare_to_baseline` đã tính nó, tính lại sẽ thành dòng trùng và Holm đếm thừa một phép thử.

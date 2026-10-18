@@ -55,7 +55,7 @@ train     selections.json + ảnh thật nhân bản (ROS) ghép tại đây (`v
           mỗi lớp
           ─► variants/<M>_p<k>/{train,val}
           ─► <model>__<variant>__s<seed>.npz (dự đoán train thật + val + test)
-evaluate  .npz ─► metrics/classification_*, significance (vs M0 + cặp bổ sung, Holm theo họ chính / khám phá);
+evaluate  .npz ─► metrics/classification_*, significance (vs B0 + cặp bổ sung, Holm theo họ chính / khám phá);
           Inception-v3 ─► generation_quality
 report    metrics/ ─► tables/*.csv | *.json | *.tex
 ```

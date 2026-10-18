@@ -1,39 +1,33 @@
-"""Chiến lược chọn ảnh sinh: thuật toán tham lam DASS và các biến thể đối chứng M0–M6 (+ M7 tuỳ chọn).
+"""Phương pháp so sánh và chiến lược chọn ảnh sinh (thiết kế 2.0.0).
+
+Nhóm 1 — so sánh các phương pháp xử lý mất cân bằng (B4 = M1, B5 = M6 không train riêng):
+
+| Mã | Phương pháp | Lớp thiểu số | Lớp đa số | Khi train |
+|----|-------------|--------------|-----------|-----------|
+| B0 | Imbalanced | ảnh thật | ảnh thật | — |
+| B1 | Cost-sensitive | ảnh thật | ảnh thật | class-weighted loss |
+| B2 | Random oversampling | ảnh thật + bản sao tới 1 : 1 | ảnh thật | — |
+| B3 | Traditional augmentation | ảnh thật | ảnh thật | augmentation (lật / xoay / sáng / tương phản) |
+| B4 | Balanced GAN: Random (= M1) | ảnh thật + g ảnh sinh | ảnh thật | — |
+| B5 | Balanced GAN: DASS (= M6) | ảnh thật + g ảnh sinh | ảnh thật | — |
+
+g = số ảnh thật lớp đa số − số ảnh thật lớp thiểu số (cân bằng 1 : 1). Ảnh sinh CHỈ ở lớp thiểu số.
+
+Nhóm 2 — ablation DASS: mọi biến thể chọn đúng g ảnh từ CÙNG một pool ⌈k·g⌉ ảnh sinh lớp thiểu số:
+
+| Mã | Điểm nền | Đa dạng |
+|----|----------|---------|
+| M1 | ngẫu nhiên | — |
+| M2 | M̃_v | — |
+| M3 | M̃_d | — |
+| M4 | 0 | có (k-center greedy, γ = 1) |
+| M5 | α·M̃_v + β·M̃_d | — |
+| M6 | α·M̃_v + β·M̃_d | có (γ) — DASS |
 
     S_div(x, S) = min_{y ∈ S} [1 − cos(z_x^v, z_y^v)]
     S_DASS(x)   = α·M̃_v(x) + β·M̃_d(x) + γ·S̃_div(x)
 
-Các thành phần được chuẩn hoá min–max về [0, 1] trước khi cộng; S_div được chuẩn hoá lại ở MỖI vòng lặp
-vì giá trị của nó thay đổi khi tập đã chọn lớn dần.
-
-| ID | Điểm nền                 | Đa dạng          |
-|----|--------------------------|------------------|
-| M0 | — (chỉ ảnh thật; class weight nếu bật `classifier.baseline_class_weight`, mặc định tắt) | — |
-| M0b | — (ảnh thật lớp thiểu số nhân bản lên 1 : 1, không class weight; ghép ở bước train) | — |
-| M1 | ngẫu nhiên               | —                |
-| M2 | M̃_v                      | —                |
-| M3 | M̃_d                      | —                |
-| M4 | α·M̃_v + β·M̃_d            | —                |
-| M5 | 0                        | có (γ = 1)       |
-| M6 | α·M̃_v + β·M̃_d            | có (γ = gamma)   |
-| M7 | như M6 + `n_select` ảnh sinh vào lớp ĐA SỐ, có class weight (tuỳ chọn `both_classes_variant`) |
-
-Tiêu chí chọn ở trên dùng chung cho hai thiết kế tập train (`selection.design`, ghép ở `pipeline.stages.train`):
-- **B — `source_balanced` (chính từ 1.21.0):** M1–M6 chọn s = q × (ảnh thật lớp đa số) ảnh sinh lớp thiểu số trong
-  ⌈k·s⌉ ảnh đầu pool; với `filter_majority`, chọn thêm s ảnh sinh lớp ĐA SỐ bằng cùng tiêu chí, margin đảo chiều
-  (pool riêng, seed gen_seed + 1). Tập train = ảnh thật + ROS lớp thiểu số lên 1 : 1 + s ảnh sinh MỖI lớp -> nguồn
-  ảnh (thật / sinh) độc lập với nhãn. Không có M0b (ROS đã nằm trong M1–M6).
-- **A — `minority_only` (tới 1.20.x):** M1–M6 chọn n_select ảnh sinh chỉ cho lớp thiểu số (bù tới 1 : 1); M0b là
-  baseline ROS bên dưới.
-
-M0b (random oversampling, Buda et al. 2018): cùng số ảnh, cùng số bước train và cùng cách cân bằng (bằng dữ liệu)
-với M1–M6, chỉ khác ở chỗ ảnh thêm vào là ảnh THẬT nhắc lại -> M6 vs M0b đo đúng đóng góp của NỘI DUNG ảnh sinh.
-M0b không chọn gì từ pool nên không nằm trong `selections.json`; tập train được ghép ở bước train
-(`data.variants.oversample_indices`).
-
-M7: nếu ảnh sinh chỉ có ở lớp thiểu số thì "trông giống ảnh GAN" trở thành manh mối
-của nhãn (shortcut). Thêm ảnh sinh vào cả lớp đa số làm dấu vết GAN không còn gắn với một nhãn; lớp đa số to ra
-nên mất cân bằng quay lại một phần và được bù bằng class weight.
+Các thành phần chuẩn hoá min–max về [0, 1]; S_div chuẩn hoá lại ở MỖI vòng (giá trị đổi khi tập đã chọn lớn dần).
 """
 
 from __future__ import annotations
@@ -43,19 +37,14 @@ import pandas as pd
 
 from ..utils import minmax
 
-BASELINE = "M0_real_only"
-OVERSAMPLE = "M0b_real_oversample"   # không chọn từ pool -> không thuộc METHODS / selections.json
-BOTH_CLASSES = "M7_dass_both_classes"
-# M8 (`selection.balanced_synth_ratio` = q > 0): phần ảnh THẬT cân bằng bằng ROS như M0b, rồi thêm CÙNG số ảnh sinh
-# s = q × số ảnh thật lớp đa số vào MỖI lớp (lớp thiểu số: DASS chọn; lớp đa số: không lọc). Cân bằng lớp VÀ nguồn
-# ảnh (thật / sinh) độc lập với nhãn -> không còn đường tắt "ảnh sinh -> lớp thiểu số". So trực tiếp với M0b.
-BALANCED = "M8_ros_balanced_synth"
-BALANCED_RANDOM = "M8r_ros_balanced_random"
-# Đối chứng CÙNG KÍCH THƯỚC với M8 / M8r: toàn ảnh THẬT nhân bản, mỗi lớp thêm đúng s ảnh như M8 (lớp thiểu số:
-# n_select + s bản sao, lớp đa số: s bản sao) -> M8 vs M0c chỉ khác "s ảnh mỗi lớp là ảnh sinh hay ảnh thật nhân bản".
-OVERSAMPLE_MATCHED = "M0c_real_oversample_matched"
-METHODS = ("M0_real_only", "M1_random", "M2_visual", "M3_disease", "M4_visual_disease", "M5_diversity", "M6_dass",
-           BOTH_CLASSES)
+IMBALANCED = "B0_imbalanced"
+CLASS_WEIGHT = "B1_class_weight"
+OVERSAMPLE = "B2_ros"
+AUGMENT = "B3_augment"
+BASELINES = (IMBALANCED, CLASS_WEIGHT, OVERSAMPLE, AUGMENT)     # không chọn gì từ pool
+RANDOM, DASS = "M1_random", "M6_dass"                            # = B4, B5
+SELECTION_METHODS = (RANDOM, "M2_visual", "M3_disease", "M4_diversity", "M5_visual_disease", DASS)
+METHODS = (*BASELINES, *SELECTION_METHODS)                       # thứ tự train / bảng
 
 
 def greedy_dass_select(z_v_pool: np.ndarray, base_score: np.ndarray, n_select: int, gamma: float) -> list[int]:
@@ -83,7 +72,7 @@ def greedy_dass_select(z_v_pool: np.ndarray, base_score: np.ndarray, n_select: i
 
 
 def diversity_only_select(z_v_pool: np.ndarray, n_select: int) -> list[int]:
-    """M5: chỉ dùng S_div (k-center greedy), điểm nền bằng 0."""
+    """M4: chỉ dùng S_div (k-center greedy, phủ đều không gian E_v), điểm nền bằng 0."""
     return greedy_dass_select(z_v_pool, np.zeros(len(z_v_pool)), n_select, gamma=1.0)
 
 
@@ -92,24 +81,17 @@ def top_n(score: np.ndarray, n: int) -> list[int]:
 
 
 def select_all_methods(scores: dict[str, np.ndarray], z_v_pool: np.ndarray, n_select: int, alpha: float,
-                       beta: float, gamma: float, seed: int, both_classes: bool = False) -> dict[str, list[int]]:
-    """Mọi biến thể chọn đúng `n_select` ảnh từ cùng một pool -> khác biệt chỉ đến từ tiêu chí chọn.
-
-    `both_classes` -> thêm M7 (cùng ảnh thiểu số với M6; ảnh sinh lớp đa số được thêm khi ghép tập train).
-    """
+                       beta: float, gamma: float, seed: int) -> dict[str, list[int]]:
+    """M1–M6: mỗi biến thể chọn đúng `n_select` ảnh từ cùng một pool -> khác biệt chỉ đến từ tiêu chí chọn."""
     base_vd = alpha * minmax(scores["M_v"]) + beta * minmax(scores["M_d"])
-    rng = np.random.default_rng(seed)
     selections = {
-        "M0_real_only": [],
-        "M1_random": rng.choice(len(z_v_pool), size=n_select, replace=False).tolist(),
+        RANDOM: np.random.default_rng(seed).choice(len(z_v_pool), size=n_select, replace=False).tolist(),
         "M2_visual": top_n(scores["M_v"], n_select),
         "M3_disease": top_n(scores["M_d"], n_select),
-        "M4_visual_disease": top_n(base_vd, n_select),
-        "M5_diversity": diversity_only_select(z_v_pool, n_select),
-        "M6_dass": greedy_dass_select(z_v_pool, base_vd, n_select, gamma),
+        "M4_diversity": diversity_only_select(z_v_pool, n_select),
+        "M5_visual_disease": top_n(base_vd, n_select),
+        DASS: greedy_dass_select(z_v_pool, base_vd, n_select, gamma),
     }
-    if both_classes:
-        selections[BOTH_CLASSES] = list(selections["M6_dass"])
     return {m: [int(i) for i in idx] for m, idx in selections.items()}
 
 

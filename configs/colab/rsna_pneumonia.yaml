@@ -1,5 +1,5 @@
 # RSNA Pneumonia trên Colab — cấu hình của server (configs/server/rsna_pneumonia.yaml: 3 CNN, 3 seed), chỉ
-# khác đường dẫn (Google Drive thay cho HDD của server) và E_d (Colab tự train). run_tag rsna_v4 (server: rsna_v4_srv).
+# khác đường dẫn (Google Drive thay cho HDD của server) và E_d (Colab tự train). run_tag rsna_v5 (server: rsna_v5_srv).
 # Có test đối chiếu hai file.
 #   dass -c configs/colab/rsna_pneumonia.yaml preflight --fix
 # Cần trên Drive (…/RSNA Pneumonia/Result_Pneumonia/):
@@ -9,11 +9,9 @@ _base_:
   - ../experiments/rsna_pneumonia_dass.yaml
 
 classifier:
-  # 3 CNN như server (bỏ DenseNet121 — cùng kiến trúc với E_d; ViT-B16, SwinT — transformer, nặng). Thứ tự = thứ tự chạy.
-  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]
+  # Như server: ResNet50, ConvNeXt-Tiny, Swin-T (cùng head). Thứ tự = thứ tự chạy.
+  models: [ResNet50, ConvNeXtTiny, SwinT]
 
 encoder:
-  # Colab TỰ train E_d trong lần chạy này (cùng công thức: DenseNet121, seed 4242, 5 + 20 epoch, chọn epoch theo
-  # val_auc) và lưu lên Drive (checkpoints_rsna_v4/classifiers/) -> không cần chép E_d từ server. Server dùng lại E_d
-  # của rsna_v3_srv; muốn y hệt server: chép file đó lên Drive rồi --set encoder.e_d_from_run=rsna_v3_srv.
+  # Như server: E_d train trong lần chạy (cùng công thức: DenseNet121, seed 4242, 5 + 20 epoch, val_auc).
   e_d_from_run: ""

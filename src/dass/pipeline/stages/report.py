@@ -28,22 +28,37 @@ def run(cfg: Config) -> list:
         written += reporting.write_table(out, "dataset", t, t, f"{name}: images per subset ({card['color']}, "
                                          f"{card['channels']} channel(s), {card['split']['type']} split)", latex)
 
-    # tên hiển thị + " (class-weighted)" theo đúng thiết lập đã train (trường class_weight trong .npz)
-    labels = reporting.labels_for_runs(cfg.evaluation.method_labels, load_metrics(layout, "classification_runs"))
-    groups = cfg.evaluation.method_groups
+    labels = cfg.evaluation.method_labels
     summary = load_metrics(layout, "classification_summary")
+    runs = load_metrics(layout, "classification_runs")
     if summary is not None:
-        table, bold = reporting.classification_table(summary, labels=labels, groups=groups)
+        table, bold = reporting.classification_table(summary, labels=labels)
         written += reporting.write_table(out, "classification", table, summary,
                                          f"{name}: test-set classification results (mean ± std over seeds, fixed "
                                          f"threshold {cfg.evaluation.threshold})", latex, bold)
-
-    runs = load_metrics(layout, "classification_runs")
     if runs is not None:
-        t = reporting.split_auc_table(runs, labels, groups)
+        t = reporting.split_auc_table(runs, labels)
         written += reporting.write_table(out, "auc_by_split", t, t,
                                          f"{name}: ROC-AUC on real train / val / test images (mean ± std over seeds); "
                                          "Train − Test: generalisation gap", latex)
+    # Hai bảng của bài (evaluation.result_tables): mỗi bảng chỉ các phương pháp của nó, tên hiển thị riêng
+    captions = {"comparison": "comparison of class-imbalance methods", "ablation": "ablation of DASS components "
+                "(same pool, same training-set composition)"}
+    for tname, tlabels in cfg.evaluation.result_tables.items():
+        if summary is not None:
+            sub = summary[summary["method"].isin(tlabels)]
+            if len(sub):
+                table, bold = reporting.classification_table(sub, labels=tlabels)
+                written += reporting.write_table(out, f"table_{tname}", table, sub,
+                                                 f"{name}: {captions.get(tname, tname)} — test set, mean ± std over "
+                                                 f"seeds, threshold {cfg.evaluation.threshold}", latex, bold)
+        if runs is not None:
+            sub = runs[runs["method"].isin(tlabels)]
+            if len(sub):
+                t = reporting.split_auc_table(sub, tlabels)
+                written += reporting.write_table(out, f"table_{tname}_auc_by_split", t, t,
+                                                 f"{name}: {captions.get(tname, tname)} — ROC-AUC on train / val / "
+                                                 "test", latex)
 
     sig_caption = ("paired bootstrap ΔAUC on the seed-averaged (ensemble) predictions with 95% CI and p-value; "
                    "p (Holm): Holm-adjusted within each model and hypothesis family (Family); ΔAUC per seed: mean ± std of "
@@ -97,7 +112,7 @@ def run(cfg: Config) -> list:
         log.info("Bảng: %s", p)
     if summary is not None:
         pd.set_option("display.width", 250)
-        printable = reporting.classification_table(summary, labels=labels, groups=groups)[0]
+        printable = reporting.classification_table(summary, labels=labels)[0]
         print(printable.apply(lambda col: col.map(reporting.plain_label)).to_string(index=False))
     record_stage(layout, cfg, "report")
     return written

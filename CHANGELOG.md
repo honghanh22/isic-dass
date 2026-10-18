@@ -1,5 +1,28 @@
 # Changelog
 
+## 2.0.0 — thiết kế thí nghiệm mới: B0–B3 + Balanced GAN M1–M6 (thiết kế cũ bị xoá khỏi code)
+Người dùng quyết định (2026-10-18). Kết quả cũ (ISIC `v13_srv`, RSNA `rsna_v2/v3`) giữ nguyên trên ổ đĩa; tái lập bằng
+commit trước 2.0.0.
+- **Nhóm 1 (bảng `comparison`):** B0 Imbalanced, B1 class-weighted loss, B2 ROS 1 : 1, B3 augmentation trên dữ liệu mất
+  cân bằng, B4 = M1, B5 = M6. **Nhóm 2 (bảng `ablation`):** M1 Random, M2 M_v, M3 M_d, M4 Diversity/Coverage,
+  M5 M_v + M_d, M6 DASS. Mã nội bộ đổi theo bảng (`B0_imbalanced`, …, `M4_diversity`, `M5_visual_disease`).
+- **Balanced GAN (phương án A):** ảnh thật + g = n_đa số − n_thiểu số ảnh sinh **chỉ ở lớp thiểu số** (cân bằng 1 : 1),
+  chọn từ CÙNG pool ⌈k·g⌉ ảnh, **k = 2**. Không còn ROS bên trong M1–M6, không ảnh sinh lớp đa số. Ảnh sinh chỉ ở một lớp
+  -> rủi ro đường tắt: `scripts/shortcut_probe.py` chấm mọi phương pháp (`shortcut_probe_<model>.csv`), bắt buộc.
+- Họ giả thuyết chính (khai báo trước): **H1** M6 vs M1, **H2** M6 vs B2, **H3** M6 vs B0.
+- Augmentation chỉ ở B3, class weight chỉ ở B1 (`Variant.augment` / `Variant.class_weight`, ghi vào .npz; kiểm tra
+  giao thức theo từng phương pháp). Bỏ `classifier.augment`, `classifier.baseline_class_weight`.
+- Classifier: ResNet50, ConvNeXt-Tiny, Swin-T. Swin-T: backbone + bộ chuyển ảnh của preset KerasHub, gắn CÙNG head
+  (GAP + dropout 0,3 + Dense sigmoid) với hai CNN (trước: head mặc định của KerasHub).
+- Xoá: `selection.design`, `filter_majority`, `balanced_synth_ratio`, `oversample_variant`, `both_classes_variant`,
+  `synth_fraction`, `encoder.e_d_crossfit_folds`; M0b / M0c / M7 / M8 / M8r; `configs/experiments/design_a.yaml`,
+  `configs/server/*_designB.yaml`, `scripts/ablation_dass_val.py`, `scripts/train_variant_val.py`.
+- `report`: thêm `table_comparison`, `table_ablation` (+ `_auc_by_split`) theo `evaluation.result_tables`.
+- `train --methods`: chỉ train các phương pháp chỉ định.
+- Lần chạy: ISIC `v14`, RSNA `rsna_v5`, PCam `pcam_v2` (server `_srv`). ISIC / RSNA train lại E_d (E_d của
+  `v12_srv`, `rsna_v3_srv` đã bị xoá khỏi ổ đĩa); PCam dùng lại E_d của `pcam_v1_srv` (E_d đã chọn snapshot GAN).
+- Tài liệu (CLAUDE.md, README, METHOD, GUIDE, WORKFLOW, RESULTS_FORMAT, notebook) chỉ mô tả thiết kế mới.
+
 ## 1.23.1 — PCam: chọn snapshot GAN theo FID lớp dương; lưu FID từng lớp; chấm lại snapshot khi đổi luật
 - Người dùng quyết định (2026-10-18, GAN ở ~1.400 kimg): chọn snapshot theo FID-E_d **lớp dương** làm mượt
   (`select_classes: minority`) thay cho trung bình hai lớp. Lý do: FID dương tăng từ 57,6 (1.000 kimg) lên ~72–77

@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB) và RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN mới `gan_tag: rsna`), chạy chung một package `dass`, **cùng công thức DASS** và **cùng thiết kế tập train (từ 1.21.0)**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
+Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB), RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN `gan_tag: rsna`) và PCam (mô bệnh học H&E, 128 px, file HDF5 đã tiền xử lý, âm : dương = 12), chạy chung một package `dass`, **cùng công thức DASS** và **cùng thiết kế thí nghiệm (2.0.0)**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
@@ -34,7 +34,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 ## Kiến trúc (chi tiết: docs/ARCHITECTURE.md)
 
 - Các tầng: `data/` (Data Loader), `models/` (generator, encoders, classifiers), `selection/` (DASS), `evaluation/` (metric + bảng), `analysis/` (chẩn đoán), `engine/` (train classifier), `pipeline/` (context + stages), `config/`.
-- **Mọi khác biệt giữa bộ dữ liệu nằm trong `data/`:** `sources/` (csv | folders | dicom_csv), `transforms.py`, augmentation (`data.augment_profile`), `splits/` (holdout_val | stratified | file). Không thêm nhánh `if dataset == ...` ở chỗ khác; khác biệt mới phải thành tuỳ chọn config có mặc định.
+- **Mọi khác biệt giữa bộ dữ liệu nằm trong `data/`:** `sources/` (csv | folders | dicom_csv | hdf5), `transforms.py`, augmentation (`data.augment_profile`), `splits/` (holdout_val | stratified | file). Không thêm nhánh `if dataset == ...` ở chỗ khác; khác biệt mới phải thành tuỳ chọn config có mặc định.
 - `config/schema.py` là dataclass. Giá trị mặc định = `configs/_base_/*.yaml` (có test đối chiếu); khoá lạ thì báo lỗi. `config/paths.py` (`Layout`) là **nơi duy nhất** định nghĩa đường dẫn.
 - Quy tắc import:
   - `selection/`, `evaluation/`, `data/` (trừ `loaders.py`), `config/` là numpy / sklearn / PIL thuần.
@@ -50,34 +50,29 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
 - **Spectral mitigation (Dong et al.) và power-profile đã bị loại bỏ**; `tests/regression/test_no_spectral_mitigation.py` chặn việc đưa lại.
 - Val / test 100 % ảnh thật. Val chỉ dùng để chọn epoch (`val_auc`). Test dùng ngưỡng cố định 0,5 và chỉ được dự đoán một lần.
 - `data/splits/stratified.py` phải giữ **đúng** thuật toán đã khoá trong `tests/regression/test_split_reproduction.py` (ISIC: split của notebook v5, GAN `v5`; RSNA: split `rsna_v2`, GAN `rsna` gắn qua `split.expected`). Không đổi thứ tự gọi RNG. `split.expected` được kiểm tra khi dùng lại GAN.
-- **Thiết kế tập train** (`selection.design: source_balanced`, người dùng quyết định, 1.21.0; mặc định trong
-  `configs/_base_/`): M0 = chỉ ảnh thật (mất cân bằng); M1–M6 = ảnh thật + ROS lớp thiểu số lên 1 : 1 (cùng tập nhân
-  bản) + s = q × (ảnh thật lớp đa số) ảnh sinh **mỗi lớp** (q = `balanced_synth_ratio` = 0,5: ISIC 309, RSNA 3.761),
-  chọn trong pool ⌈k·s⌉ ảnh của từng lớp; lớp đa số chọn bằng cùng tiêu chí, margin đảo chiều (`filter_majority:
-  true`). Không có baseline chỉ ROS (`oversample_variant: false`). Họ giả thuyết chính (khai báo trước, 1.20.0):
-  **H1** M6 vs M1 (DASS vs Random), **H2** M6 vs M0; còn lại là khám phá. Tên hiển thị "ROS + Balanced GAN: …"
-  (`evaluation.method_labels`, chỉ áp dụng khi xuất bảng). Lần chạy: ISIC `v13` (server `v13_srv`), RSNA `rsna_v4`
-  (server `rsna_v4_srv`); config server dùng lại E_d của `v12_srv` / `rsna_v3_srv`; `configs/server/*_designB.yaml`
-  chỉ còn là tên cũ (resolve giống hệt, có test). `configs/colab/*` = cấu hình server (3 CNN, 3 seed) với đường dẫn
-  Drive, run_tag không hậu tố `_srv`, E_d tự train trong lần chạy (server dùng lại E_d; có test); notebook mặc định dùng `configs/colab/rsna_pneumonia.yaml`.
+- **Thiết kế thí nghiệm 2.0.0** (người dùng quyết định, 2026-10-18; thiết kế cũ đã bị XOÁ khỏi code, tái lập kết
+  quả cũ bằng commit cũ). Nhóm 1 (bảng `comparison`): B0 Imbalanced, B1 class-weighted loss, B2 ROS (1 : 1), B3
+  augmentation trên dữ liệu mất cân bằng, B4 = M1, B5 = M6. Nhóm 2 (bảng `ablation`): M1 Random, M2 M_v, M3 M_d,
+  M4 Diversity/Coverage, M5 M_v + M_d, M6 DASS. "Balanced GAN" (M1–M6) = ảnh thật + g ảnh sinh **chỉ ở lớp thiểu số**
+  (g = n_đa số − n_thiểu số, cân bằng 1 : 1), chọn từ CÙNG pool ⌈k·g⌉, k = 2. Ảnh sinh chỉ ở một lớp -> nguy cơ
+  đường tắt "trông giống ảnh GAN -> bệnh": `scripts/shortcut_probe.py` là BẮT BUỘC và phải báo cáo. Họ giả thuyết chính
+  (khai báo trước): **H1** M6 vs M1, **H2** M6 vs B2, **H3** M6 vs B0; còn lại là khám phá. Augmentation CHỈ ở B3,
+  class weight CHỈ ở B1 (`Variant.augment` / `Variant.class_weight`, ghi trong .npz). Mã nội bộ = mã trong bảng (B0_…,
+  M1_… M6_…); tên hiển thị ở `evaluation.method_labels` / `result_tables`. Classifier: ResNet50, ConvNeXt-Tiny, Swin-T
+  (Swin từ KerasHub nhưng CÙNG head GAP + dropout + Dense với hai CNN), 3 seed. Lần chạy: ISIC `v14`, RSNA `rsna_v5`,
+  PCam `pcam_v2` (server thêm `_srv`); PCam dùng lại E_d của `pcam_v1_srv` (E_d đã chọn snapshot GAN).
 - **Tài liệu và mô tả chỉ trình bày thiết kế hiện tại** (người dùng yêu cầu, 2026-10-15): `docs/`, README, chú thích
   trong `configs/`, chữ trong notebook không nhắc thiết kế tập train cũ, các biến thể cũ hay các lần chạy cũ. Code vẫn
   giữ các nhánh cũ (`selection.design: minority_only`, profile `configs/experiments/design_a.yaml`, các tuỳ chọn mở
   rộng mặc định tắt) để tái lập kết quả cũ trên Drive: không xoá, không phá (có test). CHANGELOG giữ nguyên lịch sử.
 - Công thức chọn ảnh: M1–M6 với `S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div`. Không đổi **mã** các biến thể đã có (mã nằm
   trong `.npz` trên Drive). `.npz` ghi `design`; trộn hai thiết kế trong một thư mục dự đoán bị chặn.
-- **Classifier không can thiệp dữ liệu, cho MỌI bộ dữ liệu** (người dùng quyết định, 1.11.0):
-  `classifier.augment: false` và `classifier.baseline_class_weight: false` trong `configs/_base_/classifier.yaml`
-  (M0 = baseline mất cân bằng thật; ROS nằm trong M1–M6). Không ghi đè trong `configs/datasets/` (có test: classifier
-  của ISIC và RSNA giống hệt). Chọn epoch theo `val_auc` (1.12.0). E_d luôn train có augmentation + class weight
-  (thành phần của DASS), độc lập với hai tuỳ chọn trên; ADA của GAN giữ nguyên. RSNA còn `generator.mirror: false`
-  (X-quang không đối xứng trái / phải; có test). Khi người dùng nói "không can thiệp / không tăng cường", hỏi rõ phạm
-  vi: augmentation, class weight của M0, hay cả hai.
-- **k (`pool_mult`) = 1,5 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong
-  `configs/datasets/` (có test). k đã đổi theo quyết định của người dùng (4 → 3 → 2 → 1,5); lý do ghi nhận: chọn càng
-  gắt thì tập DASS càng lệch phân phối ảnh thật. Cấu hình đổi sau khi đã xem kết quả test — phải nêu trong bài báo và
-  báo cáo mọi cấu hình đã chạy. Không chạy ablation theo k. Mọi kết quả cũ giữ nguyên trên Drive. Tuỳ chọn
-  `encoder.e_d_from_run` (dùng lại E_d) vẫn có sẵn cho các ablation sau này.
+- **Classifier** (mọi bộ dữ liệu, không ghi đè trong `configs/datasets/`, có test): chọn epoch theo `val_auc`;
+  augmentation chỉ ở B3, class weight chỉ ở B1. E_d luôn train có augmentation + class weight (thành phần của DASS);
+  ADA của GAN giữ nguyên. RSNA còn `generator.mirror: false` (X-quang không đối xứng trái / phải; có test).
+- **k (`pool_mult`) = 2 và mọi tham số DASS / E_d giống nhau giữa các bộ dữ liệu.** Không ghi đè trong
+  `configs/datasets/` (có test). k đã đổi nhiều lần theo quyết định của người dùng (4 → 3 → 2 → 1,5 → 2 ở 2.0.0), có lần
+  sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
 - Chỉ số chọn snapshot / dừng sớm GAN (`generator.select_metric`) so với ảnh thật của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`). Mặc định (ISIC, RSNA): KID-Inception lớp thiểu số, không làm mượt. PCam (1.23.0, người dùng quyết định): FID trên đặc trưng **chính E_d** của lần chạy (cùng file với M_d), cả hai lớp, làm mượt EMA α = 0,5 (Xue et al. 2021, HistoGAN), cùng luật dừng sớm; dùng chung E_d cho hai bước là giới hạn phải nêu trong bài.
 - PCam: nguồn `hdf5` đọc MỘT file đã tiền xử lý (`scripts/preprocess_pcam.py`: gộp 3 split, bỏ trùng, bỏ nền trắng, chia theo WSI 70 / 15 / 15, âm : dương = 12) + CSV chia train / val đi kèm; ảnh 128 × 128.

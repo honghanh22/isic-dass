@@ -1,5 +1,5 @@
 # ISIC 2016 trên Colab — cấu hình của server (configs/server/isic2016.yaml: 3 CNN, 3 seed), chỉ khác đường
-# dẫn (Google Drive) và E_d (Colab tự train). run_tag v13 (server: v13_srv). Có test đối chiếu hai file.
+# dẫn (Google Drive) và E_d (Colab tự train). run_tag v14 (server: v14_srv). Có test đối chiếu hai file.
 #   dass -c configs/colab/isic2016.yaml preflight --fix
 # Cần trên Drive (…/ISBI2016_ISIC_Part3/):
 #   checkpoints_v5/stylegan2ada/{best.pkl, gan_state.json}         GAN
@@ -7,11 +7,9 @@ _base_:
   - ../experiments/isic2016_dass.yaml
 
 classifier:
-  # 3 CNN như server (bỏ DenseNet121 — cùng kiến trúc với E_d; ViT-B16, SwinT — transformer, nặng). Thứ tự = thứ tự chạy.
-  models: [EfficientNetV2B0, ResNet50, ConvNeXtTiny]
+  # Như server: ResNet50, ConvNeXt-Tiny, Swin-T (cùng head). Thứ tự = thứ tự chạy.
+  models: [ResNet50, ConvNeXtTiny, SwinT]
 
 encoder:
-  # Colab TỰ train E_d trong lần chạy này (cùng công thức: DenseNet121, seed 4242, 5 + 20 epoch, chọn epoch theo
-  # val_auc) và lưu lên Drive (checkpoints_v13/classifiers/) -> không cần chép E_d từ server. Server dùng lại E_d của
-  # v12_srv; muốn y hệt server: chép file đó lên Drive rồi --set encoder.e_d_from_run=v12_srv.
+  # Như server: E_d train trong lần chạy (cùng công thức: DenseNet121, seed 4242, 5 + 20 epoch, val_auc).
   e_d_from_run: ""

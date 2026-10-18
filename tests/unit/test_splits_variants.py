@@ -15,6 +15,7 @@ from dass.data.splits import (
 from dass.data.variants import (
     DUP_PREFIX,
     SYNTH_PREFIX,
+    VariantSpec,
     assemble_variant,
     assert_clean_eval_sets,
     oversample_indices,
@@ -116,16 +117,31 @@ def test_assemble_variant_excludes_test_and_caches(image_tree, tmp_path):
     assert (out / ".complete.json").stat().st_mtime == mtime
 
 
-def test_prepare_variants_class_weight_and_both_classes(image_tree, tmp_path):
+def test_prepare_variants_design_2_0(image_tree, tmp_path):
+    """B0–B3 + M1–M6 (2.0.0): B1 chỉ khác B0 ở class weight, B3 chỉ khác ở augmentation; B2 = ảnh thật + g bản sao
+    ảnh thật lớp thiểu số (1 : 1); M* = ảnh thật + g ảnh sinh lớp thiểu số; lớp đa số luôn chỉ có ảnh thật."""
     split = holdout_val(image_tree, CLASSES, 0.25, seed=7)
-    synth = [str(p) for p in sorted((image_tree / "benign").iterdir())[:2]]
-    maj = [str(p) for p in sorted((image_tree / "malignant").iterdir())[:3]]
-    v = prepare_variants(tmp_path / "v", image_tree, split, "malignant",
-                         {"M0_real_only": [], "M6_dass": synth, "M7_dass_both_classes": synth}, 4.0, "v1_d1",
-                         class_weight_methods={"M0_real_only", "M7_dass_both_classes"}, majority="benign",
-                         majority_synth={"M7_dass_both_classes": maj})
-    assert v["M0_real_only_p4"].class_weight and not v["M6_dass_p4"].class_weight
-    assert len(list((v["M7_dass_both_classes_p4"].dir / "train" / "benign").glob(f"{SYNTH_PREFIX}*"))) == 3
+    b = compute_budget(split, pool_mult=2.0)
+    real = [str(image_tree / b.minority / f) for f in split[b.minority]["train"]]
+    dupes = [real[i] for i in oversample_indices(len(real), b.n_select, seed=7)]
+    synth = [str(p) for p in sorted((image_tree / b.majority).iterdir())[:b.n_select]]   # ảnh "sinh" giả lập
+    specs = {"B0_imbalanced": VariantSpec(), "B1_class_weight": VariantSpec(class_weight=True),
+             "B2_ros": VariantSpec(extra_real=dupes), "B3_augment": VariantSpec(augment=True),
+             "M6_dass": VariantSpec(synth=synth)}
+    v = prepare_variants(tmp_path / "v", image_tree, split, b.minority, specs, 2.0)
+    assert list(v) == ["B0_imbalanced_k2", "B1_class_weight_k2", "B2_ros_k2", "B3_augment_k2", "M6_dass_k2"]
+    n_maj = len(split[b.majority]["train"])
+    flags = {t: (x.class_weight, x.augment) for t, x in v.items()}
+    assert flags == {"B0_imbalanced_k2": (False, False), "B1_class_weight_k2": (True, False),
+                     "B2_ros_k2": (False, False), "B3_augment_k2": (False, True), "M6_dass_k2": (False, False)}
+    for tag, n_min, prefix in [("B0_imbalanced_k2", len(real), None), ("B2_ros_k2", n_maj, DUP_PREFIX),
+                               ("M6_dass_k2", n_maj, SYNTH_PREFIX)]:
+        files = list((v[tag].dir / "train" / b.minority).iterdir())
+        assert len(files) == n_min, tag                                          # B2, M*: cân bằng 1 : 1
+        if prefix:
+            assert len([f for f in files if f.name.startswith(prefix)]) == b.n_select
+        assert len(list((v[tag].dir / "train" / b.majority).iterdir())) == n_maj   # lớp đa số: chỉ ảnh thật
+        assert not [f for f in (v[tag].dir / "train" / b.majority).iterdir() if f.name.startswith(SYNTH_PREFIX)]
     assert_clean_eval_sets(v, image_tree, CLASSES)
 
 
@@ -143,80 +159,3 @@ def test_oversample_indices_balanced_and_deterministic(n_real, n_extra):
 def test_oversample_needs_real_images():
     with pytest.raises(ValueError):
         oversample_indices(0, 5, seed=0)
-
-
-def test_oversample_variant_reaches_one_to_one_with_real_copies(image_tree, tmp_path):
-    """M0b: lớp thiểu số = ảnh thật + bản sao ảnh thật, đúng bằng lớp đa số; không ảnh sinh, không class weight."""
-    split = holdout_val(image_tree, CLASSES, 0.25, seed=7)
-    budget = compute_budget(split, pool_mult=3.0)
-    real = [str(image_tree / budget.minority / f) for f in split[budget.minority]["train"]]
-    dupes = [real[i] for i in oversample_indices(len(real), budget.n_select, seed=7)]
-    v = prepare_variants(tmp_path / "v", image_tree, split, budget.minority,
-                         {"M0_real_only": [], "M0b_real_oversample": []}, 3.0, "v1_d1",
-                         class_weight_methods={"M0_real_only"}, extra_real={"M0b_real_oversample": dupes})
-    m0b = v["M0b_real_oversample_p3"]
-    train_min = list((m0b.dir / "train" / budget.minority).iterdir())
-    assert len(train_min) == len(split[budget.majority]["train"])                 # 1 : 1
-    assert len([p for p in train_min if p.name.startswith(DUP_PREFIX)]) == budget.n_select
-    assert not [p for p in train_min if p.name.startswith(SYNTH_PREFIX)]
-    assert not m0b.class_weight and v["M0_real_only_p3"].class_weight
-    assert len(list((v["M0_real_only_p3"].dir / "train" / budget.minority).iterdir())) == len(real)
-    assert_clean_eval_sets(v, image_tree, CLASSES)
-
-
-def test_synth_budget_keeps_pool_ratio():
-    from dass.data.variants import synth_budget
-
-    assert synth_budget(470, 1.0, 1.5) == (470, 705)
-    assert synth_budget(470, 0.5, 1.5) == (235, 353)
-    assert synth_budget(6463, 0.5, 1.5) == (3232, 4848)
-
-
-def test_selection_budget_matches_both_designs():
-    """`select` và `evaluate` (hàng "pool") dùng chung: thiết kế B chọn s = q × n_maj trong ⌈k·s⌉ ảnh đầu pool."""
-    from types import SimpleNamespace
-
-    from dass.data.variants import selection_budget
-
-    b = SimpleNamespace(design="source_balanced", balanced_synth_ratio=0.5, pool_mult=1.5, synth_fraction=1.0)
-    assert selection_budget(b, 470, 618) == (309, 464)              # ISIC v13
-    assert selection_budget(b, 6463, 7522) == (3761, 5642)          # RSNA rsna_v4
-    a = SimpleNamespace(design="minority_only", balanced_synth_ratio=0.0, pool_mult=1.5, synth_fraction=1.0)
-    assert selection_budget(a, 470, 618) == (470, 705)              # thiết kế A: cả pool
-    assert selection_budget(SimpleNamespace(**{**vars(a), "synth_fraction": 0.5}), 470, 618) == (235, 353)
-
-
-def test_ros_fill_tops_up_to_same_total_with_shared_duplicates():
-    from dass.data.variants import ros_fill
-
-    real = [f"r{i}.png" for i in range(10)]
-    sel = {"M0_real_only": [], "M1_random": ["s1", "s2"], "M6_dass": ["s3", "s4"], "M2_visual": ["s"] * 7}
-    fill = ros_fill(sel, real, 7, seed=0)
-    assert set(fill) == {"M1_random", "M6_dass"}                      # M0 (không ảnh sinh) và biến thể đã đủ: bỏ qua
-    assert all(len(sel[m]) + len(fill[m]) == 7 for m in fill)
-    assert fill["M1_random"] == fill["M6_dass"]                       # cùng ảnh nhân bản -> chỉ khác ở ảnh sinh
-
-
-def test_balanced_synth_count():
-    from dass.data.variants import balanced_synth_count
-
-    assert balanced_synth_count(0.5, 618) == 309 and balanced_synth_count(0.5, 7522) == 3761
-    assert balanced_synth_count(1.0, 618) == 618
-
-
-def test_assemble_variant_with_majority_duplicates(tmp_path):
-    from dass.data.variants import assemble_variant
-
-    pp = tmp_path / "pp"
-    split = {"neg": {"train": ["n0.png", "n1.png", "n2.png"], "val": ["n3.png"], "test": []},
-             "pos": {"train": ["p0.png"], "val": ["p1.png"], "test": []}}
-    for c, parts in split.items():
-        (pp / c).mkdir(parents=True)
-        for f in parts["train"] + parts["val"]:
-            (pp / c / f).write_bytes(b"x")
-    counts = assemble_variant(tmp_path / "v", pp, split, "pos", [], "neg",
-                              extra_real=[str(pp / "pos" / "p0.png")] * 3,
-                              majority_extra_real=[str(pp / "neg" / "n0.png")])
-    assert counts["train"] == {"neg": 4, "pos": 4}                       # 3 + 1 bản sao / 1 + 3 bản sao
-    assert sum(f.name.startswith("dup_") for f in (tmp_path / "v" / "train" / "neg").iterdir()) == 1
-    assert counts["val"] == {"neg": 1, "pos": 1}                         # val không đổi

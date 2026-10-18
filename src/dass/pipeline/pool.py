@@ -1,12 +1,10 @@
-"""Candidate pool: ảnh sinh của lớp thiểu số (để DASS chọn) và — nếu bật M7 — của lớp đa số. Cache zip trên Drive."""
+"""Candidate pool: ảnh sinh lớp thiểu số để DASS chọn (và pool phụ cho chẩn đoán, `label`). Cache zip trên Drive."""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-
-import numpy as np
 
 from ..utils import read_json
 from .context import Context
@@ -79,35 +77,13 @@ def resolve_pool(ctx: Context, cls: str, n_images: int, seed: int, generate_if_m
 
 
 def resolve_candidate_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool:
-    """`pool_size` ảnh sinh của lớp thiểu số để DASS chọn ra `n_select`."""
+    """⌈k·g⌉ ảnh sinh lớp thiểu số (`budget.pool_size`) để M1–M6 chọn ra g = `budget.n_select` ảnh."""
     return resolve_pool(ctx, ctx.budget.minority, ctx.budget.pool_size, ctx.cfg.generator.gen_seed,
                          generate_if_missing)
 
 
-def resolve_balanced_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:
-    """Ảnh sinh lớp đa số cho M8 / thiết kế B (`selection.balanced_synth_ratio` > 0), seed gen_seed + 1 (như M7):
-    đúng s ảnh (không lọc), hoặc ⌈k·s⌉ ảnh để chọn khi `selection.filter_majority`. None nếu tắt."""
-    from ..data.variants import balanced_synth_count
-
-    q = ctx.cfg.selection.balanced_synth_ratio
-    if q <= 0:
-        return None
-    n = balanced_synth_count(q, ctx.budget.n_real[ctx.budget.majority])
-    if ctx.cfg.selection.filter_majority:
-        n = int(np.ceil(ctx.cfg.selection.pool_mult * n))
-    return resolve_pool(ctx, ctx.budget.majority, n, ctx.cfg.generator.gen_seed + 1, generate_if_missing)
-
-
-def resolve_majority_pool(ctx: Context, generate_if_missing: bool = True) -> CandidatePool | None:
-    """`n_select` ảnh sinh của lớp đa số cho M7 (None nếu không bật `selection.both_classes_variant`)."""
-    if not ctx.cfg.selection.both_classes_variant:
-        return None
-    return resolve_pool(ctx, ctx.budget.majority, ctx.budget.n_select, ctx.cfg.generator.gen_seed + 1,
-                         generate_if_missing)
-
-
 def load_selections(ctx: Context, pool: list[str], path: Path | None = None) -> dict[str, list[str]]:
-    """selections.json (hoặc `path`, vd selections_majority.json) lưu tên file -> ánh xạ về đường dẫn trong `pool`."""
+    """selections.json (hoặc `path`) lưu tên file -> ánh xạ về đường dẫn trong `pool`."""
     path = path or ctx.layout.selections_json
     names = read_json(path)
     if names is None:

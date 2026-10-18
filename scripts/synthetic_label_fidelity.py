@@ -5,7 +5,7 @@
     python scripts/synthetic_label_fidelity.py -c configs/server/isic2016.yaml --tag srv --model ResNet50 \
         --judge-run v11_srv
 
-- Người chấm (chỉ học từ ảnh thật): `--judge m0` (mặc định) = M0 (`M0_real_only`) của `--model`, mọi seed có trọng số
+- Người chấm (chỉ học từ ảnh thật): `--judge m0` (mặc định) = B0 (`B0_imbalanced`) của `--model`, mọi seed có trọng số
   trong `checkpoints_<--judge-run hoặc run hiện tại>/classifiers`, xác suất lấy trung bình qua seed; `--judge ed` = E_d
   (`encoder.e_d_model`, classifier đầy đủ train trên ảnh thật). E_d là chính bộ mã hoá DASS dùng để chọn ảnh -> dòng
   "selected M3 / M4 / M6" của người chấm E_d thiên lệch (vòng tròn); các dòng khác không bị ảnh hưởng.
@@ -65,7 +65,7 @@ def main() -> None:
         f"real test {b.majority}": sorted(str(p) for p in (test_dir / b.majority).iterdir()),
         f"synth {b.minority} (pool)": pool,
         f"synth {b.majority}": maj_pool,
-        **{f"synth {b.minority} selected {m}": selections[m] for m in ("M1_random", "M4_visual_disease", "M6_dass")
+        **{f"synth {b.minority} selected {m}": selections[m] for m in ("M1_random", "M5_visual_disease", "M6_dass")
            if selections.get(m)},
     }
 
@@ -75,7 +75,7 @@ def main() -> None:
         clf_dir = (Path(cfg.paths.drive_root) / f"checkpoints_{args.judge_run}" / "classifiers" if args.judge_run
                    else lay.clf_dir)
         judge_model = args.model
-        weights = sorted(clf_dir.glob(f"{args.model}__M0_real_only_p*__s*.weights.h5"))
+        weights = sorted(clf_dir.glob(f"{args.model}__B0_imbalanced_k*__s*.weights.h5"))
     if not weights or not all(w.exists() for w in weights):
         raise FileNotFoundError(f"Không có trọng số người chấm: {weights}")
     probs = {k: [] for k in sets}

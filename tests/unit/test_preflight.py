@@ -7,7 +7,7 @@ from conftest import CONFIGS
 
 from dass.config import Layout, load_config
 from dass.pipeline import preflight
-from dass.pipeline.preflight import preflight_checks, unexpected_predictions
+from dass.pipeline.preflight import preflight_checks
 
 
 def _cfg(tmp_path, *overrides):
@@ -79,12 +79,3 @@ def test_preflight_reports_unreadable_drive_instead_of_crashing(tmp_path, monkey
     checks = {c.what: c for c in preflight.preflight_checks(cfg)}
     assert checks["dữ liệu gốc"].error and not checks["dữ liệu gốc"].ok
     assert not preflight.run(cfg)
-
-
-def test_preflight_flags_stray_m0b_predictions(tmp_path):
-    cfg = _cfg(tmp_path)
-    pred = Layout(cfg).pred_dir
-    pred.mkdir(parents=True)
-    for name in ["EfficientNetV2B0__M0b_real_oversample_p1.5__s2026.npz", "EfficientNetV2B0__M6_dass_p1.5__s2026.npz"]:
-        (pred / name).write_bytes(b"x")
-    assert unexpected_predictions(cfg) == ["EfficientNetV2B0__M0b_real_oversample_p1.5__s2026.npz"]

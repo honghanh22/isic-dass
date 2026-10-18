@@ -10,20 +10,37 @@ import dataclasses
 from dataclasses import dataclass, field
 from typing import Any
 
-# Tên hiển thị của thiết kế B (chính, 1.21.0). Thiết kế A ghi lại tên cũ trong configs/experiments/design_a.yaml.
+# Tên hiển thị (thiết kế 2.0.0): bảng chung (significance, chất lượng ảnh, ...). Mã nội bộ nằm trong .npz.
 METHOD_LABELS = {
-    "M0_real_only": "Imbalanced Baseline",          # report tự thêm " (class-weighted)" nếu đã train có class weight
-    "M1_random": "ROS + Balanced GAN: Random",
-    "M2_visual": "ROS + Balanced GAN: Visual margin ($M_v$)",
-    "M3_disease": "ROS + Balanced GAN: Disease margin ($M_d$)",
-    "M5_diversity": r"ROS + Balanced GAN: Diversity ($S_{\text{div}}$)",
-    "M4_visual_disease": "ROS + Balanced GAN: Dual margin ($M_v + M_d$)",
-    "M6_dass": "ROS + Balanced GAN: DASS (Ours)",
+    "B0_imbalanced": "Imbalanced Baseline",
+    "B1_class_weight": "Cost-sensitive (class-weighted loss)",
+    "B2_ros": "Random Oversampling (ROS)",
+    "B3_augment": "Traditional Augmentation",
+    "M1_random": "Balanced GAN: Random",
+    "M2_visual": "Balanced GAN: Visual margin ($M_v$)",
+    "M3_disease": "Balanced GAN: Disease margin ($M_d$)",
+    "M4_diversity": "Balanced GAN: Diversity/Coverage",
+    "M5_visual_disease": "Balanced GAN: $M_v + M_d$",
+    "M6_dass": "Balanced GAN: DASS (Ours)",
 }
-METHOD_GROUPS = {
-    "Real Data Baseline": ("M0_real_only",),
-    "ROS + Class-balanced GAN (StyleGAN2-ADA)": ("M1_random", "M2_visual", "M3_disease", "M5_diversity",
-                                                 "M4_visual_disease", "M6_dass"),
+# Hai bảng của bài: {tên bảng: {mã: tên hiển thị trong bảng đó}} (thứ tự = thứ tự hàng). M1 = B4, M6 = B5.
+RESULT_TABLES = {
+    "comparison": {
+        "B0_imbalanced": "B0: Imbalanced Baseline",
+        "B1_class_weight": "B1: Cost-sensitive (class-weighted loss)",
+        "B2_ros": "B2: Random Oversampling",
+        "B3_augment": "B3: Traditional Augmentation",
+        "M1_random": "B4: Balanced GAN: Random",
+        "M6_dass": "B5: Balanced GAN: DASS (Ours)",
+    },
+    "ablation": {
+        "M1_random": "M1: Random",
+        "M2_visual": "M2: Visual margin ($M_v$)",
+        "M3_disease": "M3: Disease margin ($M_d$)",
+        "M4_diversity": "M4: Diversity/Coverage",
+        "M5_visual_disease": "M5: $M_v + M_d$",
+        "M6_dass": "M6: $M_v + M_d$ + Diversity/Coverage (DASS)",
+    },
 }
 SOURCE_TYPES = ("csv", "folders", "dicom_csv", "hdf5")
 AUGMENT_PROFILES = ("rotation_invariant", "upright")
@@ -148,25 +165,18 @@ class AnalysisConfig:
 
 @dataclass
 class SelectionConfig:
-    pool_mult: float = 1.5           # k: pool = k × số ảnh cần chọn (chung mọi bộ dữ liệu)
+    pool_mult: float = 2.0           # k: pool = k × g ảnh sinh lớp thiểu số (g = n_đa số − n_thiểu số); chung mọi bộ dữ liệu
     sim_topk: int = 5                # S⁺, S⁻ = trung bình cosine với TOP-K ảnh thật gần nhất
     lambda_v: float = 1.0
     lambda_d: float = 1.0
     alpha: float = 1.0
     beta: float = 1.0
     gamma: float = 0.5
-    synth_fraction: float = 1.0       # tỉ lệ ảnh sinh trong phần cần bù; còn lại bù bằng ROS (1.16.0)
-    balanced_synth_ratio: float = 0.5  # q: s = q × ảnh thật lớp đa số ảnh sinh MỖI lớp (thiết kế B); A: q > 0 -> M8
-    design: str = "source_balanced"    # source_balanced (thiết kế B, chính từ 1.21.0) | minority_only (thiết kế A)
-    filter_majority: bool = True       # thiết kế B: lọc cả ảnh sinh lớp đa số (margin đảo chiều), 1.19.0
-    oversample_variant: bool = False     # M0b / M0c (ROS bằng ảnh thật nhân bản); B: tắt (ROS nằm trong M1–M6)
-    both_classes_variant: bool = False   # thêm M7 (ảnh sinh ở cả hai lớp) — tuỳ chọn, ngoài M0–M6 chuẩn
 
 
 @dataclass
 class EncoderConfig:
     e_d_model: str = "DenseNet121"   # nên KHÁC model báo cáo downstream
-    e_d_crossfit_folds: int = 0      # K >= 2: cross-fitting E_d cho M_d (1.14.0); 0 = tắt
     e_d_seed: int = 4242
     e_d_head_epochs: int = 5
     e_d_ft_epochs: int = 20
@@ -179,8 +189,7 @@ class EncoderConfig:
 
 @dataclass
 class ClassifierConfig:
-    models: list[str] = field(default_factory=lambda: ["EfficientNetV2B0", "ResNet50", "DenseNet121",
-                                                        "ConvNeXtTiny", "ViT-B16", "SwinT"])
+    models: list[str] = field(default_factory=lambda: ["ResNet50", "ConvNeXtTiny", "SwinT"])
     size: int = 224
     batch_size: int = 16
     head_epochs: int = 5
@@ -192,8 +201,6 @@ class ClassifierConfig:
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_auc"
-    augment: bool = False            # augmentation khi train classifier (mọi biến thể, chỉ tập train); 1.11.0: tắt
-    baseline_class_weight: bool = False  # M0 có class weight; 1.11.0: tắt (baseline mất cân bằng thật, ROS cân bằng)
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"
@@ -203,18 +210,19 @@ class ClassifierConfig:
 @dataclass
 class EvaluationConfig:
     threshold: float = 0.5           # ngưỡng cố định — không dò trên val / test
-    baseline_method: str = "M0_real_only"
+    baseline_method: str = "B0_imbalanced"
     # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
-    comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"],
-                                                                  ["M6_dass", "M0_real_only"]])
-    # giả thuyết chính (khai báo trước): Holm riêng cho họ này; còn lại là khám phá (Holm trong họ khám phá).
-    # Thiết kế B (1.20.0): H1 DASS vs Random, H2 DASS vs Imbalanced Baseline.
+    comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"], ["M6_dass", "B2_ros"]])
+    # giả thuyết chính (khai báo trước, 2.0.0): H1 DASS vs Random, H2 DASS vs ROS, H3 DASS vs Imbalanced; Holm riêng
+    # cho họ này, còn lại là khám phá.
     primary_comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"],
-                                                                          ["M6_dass", "M0_real_only"]])
-    # Tên hiển thị trong bảng bài báo (mã nội bộ giữ nguyên trong file .npz / selections.json); thứ tự = thứ tự
-    # hàng. `$...$` được giữ làm công thức trong .tex, bỏ ký hiệu LaTeX trong .csv.
+                                                                          ["M6_dass", "B2_ros"],
+                                                                          ["M6_dass", "B0_imbalanced"]])
+    # Tên hiển thị trong bảng chung (mã nội bộ giữ nguyên trong .npz); `$...$` giữ làm công thức trong .tex.
     method_labels: dict[str, str] = field(default_factory=lambda: dict(METHOD_LABELS))
-    method_groups: dict[str, list[str]] = field(default_factory=lambda: {g: list(m) for g, m in METHOD_GROUPS.items()})
+    # Hai bảng kết quả của bài: {tên bảng: {mã: tên hiển thị}}
+    result_tables: dict[str, dict[str, str]] = field(
+        default_factory=lambda: {t: dict(m) for t, m in RESULT_TABLES.items()})
     n_bootstrap: int = 2000
     # Đánh giá theo nhóm con: cột trong CSV metadata (`dicom_metadata.csv`), ví dụ [ViewPosition] cho RSNA -> AUC
     # trong từng nhóm, mốc "chỉ dùng thuộc tính", tỉ lệ thuộc tính trong ảnh sinh. Rỗng = bỏ qua.
@@ -262,27 +270,6 @@ def validate(cfg: Config) -> None:
         errors.append("generator.select_ema_alpha phải trong (0, 1] (1 = không làm mượt)")
     if not cfg.classifier.seeds:
         errors.append("classifier.seeds không được rỗng")
-    if cfg.encoder.e_d_crossfit_folds == 1 or cfg.encoder.e_d_crossfit_folds < 0:
-        errors.append("encoder.e_d_crossfit_folds phải là 0 (tắt) hoặc >= 2")
-    if not 0 < cfg.selection.synth_fraction <= 1:
-        errors.append("selection.synth_fraction phải trong (0, 1]")
-    if cfg.selection.synth_fraction < 1 and cfg.selection.both_classes_variant:
-        errors.append("selection.synth_fraction < 1 chưa hỗ trợ M7 (both_classes_variant)")
-    if cfg.selection.design not in ("minority_only", "source_balanced"):
-        errors.append("selection.design phải là minority_only | source_balanced")
-    if cfg.selection.design == "source_balanced" and not (
-            cfg.selection.balanced_synth_ratio > 0
-            and cfg.selection.synth_fraction == 1 and not cfg.selection.both_classes_variant):
-        errors.append("selection.design = source_balanced cần balanced_synth_ratio > 0, "
-                      "synth_fraction = 1, both_classes_variant = false")
-    if cfg.selection.filter_majority and cfg.selection.design != "source_balanced":
-        errors.append("selection.filter_majority cần selection.design = source_balanced")
-    if cfg.selection.filter_majority and cfg.encoder.e_d_crossfit_folds >= 2:
-        errors.append("selection.filter_majority chưa hỗ trợ encoder.e_d_crossfit_folds")
-    if cfg.selection.balanced_synth_ratio < 0:
-        errors.append("selection.balanced_synth_ratio phải >= 0")
-    if cfg.selection.balanced_synth_ratio > 0 and cfg.selection.synth_fraction < 1:
-        errors.append("selection.balanced_synth_ratio > 0 không dùng cùng synth_fraction < 1")
     if not cfg.selection.pool_mult >= 1:
         errors.append(f"selection.pool_mult (k) phải >= 1 (pool không được nhỏ hơn số ảnh cần chọn), nhận "
                       f"{cfg.selection.pool_mult}")
@@ -295,8 +282,8 @@ def validate(cfg: Config) -> None:
         errors.append(f"evaluation.coverage_k phải là số nguyên >= 1, nhận {cfg.evaluation.coverage_k!r}")
     if not all(isinstance(c, str) and c for c in cfg.evaluation.subgroup_columns):
         errors.append("evaluation.subgroup_columns phải là danh sách tên cột metadata, ví dụ [ViewPosition]")
-    if not all(isinstance(v, list) for v in cfg.evaluation.method_groups.values()):
-        errors.append("evaluation.method_groups phải là {tên nhóm: [mã phương pháp, ...]}")
+    if not all(isinstance(v, dict) for v in cfg.evaluation.result_tables.values()):
+        errors.append("evaluation.result_tables phải là {tên bảng: {mã phương pháp: tên hiển thị}}")
     if cfg.encoder.e_d_from_run == "base" and not cfg.paths.base_run_tag:
         errors.append("encoder.e_d_from_run = base dùng cho ablation: cần --tag (để tách thư mục khỏi lần chạy chính)")
     if not cfg.paths.drive_root:

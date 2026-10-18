@@ -84,13 +84,11 @@ Mọi stage chạy lại được: GAN, pool, lựa chọn, dự đoán `.npz` �
 **Nên kiểm tra:**
 - `data.classes`: lớp bệnh (thiểu số) = **1**. Sensitivity, precision, PR-AUC, F1 tính cho lớp 1; nếu lớp thiểu số là 0,
   `prepare` in cảnh báo.
-- Giao thức classifier (`classifier.augment`, `classifier.baseline_class_weight`, mặc định đều tắt) không ghi đè trong
-  `configs/datasets/`, để mọi bộ dữ liệu cùng giao thức (có test cho ISIC / RSNA).
+- Giao thức classifier (augmentation chỉ ở B3, class weight chỉ ở B1, chọn epoch theo `val_auc`) không ghi đè trong
+  `configs/datasets/`, để mọi bộ dữ liệu cùng giao thức (có test).
 - Thêm tên file experiment vào `EXPERIMENTS` trong `tests/unit/test_config.py`, rồi `pytest`.
-- `k` và mọi tham số DASS / E_d **không** được ghi đè trong `configs/datasets/` (có test). Thiết kế tập train
-  (`selection.design: source_balanced`, q = 0,5, lọc cả hai lớp) cũng lấy từ `configs/_base_/`. Pool lớp thiểu số có
-  ⌈k · (n_maj − n_min)⌉ ảnh mà tập train cần ⌈k · q · n_maj⌉, nên cần mất cân bằng ≥ 1 / (1 − q) = 2 : 1; nếu không,
-  `select` dừng và báo giảm `selection.balanced_synth_ratio`.
+- `k` và mọi tham số DASS / E_d **không** được ghi đè trong `configs/datasets/` (có test). Pool lớp thiểu số có
+  ⌈k · (n_maj − n_min)⌉ ảnh; mỗi biến thể M1–M6 chọn n_maj − n_min ảnh.
 
 **Giới hạn hiện tại:**
 - Nguồn hỗ trợ: `folders`, `csv`, `dicom_csv` (nhãn CSV kiểu Kaggle hoặc JSON MD.ai). Định dạng khác (NIfTI, `.npz` kiểu

@@ -84,19 +84,10 @@ def restore(check: Check) -> bool:
     return True
 
 
-def unexpected_predictions(cfg: Config) -> list[str]:
-    """File dự đoán của phương pháp mà cấu hình hiện tại không train (vd M0b / M0c khi `oversample_variant` tắt) — để
-    lại sẽ lẫn vào bảng; chuyển sang thư mục khác (không xoá) trước khi `evaluate`."""
-    pred_dir = Layout(cfg).pred_dir
-    if cfg.selection.oversample_variant or not pred_dir.exists():
-        return []
-    return sorted(p.name for p in pred_dir.glob("*.npz") if "__M0b_" in p.name or "__M0c_" in p.name)
-
-
 def run(cfg: Config, fix: bool = False) -> bool:
     lay = Layout(cfg)
     checks = preflight_checks(cfg)
-    print(f"Lần chạy: {cfg.paths.run_tag} | thiết kế {cfg.selection.design} | model {cfg.classifier.models} | "
+    print(f"Lần chạy: {cfg.paths.run_tag} | k = {cfg.selection.pool_mult:g} | model {cfg.classifier.models} | "
           f"seed {cfg.classifier.seeds} | E_d: {cfg.encoder.e_d_from_run or 'train trong lần chạy này'}")
     for c in checks:
         if fix and restore(c):
@@ -112,10 +103,6 @@ def run(cfg: Config, fix: bool = False) -> bool:
         return False
     n_pred = len(list(lay.pred_dir.glob("*.npz"))) if lay.pred_dir.exists() else 0
     print(f"  Dự đoán đã có trong {lay.pred_dir}: {n_pred} file (sẽ được bỏ qua nếu đúng giao thức)")
-    extra = unexpected_predictions(cfg)
-    if extra:
-        print(f"  [CHÚ Ý] {len(extra)} file M0b / M0c không thuộc thiết kế hiện tại -> chuyển sang "
-              f"{lay.results_dir / 'predictions_archived_M0b_M0c'} (không xoá) trước `evaluate`: {extra[:6]}")
     missing = [c for c in checks if c.required and not c.ok]
     if not missing:
         print("=> Sẵn sàng chạy.")
