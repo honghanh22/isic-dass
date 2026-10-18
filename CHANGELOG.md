@@ -19,6 +19,9 @@ commit trước 2.0.0.
   `configs/server/*_designB.yaml`, `scripts/ablation_dass_val.py`, `scripts/train_variant_val.py`.
 - `report`: thêm `table_comparison`, `table_ablation` (+ `_auc_by_split`) theo `evaluation.result_tables`.
 - `train --methods`: chỉ train các phương pháp chỉ định.
+- Classifier train tiếp được theo epoch khi bị ngắt (`fit_two_stage(resume_dir=...)`, như E_d 1.23.0): một lần train
+  PCam có thể dài hơn giới hạn 2 giờ GPU. Chạy liền một mạch cho kết quả giống hệt bản không resume (đã kiểm tra, kể cả
+  với PR-AUC); sau khi train tiếp, thứ tự xáo trộn dữ liệu khác bản chạy liền.
 - Lần chạy: ISIC `v14`, RSNA `rsna_v5`, PCam `pcam_v2` (server `_srv`). ISIC / RSNA train lại E_d (E_d của
   `v12_srv`, `rsna_v3_srv` đã bị xoá khỏi ổ đĩa); PCam dùng lại E_d của `pcam_v1_srv` (E_d đã chọn snapshot GAN).
 - Tài liệu (CLAUDE.md, README, METHOD, GUIDE, WORKFLOW, RESULTS_FORMAT, notebook) chỉ mô tả thiết kế mới.

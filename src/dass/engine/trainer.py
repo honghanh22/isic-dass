@@ -177,8 +177,11 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"
+    # train tiếp được theo epoch nếu bị ngắt (một lần train của bộ dữ liệu lớn có thể dài hơn giới hạn giờ GPU);
+    # chạy liền một mạch cho kết quả như bản không resume
     best_epoch, history = fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight,
-                                        ckpt_path=ckpt, head_epochs=clf.head_epochs, ft_epochs=clf.ft_epochs)
+                                        ckpt_path=ckpt, head_epochs=clf.head_epochs, ft_epochs=clf.ft_epochs,
+                                        resume_dir=layout.clf_ckpt / f"{ckpt.name.removesuffix('.weights.h5')}_resume")
     if clf.save_weights_to_drive:
         shutil.copy2(ckpt, layout.clf_dir / ckpt.name)
     return model, preprocess, best_epoch, history
