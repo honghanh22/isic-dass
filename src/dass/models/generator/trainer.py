@@ -52,7 +52,7 @@ def check_selection_rule(state: dict, info: dict) -> None:
     if not state["history"]:
         return
     saved = {"metric": state.get("metric", "kid_inception"), "select_classes": state.get("select_classes"),
-             "select_ema_alpha": state.get("select_ema_alpha", 1.0)}
+             "select_aggregate": state.get("select_aggregate", "mean"), "select_ema_alpha": state.get("select_ema_alpha", 1.0)}
     for key, cur in info.items():
         if key in saved and saved[key] is not None and saved[key] != cur:
             raise ValueError(f"gan_state.json chọn snapshot theo {key} = {saved[key]!r}, config là {cur!r} -> không "

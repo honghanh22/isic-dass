@@ -58,8 +58,8 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
     """Hàm chấm snapshot (thấp = tốt) theo `generator.select_metric` + thông tin ghi vào gan_state.json.
 
     Ảnh thật tham chiếu = TOÀN BỘ ảnh train của mỗi lớp được chấm (không bao giờ val). Mỗi lớp sinh `kid_n_gen` ảnh
-    (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = trung bình điểm các lớp trong `select_classes` (minority =
-    chỉ lớp thiểu số; all = mọi lớp). fid_ed luôn chấm mọi lớp và trả về điểm từng lớp (lưu vào lịch sử).
+    (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = gộp điểm các lớp trong `select_classes` (minority = chỉ lớp
+    thiểu số; all = mọi lớp) bằng `select_aggregate` (mean | max = lớp kém nhất). fid_ed luôn chấm mọi lớp và trả về điểm từng lớp (lưu vào lịch sử).
     - kid_inception: KID trên Inception-v3 (giữ nguyên hành vi cũ khi select_classes = minority).
     - fid_ed: FID trên đặc trưng backbone của E_d (chưa chuẩn hoá L2) — CHÍNH file E_d mà `select` dùng cho M_d
       (Xue et al. 2021 chọn checkpoint bằng FID trên classifier của miền ảnh).
@@ -73,7 +73,9 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
     classes = [ctx.budget.minority] if g.select_classes == "minority" else list(cfg.data.class_names)
     # fid_ed chấm MỌI lớp (ghi vào lịch sử để báo cáo), điểm chọn chỉ lấy các lớp trong `classes`
     scored = list(cfg.data.class_names) if g.select_metric == "fid_ed" else classes
-    info = {"metric": g.select_metric, "select_classes": classes, "select_ema_alpha": g.select_ema_alpha}
+    agg = max if g.select_aggregate == "max" else (lambda v: float(np.mean(v)))
+    info = {"metric": g.select_metric, "select_classes": classes, "select_aggregate": g.select_aggregate,
+            "select_ema_alpha": g.select_ema_alpha}
     if g.select_metric == "kid_inception":
         def extract(images: np.ndarray) -> np.ndarray:
             return inception_features(images)
@@ -109,7 +111,7 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[floa
         torch.cuda.empty_cache()
         if len(per_class) > 1:
             log.info("            %s theo lớp: %s", g.select_metric, {c: round(v, 5) for c, v in per_class.items()})
-        return float(np.mean([per_class[c] for c in classes])), per_class
+        return float(agg([per_class[c] for c in classes])), per_class
 
     return scorer, info
 

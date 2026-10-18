@@ -1,38 +1,41 @@
 # PatchCamelyon v1 (mô bệnh học hạch bạch huyết, 96×96, H&E) — CHỈ các thiết lập phụ thuộc dữ liệu.
-# Dữ liệu = MỘT file đã tiền xử lý bằng scripts/preprocess_pcam.py: gộp 3 split gốc, bỏ ảnh trùng, bỏ ảnh > 50 % nền
-# trắng, chia lại theo WSI 70 / 15 / 15, âm : dương = 12 (train 36.024 / 3.002, val và test 7.728 / 644).
-# Pipeline chỉ đọc file .h5 này (+ CSV chia train / val đi kèm), không đọc PCam gốc.
+# Dữ liệu = MỘT file đã tiền xử lý (scripts/preprocess_pcam.py): gộp 3 split gốc, bỏ ảnh trùng, bỏ ảnh > 50 % nền
+# trắng, chia lại theo WSI 70 / 15 / 15, rồi tập con âm : dương = 6 (người dùng chọn, 2026-10-18; `--subset-from`
+# file 12 : 1, giữ mọi ảnh dương): train 18.012 / 3.002, val và test 3.864 / 644. Pipeline chỉ đọc file .h5 này
+# (+ CSV chia train / val đi kèm). Lần chạy 12 : 1 trước đó đã bị xoá theo yêu cầu người dùng.
 paths:
   drive_root: /data/honghanh/results/PCam
-  gan_tag: pcam          # GAN mới, train từ đầu ở 128 × 128
-  run_tag: pcam_v2       # thiết kế 2.0.0 (pcam_v1: lần chạy train E_d + GAN). Server: pcam_v2_srv.
+  gan_tag: pcam6         # GAN train từ đầu trên tập train 6 : 1, 128 × 128
+  run_tag: pcam6_v1      # server: pcam6_v1_srv
 
 data:
-  name: pcam
+  name: pcam6
   channels: 3
   img_size: 128          # 96 -> 128 (bilinear, như mọi bộ dữ liệu); StyleGAN2-ADA cần cạnh là luỹ thừa của 2
-  augment_profile: rotation_invariant   # mô bệnh học không có hướng (E_d; classifier không augmentation)
+  augment_profile: rotation_invariant   # mô bệnh học không có hướng (E_d, B3)
   classes: {negative: 0, positive: 1}
   source:
     type: hdf5
-    train_images: /data/honghanh/datasets/PCam/pcam_imb12.h5
-    test_images: /data/honghanh/datasets/PCam/pcam_imb12.h5     # nhóm test của cùng file
+    train_images: /data/honghanh/datasets/PCam/pcam_imb6.h5
+    test_images: /data/honghanh/datasets/PCam/pcam_imb6.h5      # nhóm test của cùng file
   preprocess:
     crop_dark_border: false
     resize: stretch
   split:
     type: file           # train / val chia sẵn theo WSI trong file .h5
-    file: /data/honghanh/datasets/PCam/pcam_imb12_split.csv
+    file: /data/honghanh/datasets/PCam/pcam_imb6_split.csv
 
 generator:
-  # Chọn snapshot theo Xue et al. 2021 (HistoGAN): FID trên đặc trưng của classifier miền ảnh — ở đây chính E_d
-  # (DenseNet121, người dùng chọn), làm mượt EMA α = 0,5. Dừng sớm cùng luật với ISIC / RSNA (min_kimg 400,
+  # Chọn snapshot theo Xue et al. 2021 (HistoGAN): FID trên đặc trưng của classifier miền ảnh — CHÍNH E_d của lần
+  # chạy (DenseNet121; cùng file với M_d), làm mượt EMA α = 0,5; dừng sớm cùng luật với ISIC / RSNA (min_kimg 400,
   # patience 5, giảm ≥ 2 %, tối đa 3.000 kimg). Ảnh thật tham chiếu = train. Giữ mọi snapshot.
-  # Lớp được dùng để CHỌN: lớp dương (thiểu số) — người dùng đổi 2026-10-18 lúc GAN ở ~1.400 kimg, sau khi thấy FID
-  # dương tăng (57,6 @ 1.000 -> ~74) trong khi FID âm giảm và trung bình hai lớp che mất điều đó (luật cũ: `all`).
-  # Quyết định dựa trên FID trên TRAIN, chưa có kết quả classifier / test. FID âm vẫn được chấm và lưu để báo cáo.
+  # Luật khai báo trước (người dùng, 2026-10-18, trước khi train GAN này): chấm MỌI lớp có ảnh sinh trong tập train,
+  # lớp kém nhất quyết định — `max` hai lớp dùng để dừng sớm và cho thiết kế ảnh sinh ở cả hai lớp; thiết kế chỉ
+  # thêm ảnh sinh vào lớp dương dùng luật FID lớp dương, chọn bằng cách phát lại trên `history[].per_class` (mọi
+  # snapshot được giữ).
   select_metric: fid_ed
-  select_classes: minority
+  select_classes: all
+  select_aggregate: max
   select_ema_alpha: 0.5
   kid_n_gen: 3000        # ảnh sinh mỗi lớp khi chấm (FID cần nhiều mẫu hơn KID; đặc trưng E_d 1.024 chiều)
   keep_snapshots: true

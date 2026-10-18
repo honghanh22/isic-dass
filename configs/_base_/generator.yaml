@@ -23,6 +23,7 @@ generator:
   # Chọn snapshot / dừng sớm (1.23.0). kid_inception: KID Inception-v3 (ISIC, RSNA); fid_ed: FID trên đặc trưng E_d
   # (Xue et al. 2021, HistoGAN). Ảnh thật tham chiếu luôn là TRAIN (không dùng val).
   select_metric: kid_inception
-  select_classes: minority     # minority | all (trung bình điểm các lớp)
+  select_classes: minority     # minority | all
+  select_aggregate: mean       # select_classes = all: gộp điểm các lớp bằng mean | max (lớp kém nhất)
   select_ema_alpha: 1.0        # điểm chọn = α·điểm + (1 − α)·điểm mượt trước; 1 = không làm mượt
   keep_snapshots: false        # true: giữ mọi snapshot ở stylegan2ada/snapshots/

@@ -21,7 +21,7 @@ g = n_đa số − n_thiểu số (cân bằng 1 : 1); k = 2. Ảnh sinh chỉ �
 Họ giả thuyết chính: **H1** M6 vs M1, **H2** M6 vs B2, **H3** M6 vs B0. Classifier: ResNet50, ConvNeXt-Tiny, Swin-T
 (cùng head), 3 seed; augmentation chỉ ở B3, class weight chỉ ở B1.
 
-**Lần chạy:** ISIC `v14`, RSNA `rsna_v5`, PCam `pcam_v2` (server thêm `_srv`; PCam dùng lại E_d của `pcam_v1_srv`,
+**Lần chạy:** ISIC `v14`, RSNA `rsna_v5`, PCam `pcam6_v1` (server thêm `_srv`; PCam dùng lại E_d của `pcam6_v1_srv`,
 chính E_d đã chọn snapshot GAN). Cấu hình (k, thiết kế, tiêu chí chọn epoch, luật chọn checkpoint PCam) đã được đổi
 nhiều lần sau khi xem kết quả của các lần chạy trước; bài báo phải nêu rõ và báo cáo mọi cấu hình đã chạy.
 
@@ -134,10 +134,10 @@ H1–H3 khai báo trước khi train (2.0.0, `evaluation.primary_comparisons`), 
 
 | | ISIC 2016 | RSNA Pneumonia | PCam |
 |---|---|---|---|
-| g = n_đa số − n_thiểu số (ảnh thêm vào lớp thiểu số) | 470 | 6.463 | 33.022 |
-| Pool ⌈k · g⌉ (k = 2) | 940 | 12.926 | 66.044 |
-| Mỗi lớp trong B2 / Balanced GAN | 618 | 7.522 | 36.024 |
-| Tỉ lệ ảnh sinh trong lớp thiểu số (Balanced GAN) | 76 % | 86 % | 92 % |
+| g = n_đa số − n_thiểu số (ảnh thêm vào lớp thiểu số) | 470 | 6.463 | 15.010 |
+| Pool ⌈k · g⌉ (k = 2) | 940 | 12.926 | 30.020 |
+| Mỗi lớp trong B2 / Balanced GAN | 618 | 7.522 | 18.012 |
+| Tỉ lệ ảnh sinh trong lớp thiểu số (Balanced GAN) | 76 % | 86 % | 83 % |
 
 - k chỉ quyết định **độ chọn lọc**: mỗi biến thể giữ 1/k = 50 % pool. k đã đổi 4 → 3 → 2 → 1,5 → 2 (2.0.0); phải nêu
   trong bài. Ghi nhận cũ: chọn càng gắt thì tập chọn càng lệch phân phối ảnh thật.
@@ -311,8 +311,8 @@ g mod n_min ảnh (chọn ngẫu nhiên, không lặp) được lặp thêm mộ
 
 | | ISIC | RSNA | PCam |
 |---|---|---|---|
-| B0, B1, B3 (đa số : thiểu số) | 618 : 148 | 7.522 : 1.059 | 36.024 : 3.002 |
-| B2, M1–M6 | 618 : 618 | 7.522 : 7.522 | 36.024 : 36.024 |
+| B0, B1, B3 (đa số : thiểu số) | 618 : 148 | 7.522 : 1.059 | 18.012 : 3.002 |
+| B2, M1–M6 | 618 : 618 | 7.522 : 7.522 | 18.012 : 18.012 |
 
 - **Augmentation chỉ ở B3, class weight chỉ ở B1** (`Variant.augment`, `Variant.class_weight`, ghi trong `.npz`).
 - B0 / B3 mất cân bằng nên ở ngưỡng 0,5 sensitivity thấp; so sánh chính dựa vào AUC.
@@ -538,7 +538,7 @@ với shuffle = False), chỉ khi nhãn khớp đúng thứ tự.
 |---|---|---|
 | Nội tại | Ảnh sinh mang dấu vết GAN (AUC thật-vs-sinh ≈ 0,99). Nếu ảnh sinh **chỉ** nằm ở lớp thiểu số, dấu vết này là manh mối của nhãn | Thiết kế tập train đặt cùng số ảnh sinh (1/3) vào mỗi lớp nên dấu vết GAN không còn tương quan với nhãn. Còn lại: dấu vết GAN của hai lớp có thể khác nhau; `scripts/shortcut_probe.py` (chỉ val) chấm ảnh sinh lớp đa số giữ riêng bằng classifier đã train để đo trực tiếp |
 | Nội tại | **Shortcut tư thế chụp (RSNA):** AP gắn với bệnh nặng (dương ≈ 58 % AP, âm ≈ 23 % AP) | Đo, không sửa dữ liệu: AUC trong từng nhóm AP / PA, mốc chỉ dùng tư thế, tỉ lệ "trông giống AP" của ảnh sinh (mục 5.5) |
-| Nội tại | **Đường tắt nguồn ảnh:** ảnh sinh chỉ ở lớp thiểu số (76–92 %), classifier có thể học "trông giống GAN → bệnh" | Shortcut probe cho mọi phương pháp (bắt buộc), báo cáo trong bài |
+| Nội tại | **Đường tắt nguồn ảnh:** ảnh sinh chỉ ở lớp thiểu số (76–86 %), classifier có thể học "trông giống GAN → bệnh" | Shortcut probe cho mọi phương pháp (bắt buộc), báo cáo trong bài |
 | Nội tại | Cấu hình (k, augmentation, class weight, tiêu chí chọn epoch, **thiết kế tập train**) được đổi sau khi xem kết quả test; Brain Tumor bị loại sau khi thấy AUC chạm trần | Báo cáo mọi cấu hình đã chạy và nêu lý do loại Brain Tumor |
 | Nội tại | M1 chỉ có **một** lần rút ngẫu nhiên (seed 2026 / 2027); ROS cũng chỉ một lần chọn ảnh nhân bản thêm | Độ biến thiên do việc rút ngẫu nhiên không nằm trong std; nêu rõ khi so M6 với M1 (H1) |
 | Nội tại | Backbone DenseNet121 có **cùng kiến trúc** với E_d (khác seed, khác lần train) | Diễn giải riêng hàng DenseNet121; so sánh với 5 backbone còn lại |
@@ -781,7 +781,7 @@ Chi tiết từng cột: [RESULTS_FORMAT.md](RESULTS_FORMAT.md).
 | GAN | KID khi train: số ảnh / tập con / seed | 1000 / 50 / 123 | |
 | Pool | k = `pool_mult` (chung mọi bộ dữ liệu) / ψ / seed | 2 / 1.0 / 777 | `configs/_base_/selection.yaml` |
 | DASS | K / λ_v / λ_d / α / β / γ | 5 / 1 / 1 / 1 / 1 / 0.5 | |
-| E_d | backbone / seed / epoch / dùng lại (`e_d_from_run`) | DenseNet121 / 4242 / 5 + 20 / "" (PCam server: `pcam_v1_srv`) | |
+| E_d | backbone / seed / epoch / dùng lại (`e_d_from_run`) | DenseNet121 / 4242 / 5 + 20 / "" (PCam server: `pcam6_v1_srv`) | |
 | Classifier | backbone | ResNet50, ConvNeXtTiny, SwinT (cùng head) | `configs/_base_/classifier.yaml` |
 | Classifier | ảnh / batch / dropout (CNN) | 224 / 16 / 0.3 | |
 | Classifier | epoch / lr / weight decay / early stop | 5 + 30 / 1e-3, 1e-5 / 1e-4 / 8 | |

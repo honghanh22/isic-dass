@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.1.0 — PCam 6 : 1, GAN train lại từ đầu, luật chọn snapshot `max` hai lớp
+Người dùng quyết định (2026-10-18). Toàn bộ lần chạy PCam 12 : 1 (GAN `pcam`, E_d `pcam_v1_srv`, `pcam_v2_srv`: pool,
+lựa chọn, 5 / 10 dự đoán ConvNeXt-Tiny) đã bị XOÁ theo yêu cầu; file `pcam_imb12.h5` vẫn giữ.
+- Dữ liệu: `pcam_imb6.h5` = tập con của `pcam_imb12.h5` (`preprocess_pcam.py --subset-from --ratio 6`): giữ mọi ảnh
+  dương, ảnh âm lấy mẫu theo WSI; train 18.012 / 3.002, val và test 3.864 / 644; mỗi ảnh ở đúng phần cũ.
+- `generator.select_aggregate: mean | max` (mặc định mean, ISIC / RSNA không đổi). PCam (khai báo TRƯỚC khi train GAN
+  này): `select_classes: all`, `select_aggregate: max` — lớp kém nhất quyết định, dùng để dừng sớm và cho thiết kế
+  ảnh sinh ở cả hai lớp; thiết kế chỉ thêm ảnh sinh vào lớp dương dùng luật FID lớp dương, phát lại trên
+  `history[].per_class` (mọi snapshot được giữ). Cùng E_d, EMA 0,5, cùng luật dừng sớm.
+- Config PCam: `data.name: pcam6`, `gan_tag: pcam6`, `run_tag: pcam6_v1` (server `_srv`), E_d train trong lần chạy.
+
 ## 2.0.0 — thiết kế thí nghiệm mới: B0–B3 + Balanced GAN M1–M6 (thiết kế cũ bị xoá khỏi code)
 Người dùng quyết định (2026-10-18). Kết quả cũ (ISIC `v13_srv`, RSNA `rsna_v2/v3`) giữ nguyên trên ổ đĩa; tái lập bằng
 commit trước 2.0.0.

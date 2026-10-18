@@ -4,7 +4,7 @@ Hướng dẫn cho Claude Code khi làm việc trong repo này.
 
 ## Tổng quan
 
-Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB), RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN `gan_tag: rsna`) và PCam (mô bệnh học H&E, 128 px, file HDF5 đã tiền xử lý, âm : dương = 12), chạy chung một package `dass`, **cùng công thức DASS** và **cùng thiết kế thí nghiệm (2.0.0)**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
+Mã nguồn chính thức cho bài báo: StyleGAN2-ADA có điều kiện + chọn ảnh sinh DASS cho phân loại ảnh y tế mất cân bằng (nhị phân). Các benchmark: ISIC 2016 (RGB), RSNA Pneumonia (X-quang ngực, DICOM, 1 kênh, GAN `gan_tag: rsna`) và PCam (mô bệnh học H&E, 128 px, file HDF5 đã tiền xử lý, âm : dương = 6), chạy chung một package `dass`, **cùng công thức DASS** và **cùng thiết kế thí nghiệm (2.0.0)**; chỉ khác nhau ở `configs/datasets/*.yaml`. Brain Tumor đã bị **loại khỏi dự án và bài báo** (người dùng quyết định, 1.10.0: AUC chạm trần khoảng 0,99, không phân biệt được phương pháp); kết quả cũ của Brain vẫn nằm trên Drive, không xoá.
 
 Tài liệu:
 - [README.md](README.md): tiếng Anh, viết cho reviewer / cộng đồng.
@@ -60,7 +60,7 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   class weight CHỈ ở B1 (`Variant.augment` / `Variant.class_weight`, ghi trong .npz). Mã nội bộ = mã trong bảng (B0_…,
   M1_… M6_…); tên hiển thị ở `evaluation.method_labels` / `result_tables`. Classifier: ResNet50, ConvNeXt-Tiny, Swin-T
   (Swin từ KerasHub nhưng CÙNG head GAP + dropout + Dense với hai CNN), 3 seed. Lần chạy: ISIC `v14`, RSNA `rsna_v5`,
-  PCam `pcam_v2` (server thêm `_srv`); PCam dùng lại E_d của `pcam_v1_srv` (E_d đã chọn snapshot GAN).
+  PCam `pcam6_v1` (server thêm `_srv`; GAN `pcam6`, E_d train trong lần chạy).
 - **Tài liệu và mô tả chỉ trình bày thiết kế hiện tại** (người dùng yêu cầu, 2026-10-15): `docs/`, README, chú thích
   trong `configs/`, chữ trong notebook không nhắc thiết kế tập train cũ, các biến thể cũ hay các lần chạy cũ. Code vẫn
   giữ các nhánh cũ (`selection.design: minority_only`, profile `configs/experiments/design_a.yaml`, các tuỳ chọn mở
@@ -74,8 +74,8 @@ Các stage `gan*`, `sample`, `fingerprint`, `select`, `train` và `evaluate` (ph
   `configs/datasets/` (có test). k đã đổi nhiều lần theo quyết định của người dùng (4 → 3 → 2 → 1,5 → 2 ở 2.0.0), có lần
   sau khi đã xem kết quả test — phải nêu trong bài báo và báo cáo mọi cấu hình đã chạy.
 - KID / FID tính trên Inception-v3 của StyleGAN2-ADA; KID là chỉ số chính, FID chỉ để tham khảo.
-- Chỉ số chọn snapshot / dừng sớm GAN (`generator.select_metric`) so với ảnh thật của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`). Mặc định (ISIC, RSNA): KID-Inception lớp thiểu số, không làm mượt. PCam (1.23.0, người dùng quyết định): FID trên đặc trưng **chính E_d** của lần chạy (cùng file với M_d), cả hai lớp, làm mượt EMA α = 0,5 (Xue et al. 2021, HistoGAN), cùng luật dừng sớm; dùng chung E_d cho hai bước là giới hạn phải nêu trong bài.
-- PCam: nguồn `hdf5` đọc MỘT file đã tiền xử lý (`scripts/preprocess_pcam.py`: gộp 3 split, bỏ trùng, bỏ nền trắng, chia theo WSI 70 / 15 / 15, âm : dương = 12) + CSV chia train / val đi kèm; ảnh 128 × 128.
+- Chỉ số chọn snapshot / dừng sớm GAN (`generator.select_metric`) so với ảnh thật của **train**, không bao giờ dùng val (val chỉ để chọn epoch classifier; có test `tests/regression/test_gan_kid_reference.py`). Mặc định (ISIC, RSNA): KID-Inception lớp thiểu số, không làm mượt. PCam (2.1.0, người dùng quyết định, khai báo trước khi train GAN): FID trên đặc trưng **chính E_d** của lần chạy (cùng file với M_d), chấm cả hai lớp, gộp bằng **max** (lớp kém nhất) để dừng sớm; thiết kế chỉ thêm ảnh sinh vào lớp dương dùng FID lớp dương (phát lại trên lịch sử); làm mượt EMA α = 0,5 (Xue et al. 2021), cùng luật dừng sớm; dùng chung E_d cho hai bước là giới hạn phải nêu trong bài.
+- PCam: nguồn `hdf5` đọc MỘT file đã tiền xử lý (`scripts/preprocess_pcam.py`: gộp 3 split, bỏ trùng, bỏ nền trắng, chia theo WSI 70 / 15 / 15, âm : dương = 12, rồi tập con 6 : 1 `pcam_imb6.h5`) + CSV chia train / val đi kèm; ảnh 128 × 128.
 - **Tách bộ dữ liệu** (có test `tests/regression/test_dataset_isolation.py`): ổ tạm `<local_root>/<data.name>` thuộc
   đúng một nguồn (`.owner.json`; trùng tên khác nguồn -> dừng); GAN train từ 1.10.1 ghi `data_name` + `split_sha1` vào
   `gan_state.json` và mọi stage dùng GAN kiểm tra (GAN cũ ISIC `v5` / RSNA `rsna` chưa ghi -> dựa vào

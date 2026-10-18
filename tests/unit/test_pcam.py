@@ -57,13 +57,14 @@ def test_pcam_config():
     cfg = load_config([CONFIGS / "server" / "pcam.yaml"], tag="srv")
     g, d = cfg.generator, cfg.data
     assert (d.source.type, d.img_size, d.split.type, d.channels) == ("hdf5", 128, "file", 3)
-    assert (g.select_metric, g.select_classes, g.select_ema_alpha, g.keep_snapshots) == \
-        ("fid_ed", "minority", 0.5, True)   # chọn theo FID lớp dương (người dùng đổi 2026-10-18)
+    assert (g.select_metric, g.select_classes, g.select_aggregate, g.select_ema_alpha, g.keep_snapshots) == \
+        ("fid_ed", "all", "max", 0.5, True)   # lớp kém nhất quyết định (khai báo trước GAN 6 : 1)
     # dừng sớm cùng luật với ISIC / RSNA
     isic = load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator
     assert (g.min_kimg, g.patience, g.min_rel_delta, g.max_kimg) == \
         (isic.min_kimg, isic.patience, isic.min_rel_delta, isic.max_kimg)
-    assert cfg.paths.run_tag == "pcam_v2_srv" and cfg.encoder.e_d_from_run == "pcam_v1_srv"   # E_d đã chọn GAN
+    assert cfg.paths.run_tag == "pcam6_v1_srv" and cfg.encoder.e_d_from_run == ""   # E_d của chính lần chạy
+    assert cfg.data.source.train_images.endswith("pcam_imb6.h5") and cfg.paths.gan_tag == "pcam6"
     with pytest.raises(ValueError, match="hdf5"):
         load_config([CONFIGS / "server" / "pcam.yaml"], ["data.split.type=stratified"])
 
@@ -104,3 +105,9 @@ def test_selection_rule_cannot_change_mid_history():
         check_selection_rule(st, {"metric": "fid_ed", "select_classes": ["positive"], "select_ema_alpha": 0.5})
     with pytest.raises(ValueError, match="rescore"):
         check_selection_rule({**st, "metric": "kid_inception"}, {"metric": "fid_ed"})
+
+
+def test_select_aggregate_validation():
+    assert load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator.select_aggregate == "mean"
+    with pytest.raises(ValueError, match="select_aggregate"):
+        load_config([CONFIGS / "server" / "pcam.yaml"], ["generator.select_aggregate=min"])

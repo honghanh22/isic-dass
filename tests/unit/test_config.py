@@ -206,7 +206,7 @@ def test_result_tables():
 
 
 @pytest.mark.parametrize("ds,run,ed", [("isic2016", "v14_srv", ""), ("rsna_pneumonia", "rsna_v5_srv", ""),
-                                       ("pcam", "pcam_v2_srv", "pcam_v1_srv")])
+                                       ("pcam", "pcam6_v1_srv", "")])
 def test_server_configs(ds, run, ed):
     """Server: run_tag mới của thiết kế 2.0.0; ISIC / RSNA train lại E_d, PCam dùng CHÍNH E_d đã chọn snapshot GAN."""
     cfg = load_config([CONFIGS / "server" / f"{ds}.yaml"], tag="srv")

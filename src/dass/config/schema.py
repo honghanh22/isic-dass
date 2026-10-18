@@ -152,7 +152,8 @@ class GeneratorConfig:
     # Chọn snapshot / dừng sớm. kid_inception = KID trên Inception-v3 (mặc định, ISIC / RSNA); fid_ed = FID trên đặc
     # trưng E_d (backbone, chưa chuẩn hoá L2) theo Xue et al. 2021 (HistoGAN). Ảnh thật tham chiếu luôn là TRAIN.
     select_metric: str = "kid_inception"
-    select_classes: str = "minority"  # minority | all (trung bình điểm của các lớp; kid_n_gen ảnh sinh / ảnh thật mỗi lớp)
+    select_classes: str = "minority"  # minority | all (kid_n_gen ảnh sinh / ảnh thật mỗi lớp)
+    select_aggregate: str = "mean"    # all: gộp điểm các lớp bằng mean | max (lớp kém nhất quyết định)
     select_ema_alpha: float = 1.0     # điểm chọn = α·điểm + (1 − α)·điểm mượt trước; 1 = không làm mượt (HistoGAN: 0,5)
     keep_snapshots: bool = False      # giữ mọi snapshot ở stylegan2ada/snapshots/ (ngoài best / latest)
 
@@ -266,6 +267,8 @@ def validate(cfg: Config) -> None:
     g = cfg.generator
     if g.select_metric not in ("kid_inception", "fid_ed") or g.select_classes not in ("minority", "all"):
         errors.append("generator.select_metric phải là kid_inception | fid_ed, select_classes là minority | all")
+    if g.select_aggregate not in ("mean", "max"):
+        errors.append("generator.select_aggregate phải là mean | max")
     if not 0 < g.select_ema_alpha <= 1:
         errors.append("generator.select_ema_alpha phải trong (0, 1] (1 = không làm mượt)")
     if not cfg.classifier.seeds:

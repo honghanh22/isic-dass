@@ -19,7 +19,7 @@ The paper compares two groups of experiments under a fixed, leakage-free protoco
 synthetic images appear in the minority class only, a **shortcut probe** ("does the classifier call unseen synthetic
 majority-class images diseased?") is reported for every method.
 
-**Benchmarks:** ISIC 2016 (dermoscopy), RSNA Pneumonia (chest X-ray) and PatchCamelyon (H&E histopathology, 12 : 1
+**Benchmarks:** ISIC 2016 (dermoscopy), RSNA Pneumonia (chest X-ray) and PatchCamelyon (H&E histopathology, 6 : 1
 imbalance). All datasets run on the same code and the same selection formulas; only `configs/datasets/*.yaml` differs.
 
 **Contents:**
@@ -111,13 +111,13 @@ The full method, experimental design, statistics and limitations are documented 
 | Modality | dermoscopy, RGB | chest X-ray, DICOM, grayscale | H&E histopathology patches, RGB, 96 px |
 | Classes (0 / **1**) | benign / **malignant** | no opacity / **lung opacity** | normal / **tumour** |
 | Split | official test; 15 % of train → val | stratified 70 / 15 / 15 | pooled, de-duplicated, WSI-grouped 70 / 15 / 15 |
-| Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 | 36,024 + 3,002 / 7,728 + 644 / 7,728 + 644 |
-| Imbalance (train) | 4.2 : 1 | 7.1 : 1 | 12 : 1 (sub-sampled) |
+| Train / val / test (neg + pos) | 618 + 148 / 109 + 25 / 304 + 75 | 7,522 + 1,059 / 1,606 + 226 / 1,610 + 226 | 18,012 + 3,002 / 3,864 + 644 / 3,864 + 644 |
+| Imbalance (train) | 4.2 : 1 | 7.1 : 1 | 6 : 1 (sub-sampled) |
 | Image size | 256 | 256 | 128 |
-| `g` synthetic images (pool `⌈2g⌉`) | 470 (940) | 6,463 (12,926) | 33,022 (66,044) |
+| `g` synthetic images (pool `⌈2g⌉`) | 470 (940) | 6,463 (12,926) | 15,010 (30,020) |
 
 PCam is pre-processed once by `scripts/preprocess_pcam.py` (exact-duplicate removal, background-dominated patches
-removed, WSI-grouped split, 12 : 1 sampling) into a single HDF5 file read by the `hdf5` source.
+removed, WSI-grouped split, 6 : 1 sampling) into a single HDF5 file read by the `hdf5` source.
 
 **RSNA specifics.** Patient identities come from the NIH ChestX-ray mapping released with the dataset; keeping one
 image per patient prevents patient overlap between train, validation and test. View position is a known confounder
@@ -346,7 +346,7 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 |---|---|---|
 | ISIC 2016 | `v5` | `v14` (server `v14_srv`) |
 | RSNA Pneumonia | `rsna` | `rsna_v5` (server `rsna_v5_srv`; split of `rsna_v2`) |
-| PatchCamelyon | `pcam` | `pcam_v2` (server `pcam_v2_srv`; `E_d` of `pcam_v1_srv`) |
+| PatchCamelyon | `pcam` | `pcam6_v1` (server `pcam6_v1_srv`) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

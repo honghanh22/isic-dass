@@ -14,7 +14,7 @@ Tài liệu liên quan: [GUIDE.md](GUIDE.md) (hướng dẫn cho người mới,
 ## 0. Tóm tắt
 
 Bài toán là **phân loại ảnh y tế nhị phân khi lớp bệnh ít ảnh** (ISIC 2016: 4,2 : 1; RSNA Pneumonia: 7,1 : 1; PCam:
-12 : 1). Bài so sánh hai nhóm:
+6 : 1). Bài so sánh hai nhóm:
 
 1. **Nhóm 1 — các cách xử lý mất cân bằng** (bảng `comparison`): B0 không xử lý, B1 class-weighted loss, B2 random
    oversampling, B3 augmentation truyền thống, B4 Balanced GAN chọn ngẫu nhiên, B5 Balanced GAN chọn bằng **DASS**.
@@ -66,7 +66,7 @@ xử lý mất cân bằng thông thường không; (ii) chọn ảnh sinh bằn
 | Loại ảnh | dermoscopy, RGB | X-quang ngực, DICOM, xám 1 kênh | mô bệnh học H&E, RGB, 96 × 96 |
 | Lớp 0 / lớp 1 | `benign` / `malignant` | `negative` / `positive` | `negative` / `positive` (u ở ô 32 × 32 giữa ảnh) |
 | Nhãn | CSV của ISBI 2016 | MD.ai đã thống nhất (Shih et al., 2019); loại 106 ảnh "Exclude" | nhãn PCam |
-| Đơn vị lấy mẫu | ảnh | một ảnh mỗi bệnh nhân (29.894 → 12.249 ảnh) | ảnh (patch), chia theo WSI |
+| Đơn vị lấy mẫu | ảnh | một ảnh mỗi bệnh nhân (29.894 → 12.249 ảnh) | ảnh (patch), chia theo WSI; âm : dương = 6 |
 | Tập test | test chính thức | tách từ dữ liệu | tách từ dữ liệu |
 | Ghi chú | – | tư thế `ViewPosition` (AP / PA) | file HDF5 đã tiền xử lý (mục 2.2) |
 
@@ -76,7 +76,8 @@ xử lý mất cân bằng thông thường không; (ii) chọn ảnh sinh bằn
 `pcam_imb12.h5` (+ `pcam_imb12_split.csv`); pipeline chỉ đọc file này (nguồn `hdf5`). Các bước: gộp train / valid /
 test gốc; bỏ ảnh trùng hệt (PCam lấy mẫu lặp lớp dương để đạt 50 / 50); bỏ ảnh có > 50 % pixel nền trắng (30 % ảnh âm,
 5 % ảnh dương — đường tắt "trắng = không u"); chia 399 WSI 70 / 15 / 15 (không WSI nào ở hai phần); lấy mẫu phân tầng
-theo WSI để âm : dương = 12 ở cả ba phần (seed 2026). Ảnh 96 → 128 (bilinear).
+theo WSI để âm : dương = 12 ở cả ba phần (seed 2026), rồi tập con 6 : 1 (`--subset-from`, giữ mọi ảnh dương,
+ảnh âm lấy mẫu theo WSI) → `pcam_imb6.h5`. Ảnh 96 → 128 (bilinear).
 
 1. **Đọc ảnh, giữ đúng số kênh gốc.** ISIC lưu PNG RGB. RSNA chuyển DICOM sang PNG 8 bit, 1 kênh: ảnh `MONOCHROME1`
    được đảo theo giá trị lớn nhất **có thể** (theo số bit), không theo từng ảnh; ảnh nhiều hơn 8 bit được co giãn
@@ -98,9 +99,9 @@ Chia ngẫu nhiên **phân tầng theo lớp**, seed 2026:
 
 | Tập | ISIC (0 / 1) | RSNA (0 / 1) | PCam (0 / 1) |
 |---|---|---|---|
-| train | 618 / 148 ($\rho$ = 4,18) | 7.522 / 1.059 ($\rho$ = 7,10) | 36.024 / 3.002 ($\rho$ = 12) |
-| val | 109 / 25 | 1.606 / 226 | 7.728 / 644 |
-| test | 304 / 75 | 1.610 / 226 | 7.728 / 644 |
+| train | 618 / 148 ($\rho$ = 4,18) | 7.522 / 1.059 ($\rho$ = 7,10) | 18.012 / 3.002 ($\rho$ = 6) |
+| val | 109 / 25 | 1.606 / 226 | 3.864 / 644 |
+| test | 304 / 75 | 1.610 / 226 | 3.864 / 644 |
 
 Tỉ lệ tư thế AP ở RSNA (toàn bộ dữ liệu): lớp âm 23,0 %, lớp dương 57,6 %. Tư thế gắn với nhãn, nên nó là một đường tắt
 tiềm năng (mục 7.4).
@@ -149,21 +150,20 @@ Sau 400 kimg, nếu 5 snapshot liên tiếp không tốt hơn thì dừng. Snaps
 *Lý do chọn KID thay vì FID:* KID không chệch theo số mẫu, phù hợp khi lớp thiểu số chỉ có vài trăm ảnh (ISIC: 148).
 Với 148 ảnh, ma trận hiệp phương sai 2.048 chiều của FID có hạng tối đa 147.
 
-**PCam — FID trên đặc trưng E_d, lớp 1, làm mượt EMA** (theo Xue et al., 2021): mỗi 100 kimg sinh 3.000 ảnh mỗi lớp,
+**PCam — FID trên đặc trưng E_d, làm mượt EMA** (theo Xue et al., 2021): mỗi 100 kimg sinh 3.000 ảnh mỗi lớp,
 FID giữa đặc trưng backbone (chưa chuẩn hoá L2) của **chính E_d** (DenseNet121, mục 4.2) cho ảnh sinh và cho **toàn
-bộ ảnh train** cùng lớp; điểm chọn = FID lớp 1, làm mượt $\tilde F_t = 0{,}5\,F_t + 0{,}5\,\tilde F_{t-1}$; cùng
-luật dừng sớm như trên. FID lớp 0 được chấm và lưu để báo cáo. Ban đầu điểm chọn là trung bình hai lớp; người dùng
-đổi sang lớp 1 khi GAN ở ~1.400 kimg (FID lớp 1 tăng trong khi lớp 0 giảm, trung bình che mất điều đó), quyết định
-dựa trên FID của tập train, trước mọi kết quả classifier; mọi snapshot được chấm lại theo luật mới
-([scripts/rescore_gan_snapshots.py](../scripts/rescore_gan_snapshots.py)). Dùng chung E_d cho chọn checkpoint và cho
-$M_d$ là một giới hạn (mục 10).
+bộ ảnh train** cùng lớp; điểm dừng sớm = $\max(\mathrm{FID}_0, \mathrm{FID}_1)$ (lớp kém nhất), làm mượt
+$\tilde F_t = 0{,}5\,F_t + 0{,}5\,\tilde F_{t-1}$, cùng luật dừng sớm như trên. Luật được khai báo trước khi train GAN:
+thiết kế có ảnh sinh ở cả hai lớp dùng snapshot của luật `max`; thiết kế chỉ thêm ảnh sinh vào lớp 1 dùng snapshot
+của luật FID lớp 1 (phát lại trên lịch sử, mọi snapshot được giữ). Dùng chung E_d cho chọn checkpoint và cho $M_d$ là
+một giới hạn (mục 10).
 
-GAN đang dùng: ISIC `v5`, RSNA `rsna` (800 kimg), PCam `pcam`.
+GAN đang dùng: ISIC `v5`, RSNA `rsna` (800 kimg), PCam `pcam6` (train trên tập train 6 : 1).
 
 ### 3.3 Sinh pool ứng viên ([pipeline/pool.py](../src/dass/pipeline/pool.py))
 
 Ảnh sinh lớp 1 được tạo từ $z \sim \mathcal{N}(0, I)$ với nhãn one-hot, **không truncation** ($\psi$ = 1), nhiễu cố định,
-seed 777: pool $\lceil k\,g\rceil$ ảnh với $k$ = 2 (ISIC 940, RSNA 12.926, PCam 66.044).
+seed 777: pool $\lceil k\,g\rceil$ ảnh với $k$ = 2 (ISIC 940, RSNA 12.926, PCam 30.020).
 
 *Lý do $\psi$ = 1:* truncation làm ảnh "điển hình" hơn nhưng giảm đa dạng; việc lọc ảnh để dành cho DASS.
 
@@ -337,10 +337,10 @@ M6), và giá trị của việc chọn so với ngẫu nhiên (M6 so với M1).
 
 | | ISIC | RSNA | PCam |
 |---|---|---|---|
-| $g$ (ảnh thêm vào lớp 1) | 470 | 6.463 | 33.022 |
-| Pool $\lceil 2g\rceil$ | 940 | 12.926 | 66.044 |
-| Mỗi lớp trong B2 / Balanced GAN | 618 | 7.522 | 36.024 |
-| Tỉ lệ ảnh sinh trong lớp 1 (Balanced GAN) | 76 % | 86 % | 92 % |
+| $g$ (ảnh thêm vào lớp 1) | 470 | 6.463 | 15.010 |
+| Pool $\lceil 2g\rceil$ | 940 | 12.926 | 30.020 |
+| Mỗi lớp trong B2 / Balanced GAN | 618 | 7.522 | 18.012 |
+| Tỉ lệ ảnh sinh trong lớp 1 (Balanced GAN) | 76 % | 86 % | 83 % |
 
 **Rủi ro đường tắt nguồn ảnh:** ảnh sinh chỉ có ở lớp 1, nên "trông giống ảnh GAN" mang thông tin về nhãn; trong không
 gian E_v ảnh sinh tách khỏi ảnh thật với AUC ≈ 0,99. Shortcut probe (mục 8.3) là bắt buộc và được báo cáo cho mọi
@@ -500,7 +500,7 @@ Lưu ý khi đọc:
 
 - **Seed:** chia dữ liệu, M1, ROS, bootstrap: 2026; classifier: 2026–2028; E_d: 4242; pool: 777; KID / FID khi chọn
   snapshot: 123; tiền xử lý PCam: 2026. Phép toán GPU không tất định (`deterministic: false`).
-- **Mỗi lần chạy** (`run_tag`: ISIC `v14`, RSNA `rsna_v5`, PCam `pcam_v2`; server thêm `_srv`) ghi `run_manifest.json`
+- **Mỗi lần chạy** (`run_tag`: ISIC `v14`, RSNA `rsna_v5`, PCam `pcam6_v1`; server thêm `_srv`) ghi `run_manifest.json`
   gồm commit, phiên bản thư viện và cấu hình của từng stage.
 - **Mỗi file dự đoán `.npz`** ghi giao thức train (augmentation, class weight, tiêu chí chọn epoch) và phiên bản code.
 - **Split** được lưu và băm; GAN dùng lại phải khớp split của nó.
@@ -510,7 +510,7 @@ Lưu ý khi đọc:
 
 ## 10. Giới hạn đã biết của phương pháp
 
-1. **Đường tắt nguồn ảnh:** ảnh sinh chỉ ở lớp bệnh (76–92 % lớp 1), nên classifier có thể học "trông giống ảnh GAN →
+1. **Đường tắt nguồn ảnh:** ảnh sinh chỉ ở lớp bệnh (76–86 % lớp 1), nên classifier có thể học "trông giống ảnh GAN →
    bệnh". Thiết kế tương tự trước đây đo được 62 % (ISIC) và 99 % (RSNA) ảnh sinh lớp đa số bị gọi là bệnh. Shortcut
    probe được báo cáo cho mọi phương pháp.
 2. **Lề là đại lượng tương đối.** Ảnh xa mọi ảnh thật có $S^{+}$ và $S^{-}$ cùng thấp, nên $M \approx 0$; DASS loại
@@ -524,7 +524,7 @@ Lưu ý khi đọc:
 7. **GAN chỉ học từ tập train**, nên ảnh sinh không mang thông tin mới ngoài tập train.
 8. **Các thay đổi sau khi xem kết quả của các lần chạy trước:** $k$, tiêu chí chọn epoch, thiết kế thí nghiệm (2.0.0),
    luật chọn checkpoint của PCam. Mọi cấu hình đã chạy phải được báo cáo.
-9. **Mất cân bằng của PCam là nhân tạo** (lấy mẫu 12 : 1).
+9. **Mất cân bằng của PCam là nhân tạo** (lấy mẫu 6 : 1).
 10. **Giai đoạn chỉ train đầu phân loại không được chọn làm epoch tốt nhất.** Với backbone dễ overfit (ResNet50), epoch
     fine-tune đầu tiên thường đã là tốt nhất.
 
@@ -537,7 +537,7 @@ Lưu ý khi đọc:
 | Dữ liệu | kích thước lưu / vào mạng | 256 (PCam 128) / 224 |
 | GAN | StyleGAN2-ADA có điều kiện | `paper256`, batch 16, R1 $\gamma$ 1, ADA target 0,6 |
 | | lật ngang | ISIC, PCam có; RSNA không |
-| | chọn checkpoint | ISIC, RSNA: KID-Inception lớp 1; PCam: FID-E_d lớp 1, EMA 0,5 |
+| | chọn checkpoint | ISIC, RSNA: KID-Inception lớp 1; PCam: FID-E_d, max hai lớp (dừng sớm) / lớp 1, EMA 0,5 |
 | | dừng sớm | snapshot 100 kimg, tối thiểu 400 kimg, kiên nhẫn 5, giảm tối thiểu 2 %, tối đa 3.000 kimg |
 | | sinh pool | $\psi$ = 1, seed 777, $\lceil 2g\rceil$ ảnh lớp 1 |
 | DASS | $K$ láng giềng | 5 |
