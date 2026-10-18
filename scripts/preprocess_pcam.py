@@ -16,6 +16,7 @@ Các bước (cố định, seed --seed):
 Ảnh giữ nguyên 96×96×3 uint8 (resize khi nạp). File ra: nhóm train / valid / test, mỗi nhóm có x, y, wsi, coord_x,
 coord_y, src_split, src_index (vị trí trong file PCam gốc); attrs ghi tham số, số lượng và md5 của từng mảng x.
 Kèm `<out>_split.csv` (image_id,split = train | val) cho `split.type: file` của pipeline (nguồn `hdf5`).
+`--subset-from <file.h5> --ratio 6`: tập con của một file đã tiền xử lý (giữ mọi ảnh dương, bớt ảnh âm theo WSI).
 """
 
 from __future__ import annotations
@@ -90,6 +91,40 @@ def write_split_csv(h5_path: Path) -> Path:
     return out
 
 
+def subset_from(src: Path, out: Path, ratio: int, seed: int) -> dict:
+    """Tập con của một file .h5 đã tiền xử lý: GIỮ mọi ảnh dương, lấy `ratio` × (số ảnh dương) ảnh âm trong mỗi phần
+    (phân tầng theo WSI, seed `seed`). Mọi ảnh của tập con nằm trong cùng phần của file gốc -> train mới là tập con của
+    train cũ (GAN / E_d train trên file gốc không thấy val / test mới)."""
+    rng = np.random.default_rng(seed)
+    stats = {}
+    tmp = out.with_suffix(".h5.tmp")
+    with h5py.File(src, "r") as fs, h5py.File(tmp, "w") as fo:
+        for k, v in fs.attrs.items():
+            fo.attrs[k] = v
+        params = json.loads(fs.attrs["params"])
+        fo.attrs["params"] = json.dumps({**params, "subset_of": str(src), "subset_ratio": ratio, "subset_seed": seed})
+        fo.attrs["description"] = (f"Tập con của {src.name}: giữ mọi ảnh dương, âm : dương = {ratio} (phân tầng theo "
+                                   "WSI); ảnh nằm trong cùng phần của file gốc")
+        for g in ("train", "valid", "test"):
+            gs = fs[g]
+            df = pd.DataFrame({"i": np.arange(len(gs["y"])), "y": gs["y"][:], "wsi": gs["wsi"][:].astype(str)})
+            pos, neg = df[df.y == 1], df[df.y == 0]
+            keep = pd.concat([pos, stratified_by_wsi(neg, ratio * len(pos), rng)]).sort_values("i")
+            idx = keep.i.to_numpy()
+            go = fo.create_group(g)
+            for name in gs:
+                data = gs[name][:][idx]
+                kw = dict(chunks=(256, *data.shape[1:]), compression="gzip", compression_opts=4) if name == "x" else {}
+                go.create_dataset(name, data=data, **kw)
+            go.attrs["md5_x"] = hashlib.md5(go["x"][:].tobytes()).hexdigest()
+            stats[g] = {"am": int((keep.y == 0).sum()), "duong": int((keep.y == 1).sum()),
+                        "wsi": int(keep.wsi.nunique())}
+        fo.attrs["stats"] = json.dumps({"subset": stats, "goc": json.loads(fs.attrs["stats"])}, ensure_ascii=False)
+    tmp.replace(out)
+    write_split_csv(out)
+    return stats
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--raw", type=Path, required=True)
@@ -100,7 +135,13 @@ def main() -> None:
     ap.add_argument("--max-white", type=float, default=0.5)
     ap.add_argument("--seed", type=int, default=2026)
     ap.add_argument("--split-csv-only", action="store_true", help="chỉ ghi lại CSV chia train / val từ --out có sẵn")
+    ap.add_argument("--subset-from", type=Path, default=None,
+                    help="tạo tập con (âm : dương = --ratio) từ một file .h5 đã tiền xử lý thay vì từ PCam gốc")
     args = ap.parse_args()
+    if args.subset_from:
+        print(json.dumps(subset_from(args.subset_from, args.out, args.ratio, args.seed), indent=1, ensure_ascii=False))
+        print("->", args.out)
+        return
     if args.split_csv_only:
         print("->", write_split_csv(args.out))
         return
