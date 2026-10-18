@@ -57,7 +57,8 @@ def test_pcam_config():
     cfg = load_config([CONFIGS / "server" / "pcam.yaml"], tag="srv")
     g, d = cfg.generator, cfg.data
     assert (d.source.type, d.img_size, d.split.type, d.channels) == ("hdf5", 128, "file", 3)
-    assert (g.select_metric, g.select_classes, g.select_ema_alpha, g.keep_snapshots) == ("fid_ed", "all", 0.5, True)
+    assert (g.select_metric, g.select_classes, g.select_ema_alpha, g.keep_snapshots) == \
+        ("fid_ed", "minority", 0.5, True)   # chọn theo FID lớp dương (người dùng đổi 2026-10-18)
     # dừng sớm cùng luật với ISIC / RSNA
     isic = load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator
     assert (g.min_kimg, g.patience, g.min_rel_delta, g.max_kimg) == \
@@ -90,3 +91,16 @@ def test_selection_without_smoothing_is_unchanged():
         assert sm == raw
         st["history"].append({"cum_kimg": cum, "kid": raw})
     assert st["best_kid"] == 0.03 and st["best_cum_kimg"] == 300
+
+
+def test_selection_rule_cannot_change_mid_history():
+    from dass.models.generator.trainer import check_selection_rule
+
+    st = {**default_state(), "metric": "fid_ed", "select_classes": ["negative", "positive"], "select_ema_alpha": 0.5}
+    check_selection_rule(st, {"metric": "fid_ed", "select_classes": ["positive"], "select_ema_alpha": 0.5})  # chưa có lịch sử
+    st["history"].append({"cum_kimg": 100, "kid": 1.0})
+    check_selection_rule(st, {"metric": "fid_ed", "select_classes": ["negative", "positive"], "select_ema_alpha": 0.5})
+    with pytest.raises(ValueError, match="rescore"):
+        check_selection_rule(st, {"metric": "fid_ed", "select_classes": ["positive"], "select_ema_alpha": 0.5})
+    with pytest.raises(ValueError, match="rescore"):
+        check_selection_rule({**st, "metric": "kid_inception"}, {"metric": "fid_ed"})

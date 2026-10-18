@@ -46,6 +46,20 @@ def update_selection(state: dict, raw: float, cum: int, gan: GeneratorConfig) ->
     return improved, smoothed
 
 
+def check_selection_rule(state: dict, info: dict) -> None:
+    """Lịch sử chọn snapshot phải cùng luật với config (thước đo, lớp được chấm, α làm mượt). Đổi luật giữa chừng ->
+    chấm lại mọi snapshot đã lưu bằng `scripts/rescore_gan_snapshots.py` rồi mới train tiếp."""
+    if not state["history"]:
+        return
+    saved = {"metric": state.get("metric", "kid_inception"), "select_classes": state.get("select_classes"),
+             "select_ema_alpha": state.get("select_ema_alpha", 1.0)}
+    for key, cur in info.items():
+        if key in saved and saved[key] is not None and saved[key] != cur:
+            raise ValueError(f"gan_state.json chọn snapshot theo {key} = {saved[key]!r}, config là {cur!r} -> không "
+                             "trộn hai luật trong một lịch sử. Chạy scripts/rescore_gan_snapshots.py (cần "
+                             "generator.keep_snapshots) để chấm lại mọi snapshot theo luật mới, hoặc đổi gan_tag.")
+
+
 def load_state(path: str | Path) -> dict:
     return read_json(path, default=None) or default_state()
 
@@ -89,12 +103,13 @@ def _last_tick_line(log_path: Path) -> str:
 
 
 class StyleGanTrainer:
-    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int, scorer: Callable[[Path], float],
+    def __init__(self, layout: Layout, gan: GeneratorConfig, seed: int,
+                 scorer: Callable[[Path], tuple[float, dict[str, float]]],
                  data_name: str | None = None, split_sha1: str | None = None, metric_info: dict | None = None):
         self.layout = layout
         self.gan = gan
         self.seed = seed
-        self.scorer = scorer                    # pkl -> điểm thô (thấp = tốt), so với ảnh thật của TRAIN
+        self.scorer = scorer                    # pkl -> (điểm chọn thô, điểm từng lớp); thấp = tốt; ảnh thật TRAIN
         self.data_name, self.split_sha1 = data_name, split_sha1
         self.metric_info = metric_info or {"metric": gan.select_metric}
 
@@ -110,10 +125,7 @@ class StyleGanTrainer:
         if state["cum_kimg"] == 0 and not state.get("split_sha1"):     # GAN mới: ghi lại dữ liệu + split dùng để train
             state.update(data_name=self.data_name, split_sha1=self.split_sha1, **self.metric_info)
             self._save(state)
-        saved_metric = state.get("metric", "kid_inception")
-        if state["history"] and saved_metric != self.gan.select_metric:
-            raise ValueError(f"GAN này đang chọn snapshot theo {saved_metric!r}, config là "
-                             f"{self.gan.select_metric!r} -> không trộn hai thước đo trong một lịch sử (đổi gan_tag).")
+        check_selection_rule(state, self.metric_info)
         if state["finished"]:
             log.info("GAN đã train xong (%s). Điểm tốt nhất = %.5g tại %s kimg.",
                      state["stop_reason"], state["best_kid"], state["best_cum_kimg"])
@@ -241,7 +253,7 @@ class StyleGanTrainer:
                 return False
             evaluated.add(pkl)
             cum = offset + kimg
-            raw = float(self.scorer(pkl))
+            raw, per_class = self.scorer(pkl)
             improved, smoothed = update_selection(state, raw, cum, g)
             if improved:
                 copy_atomic(pkl, self.layout.gan_best_pkl)
@@ -250,6 +262,8 @@ class StyleGanTrainer:
             copy_atomic(pkl, self.layout.gan_latest_pkl)
             state["cum_kimg"] = cum
             entry = {"cum_kimg": cum, "kid": raw, "improved": bool(improved)}
+            if per_class:
+                entry["per_class"] = per_class
             if g.select_ema_alpha < 1:
                 entry["smoothed"] = smoothed
             state["history"].append(entry)

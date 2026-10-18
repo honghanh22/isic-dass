@@ -54,11 +54,12 @@ def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
     return state
 
 
-def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], float], dict]:
+def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], tuple[float, dict[str, float]]], dict]:
     """Hàm chấm snapshot (thấp = tốt) theo `generator.select_metric` + thông tin ghi vào gan_state.json.
 
     Ảnh thật tham chiếu = TOÀN BỘ ảnh train của mỗi lớp được chấm (không bao giờ val). Mỗi lớp sinh `kid_n_gen` ảnh
-    (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = trung bình điểm các lớp.
+    (seed `kid_seed`, ψ như lúc sinh pool); điểm snapshot = trung bình điểm các lớp trong `select_classes` (minority =
+    chỉ lớp thiểu số; all = mọi lớp). fid_ed luôn chấm mọi lớp và trả về điểm từng lớp (lưu vào lịch sử).
     - kid_inception: KID trên Inception-v3 (giữ nguyên hành vi cũ khi select_classes = minority).
     - fid_ed: FID trên đặc trưng backbone của E_d (chưa chuẩn hoá L2) — CHÍNH file E_d mà `select` dùng cho M_d
       (Xue et al. 2021 chọn checkpoint bằng FID trên classifier của miền ảnh).
@@ -70,12 +71,14 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], float], di
 
     g = cfg.generator
     classes = [ctx.budget.minority] if g.select_classes == "minority" else list(cfg.data.class_names)
+    # fid_ed chấm MỌI lớp (ghi vào lịch sử để báo cáo), điểm chọn chỉ lấy các lớp trong `classes`
+    scored = list(cfg.data.class_names) if g.select_metric == "fid_ed" else classes
     info = {"metric": g.select_metric, "select_classes": classes, "select_ema_alpha": g.select_ema_alpha}
     if g.select_metric == "kid_inception":
         def extract(images: np.ndarray) -> np.ndarray:
             return inception_features(images)
 
-        real = {c: inception_features(load_images(ctx.train_paths[c], ctx.channels)) for c in classes}
+        real = {c: inception_features(load_images(ctx.train_paths[c], ctx.channels)) for c in scored}
 
         def distance(r: np.ndarray, f: np.ndarray) -> float:
             return kid_from_features(r, f, num_subsets=g.kid_subsets, seed=g.kid_seed)
@@ -90,22 +93,23 @@ def build_scorer(cfg: Config, ctx: Context) -> tuple[Callable[[Path], float], di
         def extract(images: np.ndarray) -> np.ndarray:
             return ed.embed_images(images, normalize=False).astype(np.float64)
 
-        real = {c: ed.embed(ctx.train_paths[c], normalize=False).astype(np.float64) for c in classes}
+        real = {c: ed.embed(ctx.train_paths[c], normalize=False).astype(np.float64) for c in scored}
         distance = compute_fid
-    for c in classes:
+    for c in scored:
         log.info("Đặc trưng ảnh thật %s (train) cho %s: %s", c, g.select_metric, real[c].shape)
 
-    def scorer(pkl: Path) -> float:
+    def scorer(pkl: Path) -> tuple[float, dict[str, float]]:
+        """(điểm chọn = trung bình các lớp trong `select_classes`, điểm từng lớp đã chấm)."""
         G = load_generator(pkl)
         per_class = {}
-        for c in classes:
+        for c in scored:
             fake = generate_class_images(G, g.kid_n_gen, ctx.class_idx(c), psi=g.trunc_psi, seed=g.kid_seed)
             per_class[c] = float(distance(real[c], extract(fake)))
         del G
         torch.cuda.empty_cache()
         if len(per_class) > 1:
             log.info("            %s theo lớp: %s", g.select_metric, {c: round(v, 5) for c, v in per_class.items()})
-        return float(np.mean(list(per_class.values())))
+        return float(np.mean([per_class[c] for c in classes])), per_class
 
     return scorer, info
 

@@ -26,11 +26,13 @@ data:
 
 generator:
   # Chọn snapshot theo Xue et al. 2021 (HistoGAN): FID trên đặc trưng của classifier miền ảnh — ở đây chính E_d
-  # (DenseNet121, người dùng chọn), làm mượt EMA α = 0,5, chấm CẢ HAI lớp (thiết kế B dùng ảnh sinh ở cả hai lớp).
-  # Dừng sớm cùng luật với ISIC / RSNA (min_kimg 400, patience 5, giảm ≥ 2 %, tối đa 3.000 kimg). Ảnh thật tham
-  # chiếu = train. Giữ mọi snapshot để vẽ lại đường FID.
+  # (DenseNet121, người dùng chọn), làm mượt EMA α = 0,5. Dừng sớm cùng luật với ISIC / RSNA (min_kimg 400,
+  # patience 5, giảm ≥ 2 %, tối đa 3.000 kimg). Ảnh thật tham chiếu = train. Giữ mọi snapshot.
+  # Lớp được dùng để CHỌN: lớp dương (thiểu số) — người dùng đổi 2026-10-18 lúc GAN ở ~1.400 kimg, sau khi thấy FID
+  # dương tăng (57,6 @ 1.000 -> ~74) trong khi FID âm giảm và trung bình hai lớp che mất điều đó (luật cũ: `all`).
+  # Quyết định dựa trên FID trên TRAIN, chưa có kết quả classifier / test. FID âm vẫn được chấm và lưu để báo cáo.
   select_metric: fid_ed
-  select_classes: all
+  select_classes: minority
   select_ema_alpha: 0.5
   kid_n_gen: 3000        # ảnh sinh mỗi lớp khi chấm (FID cần nhiều mẫu hơn KID; đặc trưng E_d 1.024 chiều)
   keep_snapshots: true

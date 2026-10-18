@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.23.1 — PCam: chọn snapshot GAN theo FID lớp dương; lưu FID từng lớp; chấm lại snapshot khi đổi luật
+- Người dùng quyết định (2026-10-18, GAN ở ~1.400 kimg): chọn snapshot theo FID-E_d **lớp dương** làm mượt
+  (`select_classes: minority`) thay cho trung bình hai lớp. Lý do: FID dương tăng từ 57,6 (1.000 kimg) lên ~72–77
+  trong khi FID âm giảm (59,7 -> ~47–52), trung bình hai lớp che mất điều đó; lớp dương là nguồn biến thể mới duy nhất
+  của lớp thiểu số trong thiết kế B. Quyết định dựa trên FID trên TRAIN, trước mọi kết quả classifier / test. Luật cũ
+  (trung bình hai lớp, gần bài HistoGAN hơn) phải được báo cáo kèm.
+- `fid_ed` luôn chấm MỌI lớp, lưu `history[].per_class`; điểm chọn = trung bình các lớp trong `select_classes`.
+- `trainer.check_selection_rule`: lịch sử phải cùng luật (thước đo, lớp được chấm, α) với config, khác -> dừng.
+- `scripts/rescore_gan_snapshots.py`: chấm lại mọi snapshot đã lưu theo luật hiện tại, phát lại làm mượt + dừng
+  sớm, cập nhật `best.pkl` và `gan_state.json` (giữ bản cũ `gan_state_before_rescore_*.json`); `latest.pkl` giữ nguyên.
+
 ## 1.23.0 — PCam (nguồn HDF5) và chọn snapshot GAN theo FID-E_d làm mượt
 - `scripts/preprocess_pcam.py`: PCam v1 -> một file `pcam_imb12.h5` + `pcam_imb12_split.csv`. Gộp train / valid /
   test gốc, bỏ ảnh trùng hệt (PCam lấy mẫu lặp lớp dương: 41.955 ảnh thừa ở train gốc; 34 ảnh train trùng test), bỏ
