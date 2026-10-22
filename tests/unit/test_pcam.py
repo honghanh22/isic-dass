@@ -58,7 +58,7 @@ def test_pcam_config():
     g, d = cfg.generator, cfg.data
     assert (d.source.type, d.img_size, d.split.type, d.channels) == ("hdf5", 128, "file", 3)
     assert (g.select_metric, g.select_classes, g.select_aggregate, g.select_ema_alpha, g.keep_snapshots) == \
-        ("fid_ed", "all", "max", 0.5, True)   # lớp kém nhất quyết định (khai báo trước GAN 6 : 1)
+        ("kid_ed", "all", "max", 0.5, True)   # lớp kém nhất quyết định; KID-E_d từ 2026-10-22 (FID nhiễu)
     # dừng sớm cùng luật với ISIC / RSNA
     isic = load_config([CONFIGS / "server" / "isic2016.yaml"], tag="srv").generator
     assert (g.min_kimg, g.patience, g.min_rel_delta, g.max_kimg) == \
