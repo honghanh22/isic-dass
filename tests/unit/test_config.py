@@ -41,7 +41,7 @@ def test_rsna_config_and_augment_profiles():
     rsna = load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"])
     assert rsna.data.source.type == "dicom_csv" and rsna.data.channels == 1 and rsna.data.augment_profile == "upright"
     assert (rsna.data.source.id_column, rsna.data.source.label_column) == ("patientId", "Target")
-    assert rsna.paths.gan_tag == "rsna" and rsna.data.split.type == "stratified"
+    assert rsna.paths.gan_tag == "rsna_v6" and rsna.data.split.type == "stratified"
     isic = load_config([CONFIGS / "experiments" / EXPERIMENTS[0]])
     assert isic.data.augment_profile == "rotation_invariant"            # mặc định: hành vi cũ của ISIC
     assert rsna.selection == isic.selection and rsna.encoder == isic.encoder        # cùng công thức DASS / E_d
@@ -55,7 +55,8 @@ def test_rsna_config_and_augment_profiles():
     sel = dict(select_metric="kid_ed", select_classes="all", select_aggregate="max", select_ema_alpha=0.5,
                keep_snapshots=True)
     assert (isic.generator.select_metric, isic.generator.select_aggregate) == ("kid_ed", "max")
-    assert dataclasses.replace(rsna.generator, mirror=True, **sel) == isic.generator
+    assert rsna.generator.max_kimg == 4500 and isic.generator.max_kimg == 3000   # RSNA gia hạn (best đúng ở trần cũ)
+    assert dataclasses.replace(rsna.generator, mirror=True, max_kimg=3000, **sel) == isic.generator
     with pytest.raises(ValueError, match="augment_profile"):
         load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"], ["data.augment_profile=random"])
     with pytest.raises(ValueError, match="dicom_csv"):

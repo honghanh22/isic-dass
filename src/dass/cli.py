@@ -52,6 +52,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("gan", help="train GAN (early stopping theo KID, tự resume) + báo cáo")
     p.add_argument("--fresh-start", action="store_true", help="XOÁ trạng thái GAN trên Drive và train lại từ đầu")
     p.add_argument("--dry-run", action="store_true", help="chỉ kiểm tra dataset + cấu hình, không train")
+    p.add_argument("--extend", action="store_true",
+                   help="GAN đã dừng vì chạm max_kimg: train tiếp tới generator.max_kimg mới (cùng luật chọn snapshot)")
 
     sub.add_parser("sample", help="sinh (hoặc khôi phục) candidate pool")
     sub.add_parser("fingerprint", help="(tuỳ chọn) fingerprint miền tần số của ảnh sinh — Frank et al.")
@@ -180,7 +182,7 @@ def main(argv: list[str] | None = None) -> None:
         gan.setup(cfg, reset=not args.no_reset, verify=not args.skip_verify, clear_cache=args.clear_ext_cache)
     elif cmd == "gan":
         from .pipeline.stages import gan
-        gan.run(cfg, fresh_start=args.fresh_start, dry_run=args.dry_run)
+        gan.run(cfg, fresh_start=args.fresh_start, dry_run=args.dry_run, extend=args.extend)
     elif cmd == "sample":
         from .pipeline.stages import sample
         sample.run(cfg)

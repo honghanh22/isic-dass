@@ -31,7 +31,7 @@ def setup(cfg: Config, reset: bool = True, verify: bool = True, clear_cache: boo
         verify_cuda_plugins(layout.sg2_repo)
 
 
-def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
+def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False, extend: bool = False) -> dict:
     from ...models.generator.export import build_stylegan_dataset_zip
     from ...models.generator.patches import ensure_stylegan_repo
     from ...models.generator.trainer import StyleGanTrainer
@@ -49,7 +49,7 @@ def run(cfg: Config, fresh_start: bool = False, dry_run: bool = False) -> dict:
 
     scorer, info = build_scorer(cfg, ctx)
     state = StyleGanTrainer(layout, g, cfg.seed, scorer, data_name=cfg.data.name, split_sha1=split_hash(ctx.split),
-                            metric_info=info).train(fresh_start=fresh_start)
+                            metric_info=info).train(fresh_start=fresh_start, extend=extend)
     report(cfg, ctx, state)
     return state
 

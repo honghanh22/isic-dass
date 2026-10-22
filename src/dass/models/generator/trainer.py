@@ -60,6 +60,29 @@ def check_selection_rule(state: dict, info: dict) -> None:
                              "generator.keep_snapshots) để chấm lại mọi snapshot theo luật mới, hoặc đổi gan_tag.")
 
 
+def reopen_for_extension(state: dict, max_kimg: int) -> None:
+    """Mở lại GAN đã dừng vì chạm `max_kimg` để train tiếp tới `max_kimg` mới (config), cùng luật chọn snapshot.
+
+    Chỉ hợp lệ khi GAN dừng vì trần tài nguyên, KHÔNG phải vì dừng sớm (luật đã khai báo đã kích hoạt), và trần mới lớn
+    hơn số kimg đã train. Lần gia hạn được ghi vào `state["extensions"]` để báo cáo minh bạch. GAN chưa xong: không làm gì.
+    """
+    if not state["finished"]:
+        return
+    reason = state.get("stop_reason") or ""
+    if not reason.startswith("đạt max_kimg"):
+        raise ValueError(f"GAN đã dừng vì '{reason}', không phải vì chạm max_kimg -> không gia hạn (luật dừng sớm đã "
+                         "kích hoạt)")
+    if max_kimg <= state["cum_kimg"]:
+        raise ValueError(f"generator.max_kimg = {max_kimg} không lớn hơn số kimg đã train ({state['cum_kimg']}) -> tăng "
+                         "max_kimg trong config trước khi gia hạn")
+    state.setdefault("extensions", []).append({
+        "from_kimg": state["cum_kimg"], "to_max_kimg": max_kimg, "previous_stop_reason": reason,
+        "best_cum_kimg_at_extension": state["best_cum_kimg"], "date": time.strftime("%Y-%m-%d %H:%M:%S")})
+    state.update(finished=False, stop_reason=None)
+    log.info("Gia hạn GAN: %d -> tối đa %d kimg (best hiện tại %s kimg), cùng luật chọn snapshot",
+             state["cum_kimg"], max_kimg, state["best_cum_kimg"])
+
+
 def load_state(path: str | Path) -> dict:
     return read_json(path, default=None) or default_state()
 
@@ -114,7 +137,7 @@ class StyleGanTrainer:
         self.metric_info = metric_info or {"metric": gan.select_metric}
 
     # ------------------------------------------------------------------ public
-    def train(self, fresh_start: bool = False) -> dict:
+    def train(self, fresh_start: bool = False, extend: bool = False) -> dict:
         if fresh_start:
             self._reset()
         self.layout.gan_runs.mkdir(parents=True, exist_ok=True)
@@ -126,6 +149,9 @@ class StyleGanTrainer:
             state.update(data_name=self.data_name, split_sha1=self.split_sha1, **self.metric_info)
             self._save(state)
         check_selection_rule(state, self.metric_info)
+        if extend:
+            reopen_for_extension(state, self.gan.max_kimg)
+            self._save(state)
         if state["finished"]:
             log.info("GAN đã train xong (%s). Điểm tốt nhất = %.5g tại %s kimg.",
                      state["stop_reason"], state["best_kid"], state["best_cum_kimg"])

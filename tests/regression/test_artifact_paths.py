@@ -33,7 +33,7 @@ def test_rsna_artifact_paths():
     data = Path("/content/drive/MyDrive/Colab Notebooks/ColabData/RSNA Pneumonia")
     out = data / "Result_Pneumonia"
     lay = _layout("rsna_pneumonia_dass.yaml")
-    assert lay.gan_best_pkl == out / "checkpoints_rsna/stylegan2ada/best.pkl"       # GAN mới, riêng cho RSNA
+    assert lay.gan_best_pkl == out / "checkpoints_rsna_v6/stylegan2ada/best.pkl"    # GAN train lại 2026-10-20, riêng cho RSNA
     assert lay.results_dir == out / "results_rsna_v5"
     assert lay.drive_train_images == data and lay.drive_train_labels is None        # tự tìm .dcm và CSV nhãn
     assert lay.dicom_metadata_csv == out / "checkpoints_rsna_v5/data/dicom_metadata.csv"
@@ -51,7 +51,7 @@ def test_channels_match_the_gan_of_each_dataset():
     isic = load_config([CONFIGS / "experiments" / "isic2016_dass.yaml"])
     rsna = load_config([CONFIGS / "experiments" / "rsna_pneumonia_dass.yaml"])
     assert isic.data.force_grayscale is False and rsna.data.force_grayscale is False
-    assert rsna.data.channels == 1 and rsna.paths.gan_tag == "rsna"
+    assert rsna.data.channels == 1 and rsna.paths.gan_tag == "rsna_v6"
 
 
 def test_local_dirs_are_separated_per_dataset():

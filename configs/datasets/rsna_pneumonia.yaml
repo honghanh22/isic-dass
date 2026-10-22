@@ -54,6 +54,10 @@ generator:
   select_aggregate: max
   select_ema_alpha: 0.5
   keep_snapshots: true
+  # Gia hạn (người dùng quyết định, 2026-10-22, trước khi có kết quả classifier): GAN chạm trần 3000 kimg với snapshot tốt
+  # nhất đúng ở 3000 (2900, 3000 đều là best mới) -> luật dừng sớm chưa kích hoạt. Nâng trần lên 4500, luật chọn giữ
+  # nguyên; `dass gan --extend` ghi lần gia hạn vào gan_state.json["extensions"]. ISIC / PCam không đổi (đã có best < trần).
+  max_kimg: 4500
 
 # Classifier: không augmentation, M0 không class weight — nay là cấu hình chung của MỌI bộ dữ liệu
 # (configs/_base_/classifier.yaml, 1.11.0), không ghi đè ở đây. E_d vẫn train có augmentation (profile `upright` ở

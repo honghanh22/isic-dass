@@ -108,6 +108,26 @@ def test_selection_rule_cannot_change_mid_history():
 
 
 def test_select_aggregate_validation():
-    assert load_config([CONFIGS / "server" / "rsna_pneumonia.yaml"], tag="srv").generator.select_aggregate == "mean"
+    from dass.config.schema import GeneratorConfig
+
+    assert GeneratorConfig().select_aggregate == "mean"                                   # mặc định
+    assert load_config([CONFIGS / "server" / "rsna_pneumonia.yaml"], tag="srv").generator.select_aggregate == "max"
     with pytest.raises(ValueError, match="select_aggregate"):
         load_config([CONFIGS / "server" / "pcam.yaml"], ["generator.select_aggregate=min"])
+
+
+def test_extension_only_after_max_kimg_cap():
+    from dass.models.generator.trainer import reopen_for_extension
+
+    st = {**default_state(), "cum_kimg": 3000, "best_cum_kimg": 3000, "finished": True,
+          "stop_reason": "đạt max_kimg=3000"}
+    with pytest.raises(ValueError, match="max_kimg"):
+        reopen_for_extension(dict(st), 3000)                       # trần chưa được nâng trong config
+    reopen_for_extension(st, 4500)
+    assert not st["finished"] and st["stop_reason"] is None
+    assert st["extensions"][0]["from_kimg"] == 3000 and st["extensions"][0]["to_max_kimg"] == 4500
+    reopen_for_extension(st, 4500)                                 # đang train: không làm gì
+    assert len(st["extensions"]) == 1
+    stopped = {**default_state(), "cum_kimg": 2000, "finished": True, "stop_reason": "early stopping tại 2000 kimg"}
+    with pytest.raises(ValueError, match="dừng sớm"):
+        reopen_for_extension(stopped, 4500)                        # luật dừng sớm đã kích hoạt: không gia hạn
