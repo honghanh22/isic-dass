@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.2.0 — cùng một luật chọn snapshot GAN cho ba bộ dữ liệu; RSNA train lại GAN; `dass gan --extend`
+Người dùng quyết định (2026-10-20 → 2026-10-22), trước mọi kết quả classifier của thiết kế 2.0.0.
+- **RSNA: train lại GAN** `rsna_v6` (GAN cũ `checkpoints_rsna/` giữ nguyên, không dùng) với luật của ISIC: `kid_ed`,
+  mọi lớp, `max`, EMA 0,5, giữ mọi snapshot; split `rsna_v2`. E_d `rsna_v5_srv` train trong lần chạy (val AUC 0,860).
+  Chạm trần 3.000 kimg với best đúng ở trần -> `max_kimg: 4500`; dừng sớm ở 3.800 kimg, best 3.300 kimg.
+- **`dass gan --extend`** (`trainer.reopen_for_extension`): mở lại GAN dừng vì chạm `max_kimg` để train tới
+  `max_kimg` mới với cùng luật; từ chối GAN đã dừng sớm; ghi `gan_state.json["extensions"]`.
+- **PCam: `select_metric: fid_ed` -> `kid_ed`** (cùng thước đo với ISIC / RSNA): FID lớp âm dao động mạnh giữa các
+  snapshot gần như giống nhau. Chấm lại 13 snapshot bằng `scripts/rescore_gan_snapshots.py` (state cũ:
+  `gan_state_before_rescore_20261022_144436.json`); snapshot chọn không đổi (800 kimg). KID-E_d lớp âm cũng tăng vọt
+  ở 1.000 kimg (12,1 so với 1,5), tức đó không phải nhiễu của FID.
+- GAN đang dùng: ISIC `isic_v6` (2.600 kimg), RSNA `rsna_v6` (3.300 kimg), PCam `pcam6` (800 kimg).
+- Test: sửa các test còn kỳ vọng `gan_tag: rsna` / `select_aggregate: mean` cho RSNA; thêm test cho `--extend`.
+- Tài liệu: METHOD.md mục 3, GUIDE.md mục 3, README, CLAUDE.md cập nhật theo luật mới.
+
 ## 2.1.0 — PCam 6 : 1, GAN train lại từ đầu, luật chọn snapshot `max` hai lớp
 Người dùng quyết định (2026-10-18). Toàn bộ lần chạy PCam 12 : 1 (GAN `pcam`, E_d `pcam_v1_srv`, `pcam_v2_srv`: pool,
 lựa chọn, 5 / 10 dự đoán ConvNeXt-Tiny) đã bị XOÁ theo yêu cầu; file `pcam_imb12.h5` vẫn giữ.

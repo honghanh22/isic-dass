@@ -126,7 +126,7 @@ H1–H3 khai báo trước khi train (2.0.0, `evaluation.primary_comparisons`), 
 - Split **tất định** (seed toàn cục 2026), lưu thành JSON. Chạy lại với cách chia khác mà vẫn giữ `run_tag` thì lệnh
   **dừng**, vì kết quả cũ gắn với split cũ.
 - GAN chỉ được thấy phần train của split nó đã train. ISIC: split tái lập đúng notebook v5 (test regression
-  `tests/regression/test_split_reproduction.py`). RSNA: GAN `rsna` gắn với split `rsna_v2` qua `split.expected`, kiểm
+  `tests/regression/test_split_reproduction.py`). RSNA: GAN `rsna_v6` (và GAN cũ `rsna`) gắn với split `rsna_v2` qua `split.expected`, kiểm
   tra tự động ở mọi stage; thuật toán `stratified` cũng được khoá bằng test regression.
 - **Val và test luôn 100 % ảnh thật.**
 
@@ -159,7 +159,7 @@ GAN, và còn chỗ để cải thiện (không chạm trần).
 | Số kênh | **1** (PNG xám); GAN mới sinh thẳng ảnh 1 kênh; nhân bản 1 -> 3 kênh chỉ trên bộ nhớ |
 | Chia | test của cuộc thi không có nhãn -> `stratified` 70 / 15 / 15 |
 | Augmentation | classifier: **không** (`classifier.augment: false`, chung cho mọi bộ dữ liệu); E_d: profile `upright` — lật ngang, xoay ±10° (không lật dọc, không xoay 180°) |
-| GAN | train mới (`gan_tag: rsna`), 1 kênh, cùng cấu hình và cùng cách dừng sớm theo KID; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó |
+| GAN | `gan_tag: rsna_v6` (train lại 2026-10-20), 1 kênh, cùng cấu hình và cùng luật chọn snapshot (KID-E_d) như ISIC / PCam; riêng **`mirror: false`** (X-quang ngực không đối xứng trái / phải: lật ngang làm tim nằm bên phải, chữ L / R bị ngược). GAN train trên split của `rsna_v2` -> `split.expected: checkpoints_rsna_v2/data/real_val_split.json`: mọi lần chạy dùng GAN này (run_tag / `--tag` mới) phải trùng đúng split đó |
 
 - Bước `prepare` tự đọc dữ liệu (`data.source.type: dicom_csv`): tìm `.dcm` (tự giải nén nếu cần), tìm CSV nhãn, chuyển
   sang PNG và ghi `checkpoints_<run_tag>/data/dicom_metadata.csv` (tư thế chụp, giới tính, tuổi). Đổi thiết lập nguồn
@@ -218,19 +218,35 @@ xong được khôi phục hoặc bỏ qua).
   phẫu, độ tương phản), còn nhãn điều khiển phần khác biệt giữa hai lớp.
 - **Siêu tham số:** batch 16, R1 γ = 1, lật ngang (`mirror`), ADA target 0,6. ADA (Adaptive Discriminator
   Augmentation) tự điều chỉnh mức augmentation của discriminator để chống overfit khi ít ảnh.
-- **Early stopping theo KID của lớp thiểu số:**
-  - Mỗi 100 kimg lưu một snapshot, sinh 1.000 ảnh lớp thiểu số (seed 123) và tính KID so với ảnh thật lớp thiểu số
-    của tập train (Inception-v3, 50 tập con).
-  - Snapshot được tính là **cải thiện** khi KID < 0,98 × KID tốt nhất trước đó (giảm ít nhất 2 %).
-  - Sau 400 kimg, nếu 5 snapshot liên tiếp không cải thiện thì dừng. Tối đa 3.000 kimg.
-  - Bước sau dùng **snapshot có KID thấp nhất** (`best.pkl`), không dùng snapshot cuối.
-  - **Không** tính KID dừng sớm trên ảnh val: val khi đó vừa chọn GAN vừa chọn epoch classifier (phá quy tắc "val chỉ
-    để chọn epoch"), và lớp thiểu số của val còn nhỏ hơn train nên KID nhiễu hơn
+- **Mọi snapshot được giữ** (`generator.keep_snapshots: true`) để chấm lại được khi cần.
+- **Chọn snapshot và dừng sớm: KID trên E_d, chấm cả hai lớp, lớp kém nhất quyết định** (cùng luật cho ISIC, RSNA, PCam):
+  - Mỗi 100 kimg, với mỗi lớp sinh 1.000 ảnh (PCam 3.000; seed 123) và tính KID (50 tập con) giữa đặc trưng của
+    **E_d** (DenseNet121, cùng file với $M_d$) cho ảnh sinh và cho toàn bộ ảnh **train** cùng lớp.
+  - Điểm snapshot = KID của lớp kém hơn (`select_aggregate: max`), làm mượt EMA α = 0,5 (Xue et al. 2021).
+  - Snapshot được tính là **cải thiện** khi điểm làm mượt < 0,98 × điểm tốt nhất trước đó (giảm ít nhất 2 %).
+  - Sau 400 kimg, nếu 5 snapshot liên tiếp không cải thiện thì dừng. Tối đa 3.000 kimg (RSNA 4.500, xem dưới).
+  - Bước sau dùng **snapshot tốt nhất** (`best.pkl`), không dùng snapshot cuối.
+  - **Không** tính điểm dừng sớm trên ảnh val: val khi đó vừa chọn GAN vừa chọn epoch classifier (phá quy tắc "val chỉ
+    để chọn epoch"), và lớp thiểu số của val còn nhỏ hơn train nên điểm nhiễu hơn
     (`tests/regression/test_gan_kid_reference.py`).
-- **Hiện trạng:** ISIC **dùng lại GAN đã train** (`checkpoints_v5`, KID tốt nhất 0,02007 tại 1.800 kimg, dừng sớm ở
-  2.300 kimg); khi đó lệnh `gan` chỉ báo cáo (đường KID, ảnh mẫu) và không train lại. RSNA train GAN mới (`checkpoints_rsna`, 1 kênh, `mirror: false`): KID tốt nhất 0,0145
-  tại 800 kimg, dừng sớm ở 1.300 kimg (khoảng 5,5 giờ trên A100); xác suất ADA chỉ 0–0,03 (đủ dữ liệu, gần như không
-  cần tăng cường).
+  - Vì sao E_d thay Inception-v3: trên RSNA, luật cũ (KID-Inception lớp dương) chọn snapshot mà ảnh dương sinh ra gần
+    như không có đám mờ. Vì sao chấm cả hai lớp: trên PCam, luật chỉ nhìn lớp dương chọn snapshot mà lớp âm lệch mạnh.
+- **Đổi luật hoặc trần giữa chừng** (trước mọi kết quả classifier, phải nêu trong bài):
+  - `scripts/rescore_gan_snapshots.py`: chấm lại mọi snapshot theo luật mới của config rồi dựng lại `gan_state.json`
+    (state cũ giữ thành `gan_state_before_rescore_*.json`). Dùng cho PCam khi đổi FID-E_d → KID-E_d (2026-10-22;
+    snapshot chọn không đổi, 800 kimg).
+  - `dass gan --extend`: GAN dừng vì chạm `max_kimg` (không phải dừng sớm) được train tiếp tới `max_kimg` mới với cùng
+    luật; lần gia hạn ghi vào `gan_state.json["extensions"]`. Dùng cho RSNA (best đúng ở trần 3.000 → trần 4.500).
+- **Hiện trạng:**
+
+  | Bộ dữ liệu | GAN | Đã train | Lý do dừng | Snapshot chọn |
+  |---|---|---|---|---|
+  | PCam 6 : 1 | `pcam6` | 1.300 kimg | dừng sớm | 800 kimg |
+  | ISIC 2016 | `isic_v6` | 3.000 kimg | chạm trần (best trước trần) | 2.600 kimg |
+  | RSNA | `rsna_v6` | 3.800 kimg | dừng sớm sau gia hạn | 3.300 kimg |
+
+  Trên server, một kimg mất khoảng 19,5 giây (RTX 3090 Ti); mỗi phiên GPU tối đa 2 giờ, `~/chain_gan.sh` tự nối các
+  phiên. GAN cũ ISIC `v5` / RSNA `rsna` (KID-Inception lớp thiểu số) còn trên Drive để tái lập kết quả cũ.
 
 ### 3.3 Candidate pool
 
@@ -377,7 +393,7 @@ Tiền xử lý dữ liệu (cắt viền đen ở ISIC) là làm sạch dữ li
 |---|---|---|
 | Lần train classifier | 10 phương pháp × 3 backbone × 3 seed = **90** | **270** |
 | Lần train E_d | 1 (PCam: dùng lại E_d đã chọn GAN) | 2 |
-| GAN | ISIC `v5`, RSNA `rsna` dùng lại; PCam `pcam` train mới (128 px) | 1 |
+| GAN | ISIC `isic_v6`, RSNA `rsna_v6`, PCam `pcam6` (128 px); cùng luật chọn snapshot KID-E_d | 1 |
 
 ### 4.3 Siêu tham số được cố định trước
 
@@ -636,7 +652,7 @@ EXTRA = ""                                                     # ghi đè, ví d
 ### 8.4 Thứ tự chạy và thời gian
 
 1. **RSNA:** `prepare` → `gan` → `sample` → `select` → các ô `train` → `evaluate` + `report` (`fingerprint` tuỳ chọn).
-   GAN `rsna` đã train xong (KID 0,0145 tại 800 kimg); `prepare` mất khoảng 30 phút trên server mới (chuyển DICOM).
+   GAN `rsna_v6` đã train xong (best 3.300 kimg, dừng sớm ở 3.800 sau gia hạn); `prepare` mất khoảng 30 phút trên server mới (chuyển DICOM).
    `sample` dùng lại pool lớp thiểu số và sinh thêm pool lớp đa số (5.642 ảnh); `select` train E_d mới (Colab) hoặc
    dùng lại E_d qua `encoder.e_d_from_run` (server: `rsna_v3_srv`).
 2. **ISIC:** đổi `EXPERIMENT = "configs/experiments/isic2016_dass.yaml"`, chạy lại ô chọn thực nghiệm và ô tiện ích,
@@ -703,7 +719,7 @@ Sau mỗi bước, bấm **Ctrl+S** để lưu output vào file `.ipynb` rồi �
 | Bước | RSNA: phải thấy | ISIC: phải thấy | Nếu khác |
 |---|---|---|---|
 | `prepare` | `Thiểu số = positive (1059) \| đa số = negative (7522) \| cần chọn 6463 \| pool 9695 ảnh \| 1 kênh` (kích thước pool lớp thiểu số đã sinh; dòng tiếp theo in phần dùng để chọn); `Split trùng khớp split tham chiếu real_val_split.json` | `Thiểu số = malignant (148) \| đa số = benign (618) \| cần chọn 470 \| pool 705 ảnh \| 3 kênh` | sai cấu hình / `PROFILE` |
-| `gan` | dùng `checkpoints_rsna` (KID 0,0145 tại 800 kimg), không train lại | dùng `checkpoints_v5` (KID 0,0201 tại 1.800 kimg), không train lại | sai `gan_tag` |
+| `gan` | dùng `checkpoints_rsna_v6` (best 3.300 kimg), không train lại | dùng `checkpoints_isic_v6` (best 2.600 kimg), không train lại | sai `gan_tag` |
 | `sample` | pool `positive` 12926 ảnh | pool `malignant` 940 ảnh | sai `pool_mult` |
 | `select` | `M6_dass: chọn 6463 / 12926 ảnh sinh` | `M6_dass: chọn 470 / 940 ảnh sinh` | |
 | `select` (chẩn đoán) | AUC probe trên val: kỳ vọng E_d ≥ E_v. Tương quan M_v–M_d càng gần 1 thì E_d càng ít thêm thông tin. Jaccard giữa M1 và các biến thể khác ≈ 1/3 | như bên trái | ghi lại, nêu trong bài |

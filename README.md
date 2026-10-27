@@ -55,7 +55,7 @@ flowchart LR
 
 | Step | What happens |
 |---|---|
-| Generator | Class-conditional StyleGAN2-ADA, trained on the training split only; snapshot chosen on the minority class (ISIC, RSNA: KID on Inception-v3; PCam: EMA-smoothed FID on `E_d` features, following Xue et al. 2021). |
+| Generator | Class-conditional StyleGAN2-ADA, trained on the training split only (both classes); snapshot chosen by KID on the disease-encoder `E_d` features, computed for every class, taking the worst class and EMA smoothing (α = 0.5, after Xue et al. 2021), with early stopping. Same rule for all three datasets. |
 | Candidate pool | `⌈k · g⌉` synthetic minority images, `g = |majority| − |minority|`, `k = 2`. |
 | Selection | M1–M6 pick exactly `g` images from the **same pool**; they differ only in the selection criterion. |
 | Training sets | B0/B1/B3: real images; B2: real + `g` duplicated minority images; M1–M6: real + `g` selected synthetic minority images. |
@@ -213,7 +213,7 @@ dass -c $E run                             # every stage, prepare → report
 
 dass -c $E prepare                         # ingest, preprocess, split, dataset card
 dass -c $E gan-setup                       # clone + patch StyleGAN2-ADA, compile CUDA plugins
-dass -c $E gan                             # train with KID early stopping (or reuse the trained generator)
+dass -c $E gan                             # train with KID-E_d early stopping (or reuse the trained generator)
 dass -c $E sample                          # candidate pool
 dass -c $E select                          # E_v / E_d, DASS and controls, shortcut diagnostics
 dass -c $E train --model ResNet50 --seeds 2026   # one backbone, one seed (repeat for 2027, 2028; `run` does this)
@@ -344,9 +344,9 @@ Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Dataset | `gan_tag` | Main `run_tag` |
 |---|---|---|
-| ISIC 2016 | `v5` | `v14` (server `v14_srv`) |
-| RSNA Pneumonia | `rsna` | `rsna_v5` (server `rsna_v5_srv`; split of `rsna_v2`) |
-| PatchCamelyon | `pcam` | `pcam6_v1` (server `pcam6_v1_srv`) |
+| ISIC 2016 | `isic_v6` | `v14` (server `v14_srv`) |
+| RSNA Pneumonia | `rsna_v6` | `rsna_v5` (server `rsna_v5_srv`; split of `rsna_v2`) |
+| PatchCamelyon | `pcam6` | `pcam6_v1` (server `pcam6_v1_srv`) |
 
 <!-- TODO: main results table once all backbones are finished -->
 

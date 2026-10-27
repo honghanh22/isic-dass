@@ -131,34 +131,52 @@ chung của cả tập.
 | Cấu hình | `paper256`, batch 16, R1 $\gamma$ = 1 |
 | Tăng cường thích nghi (ADA) | `--aug=ada`, mục tiêu $r_t$ = 0,6 |
 | Lật ngang (`mirror`) | ISIC, PCam: có; RSNA: **không** (X-quang ngực không đối xứng trái / phải) |
-| Độ dài tối đa | 3.000 kimg; lưu snapshot mỗi 100 kimg |
+| Độ dài tối đa | 3.000 kimg (RSNA: 4.500, xem dưới); lưu snapshot mỗi 100 kimg, **giữ mọi snapshot** |
 
 ### 3.2 Chọn checkpoint
 
-**ISIC, RSNA — KID-Inception lớp thiểu số.** 
-Mỗi snapshot được đánh giá bằng **KID** (Kernel Inception Distance; Bińkowski et al., 2018) giữa:
+**Cả ba bộ dữ liệu dùng cùng một luật: KID trên đặc trưng E_d, chấm cả hai lớp, lớp kém nhất quyết định, làm mượt
+EMA** (theo Xue et al., 2021, nhưng KID thay FID và chấm mọi lớp có ảnh sinh trong tập train).
 
-- 1.000 ảnh sinh **lớp thiểu số** ($\psi$ = 1, seed 123), và
-- **ảnh thật lớp thiểu số của tập train** (không bao giờ dùng val).
+Mỗi 100 kimg, với **mỗi lớp** $c$:
 
-Đặc trưng là vector 2.048 chiều của Inception-v3 (bản trong StyleGAN2-ADA). KID là MMD² không chệch với kernel đa thức
-$k(a, b) = (a^\top b / d + 1)^3$, lấy trung bình trên 50 tập con, mỗi tập $\min(n_\text{thật}, n_\text{sinh}, 1000)$ ảnh.
+- sinh $n_\text{gen}$ ảnh lớp $c$ ($\psi$ = 1, seed 123; ISIC / RSNA 1.000 ảnh, PCam 3.000 ảnh);
+- KID giữa đặc trưng backbone (chưa chuẩn hoá L2) của **chính E_d** (DenseNet121, mục 4.2; cùng file với $M_d$)
+  cho ảnh sinh và cho **toàn bộ ảnh train** lớp $c$ (không bao giờ dùng val).
 
-**Quy tắc dừng sớm:** một snapshot chỉ được tính là "tốt hơn" nếu KID giảm ít nhất 2 % so với mức tốt nhất hiện có.
-Sau 400 kimg, nếu 5 snapshot liên tiếp không tốt hơn thì dừng. Snapshot có KID thấp nhất được dùng (`best.pkl`).
+KID là MMD² không chệch với kernel đa thức $k(a, b) = (a^\top b / d + 1)^3$, lấy trung bình trên 50 tập con, mỗi tập
+$\min(n_\text{thật}, n_\text{sinh}, 1000)$ ảnh. Điểm thô của snapshot $F_t = \max_c \mathrm{KID}_c$ (lớp kém nhất), làm
+mượt $\tilde F_t = 0{,}5\,F_t + 0{,}5\,\tilde F_{t-1}$.
 
-*Lý do chọn KID thay vì FID:* KID không chệch theo số mẫu, phù hợp khi lớp thiểu số chỉ có vài trăm ảnh (ISIC: 148).
-Với 148 ảnh, ma trận hiệp phương sai 2.048 chiều của FID có hạng tối đa 147.
+**Quy tắc dừng sớm:** một snapshot chỉ được tính là "tốt hơn" nếu $\tilde F_t$ giảm ít nhất 2 % so với mức tốt nhất
+hiện có. Sau 400 kimg, nếu 5 snapshot liên tiếp không tốt hơn thì dừng. Snapshot tốt nhất được dùng (`best.pkl`). Điểm
+từng lớp được lưu trong `gan_state.json` (`history[].per_class`).
 
-**PCam — FID trên đặc trưng E_d, làm mượt EMA** (theo Xue et al., 2021): mỗi 100 kimg sinh 3.000 ảnh mỗi lớp,
-FID giữa đặc trưng backbone (chưa chuẩn hoá L2) của **chính E_d** (DenseNet121, mục 4.2) cho ảnh sinh và cho **toàn
-bộ ảnh train** cùng lớp; điểm dừng sớm = $\max(\mathrm{FID}_0, \mathrm{FID}_1)$ (lớp kém nhất), làm mượt
-$\tilde F_t = 0{,}5\,F_t + 0{,}5\,\tilde F_{t-1}$, cùng luật dừng sớm như trên. Luật được khai báo trước khi train GAN:
-thiết kế có ảnh sinh ở cả hai lớp dùng snapshot của luật `max`; thiết kế chỉ thêm ảnh sinh vào lớp 1 dùng snapshot
-của luật FID lớp 1 (phát lại trên lịch sử, mọi snapshot được giữ). Dùng chung E_d cho chọn checkpoint và cho $M_d$ là
-một giới hạn (mục 10).
+*Lý do KID thay FID:* KID không chệch theo số mẫu; ISIC chỉ có 148 ảnh ác tính train, và ma trận hiệp phương sai 1.024
+chiều của FID có hạng tối đa $n - 1$. *Lý do chấm cả hai lớp:* thiết kế có ảnh sinh ở cả hai lớp cần cả hai lớp tốt;
+trên PCam, luật chỉ nhìn lớp dương chọn snapshot 1.000 kimg, nơi KID-E_d lớp âm cao gấp khoảng 8 lần snapshot 800.
+*Lý do E_d thay Inception:* trên RSNA, luật cũ (KID-Inception lớp dương) chọn snapshot 800 kimg mà ảnh dương sinh ra
+gần như không có đám mờ; Inception-v3 (ImageNet) không đo đặc trưng bệnh trên X-quang.
 
-GAN đang dùng: ISIC `v5`, RSNA `rsna` (800 kimg), PCam `pcam6` (train trên tập train 6 : 1).
+**Các thay đổi so với luật khai báo trước khi train GAN (đều trước mọi kết quả classifier, ghi trong bài):**
+
+- PCam: luật khai báo là FID-E_d; đổi sang KID-E_d (2026-10-22) vì FID lớp âm dao động mạnh giữa các snapshot gần
+  như giống nhau. Mọi snapshot được chấm lại (`scripts/rescore_gan_snapshots.py`; state cũ giữ thành
+  `gan_state_before_rescore_*.json`); snapshot được chọn không đổi (800 kimg).
+- RSNA: GAN chạm trần 3.000 kimg với snapshot tốt nhất đúng ở trần (2.900, 3.000 đều là best mới), tức luật dừng sớm
+  chưa kích hoạt. Trần được nâng lên 4.500 kimg với cùng luật (`dass gan --extend`, ghi trong
+  `gan_state.json["extensions"]`); luật dừng sớm kích hoạt ở 3.800 kimg, best 3.300 kimg. `--extend` chỉ mở lại GAN
+  dừng vì chạm trần, không bao giờ mở lại GAN đã dừng sớm.
+
+**GAN đang dùng:**
+
+| Bộ dữ liệu | GAN | Đã train | Lý do dừng | Snapshot chọn |
+|---|---|---|---|---|
+| PCam 6 : 1 | `pcam6` | 1.300 kimg | dừng sớm | 800 kimg |
+| ISIC 2016 | `isic_v6` | 3.000 kimg | chạm trần (best trước trần) | 2.600 kimg |
+| RSNA | `rsna_v6` | 3.800 kimg | dừng sớm sau gia hạn | 3.300 kimg |
+
+GAN cũ (ISIC `v5`, RSNA `rsna`, chọn bằng KID-Inception lớp thiểu số) còn trên Drive để tái lập kết quả cũ.
 
 ### 3.3 Sinh pool ứng viên ([pipeline/pool.py](../src/dass/pipeline/pool.py))
 
@@ -519,11 +537,13 @@ Lưu ý khi đọc:
    giải được; chỉ thứ hạng trong pool có nghĩa.
 4. **Chuẩn hoá min-max** cho $\tilde M_v$ và $\tilde M_d$ trọng số ngang nhau, bất kể lề nào mang nhiều thông tin hơn.
 5. **Thành phần đa dạng ưu tiên ngoại lai** (tính chất của k-center).
-6. **E_d học trên chính các ảnh làm mốc**, nên $S_d$ lạc quan với ảnh giống ảnh train. Ở PCam, **cùng E_d** vừa chọn
-   checkpoint GAN vừa tính $M_d$.
+6. **E_d học trên chính các ảnh làm mốc**, nên $S_d$ lạc quan với ảnh giống ảnh train. Ở cả ba bộ dữ liệu, **cùng E_d**
+   vừa chọn checkpoint GAN vừa tính $M_d$.
 7. **GAN chỉ học từ tập train**, nên ảnh sinh không mang thông tin mới ngoài tập train.
 8. **Các thay đổi sau khi xem kết quả của các lần chạy trước:** $k$, tiêu chí chọn epoch, thiết kế thí nghiệm (2.0.0),
-   luật chọn checkpoint của PCam. Mọi cấu hình đã chạy phải được báo cáo.
+   luật chọn checkpoint (ISIC, RSNA train lại GAN với luật E_d; PCam đổi FID → KID sau khi train GAN; RSNA nâng trần
+   kimg sau khi thấy best ở trần). Các thay đổi GAN đều trước mọi kết quả classifier. Mọi cấu hình đã chạy phải được
+   báo cáo.
 9. **Mất cân bằng của PCam là nhân tạo** (lấy mẫu 6 : 1).
 10. **Giai đoạn chỉ train đầu phân loại không được chọn làm epoch tốt nhất.** Với backbone dễ overfit (ResNet50), epoch
     fine-tune đầu tiên thường đã là tốt nhất.
@@ -537,8 +557,8 @@ Lưu ý khi đọc:
 | Dữ liệu | kích thước lưu / vào mạng | 256 (PCam 128) / 224 |
 | GAN | StyleGAN2-ADA có điều kiện | `paper256`, batch 16, R1 $\gamma$ 1, ADA target 0,6 |
 | | lật ngang | ISIC, PCam có; RSNA không |
-| | chọn checkpoint | ISIC, RSNA: KID-Inception lớp 1; PCam: FID-E_d, max hai lớp (dừng sớm) / lớp 1, EMA 0,5 |
-| | dừng sớm | snapshot 100 kimg, tối thiểu 400 kimg, kiên nhẫn 5, giảm tối thiểu 2 %, tối đa 3.000 kimg |
+| | chọn checkpoint | KID-E_d mọi lớp, max (lớp kém nhất), EMA 0,5; 1.000 ảnh sinh mỗi lớp (PCam 3.000) |
+| | dừng sớm | snapshot 100 kimg, tối thiểu 400 kimg, kiên nhẫn 5, giảm tối thiểu 2 %, tối đa 3.000 kimg (RSNA 4.500) |
 | | sinh pool | $\psi$ = 1, seed 777, $\lceil 2g\rceil$ ảnh lớp 1 |
 | DASS | $K$ láng giềng | 5 |
 | | $\lambda_v, \lambda_d$ | 1, 1 |
