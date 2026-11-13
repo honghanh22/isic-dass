@@ -1,0 +1,52 @@
+# DASS-RC trên ISIC 2016 (thuyết minh 13/11/2026). Giai đoạn đầu: ConvNeXt-Tiny, seed 2026.
+#   dass -c configs/server/isic2016_rc.yaml rc-prepare | rc-search | rc-train --model ConvNeXtTiny
+_base_:
+  - isic2016.yaml
+
+paths:
+  run_tag: isic_rc1
+
+classifier:
+  models: [ConvNeXtTiny]
+  seeds: [2026]
+  fixed_steps: true          # mọi phương pháp cùng số update (epoch = ⌈ảnh thật train / batch⌉ bước)
+  monitor: val_pr_auc        # chọn epoch theo PR-AUC trên val (chỉ số chính là AP)
+
+evaluation:
+  threshold_rule: val_max_mcc
+  primary_metric: pr_auc
+  baseline_method: B0_imbalanced
+  comparisons:
+    - [A6_dass_rc, A0_random]
+    - [A6_dass_rc, B2_ros]
+    - [A6_dass_rc, A1_tmu]
+    - [A6_dass_rc, A3_tmu_poolcov]
+    - [A6_dass_rc, A4_maxmargin_rdc]
+    - [A6_dass_rc, A2_rdc]
+  # RQ1–RQ3 (khai báo trước): Holm riêng cho họ này
+  primary_comparisons:
+    - [A6_dass_rc, A1_tmu]
+    - [A6_dass_rc, A3_tmu_poolcov]
+    - [A6_dass_rc, A4_maxmargin_rdc]
+  method_labels:
+    B0_imbalanced: Imbalanced
+    B2_ros: ROS
+    A0_random: GAN-random (gate + NC)
+    A1_tmu: TMU-only
+    A2_rdc: RDC-only
+    A3_tmu_poolcov: TMU + pool coverage
+    A4_maxmargin_rdc: Max-margin + RDC
+    A6_dass_rc: DASS-RC (Ours)
+  result_tables:
+    comparison:
+      B0_imbalanced: Imbalanced
+      B2_ros: ROS
+      A0_random: GAN-random (gate + NC)
+      A6_dass_rc: DASS-RC (Ours)
+    ablation:
+      A0_random: GAN-random (gate + NC)
+      A1_tmu: TMU-only
+      A2_rdc: RDC-only
+      A3_tmu_poolcov: TMU + pool coverage
+      A4_maxmargin_rdc: Max-margin + RDC
+      A6_dass_rc: "DASS-RC: TMU + RDC"

@@ -17,6 +17,8 @@ classifier:
   # không phụ thuộc ngưỡng (công bằng giữa M0 mất cân bằng và biến thể cân bằng), ít nhiễu hơn val_macro_recall
   # (ISIC val chỉ 25 ca dương).
   monitor: val_auc
+  # true: mọi phương pháp cùng số update (epoch = ceil(ảnh thật train / batch) bước, dữ liệu lặp vô hạn)
+  fixed_steps: false
   # Augmentation chỉ ở B3 (Traditional Augmentation, profile `data.augment_profile`), class weight chỉ ở B1; mọi
   # phương pháp khác train trên đúng ảnh đã ghép (2.0.0).
   mixed_precision: false

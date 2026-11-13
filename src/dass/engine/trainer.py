@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import gc
 import logging
+import math
 import shutil
 from pathlib import Path
 
@@ -23,8 +24,8 @@ from sklearn.metrics import roc_auc_score
 from .. import __version__
 from ..config import Config, Layout
 from ..config.schema import ClassifierConfig
-from ..data.loaders import build_dataset
-from ..data.variants import Variant
+from ..data.loaders import build_dataset, class_source_dataset
+from ..data.variants import Variant, class_source_groups, count_real_train
 from ..evaluation.aggregate import archive_superseded_run, protocol_mismatch
 from ..models.classifiers import build_model, resolve_model_name
 from ..utils import code_version, read_json, save_npz_atomic, write_json_atomic
@@ -66,17 +67,17 @@ class ResumableBest(tf.keras.callbacks.Callback):
 
 
 def _fit_resumable(model, train_ds, val_ds, *, epochs: int, class_weight: dict | None, backup_dir: Path,
-                   extra_callbacks: list | None = None) -> None:
+                   extra_callbacks: list | None = None, steps_per_epoch: int | None = None) -> None:
     """model.fit có `BackupAndRestore`: bị ngắt (hết giờ GPU) -> gọi lại thì chạy tiếp từ epoch đã xong cuối cùng.
     Thứ tự xáo trộn dữ liệu sau khi train tiếp khác lần chạy liền một mạch (Keras không lưu trạng thái tf.data)."""
     callbacks = [tf.keras.callbacks.BackupAndRestore(str(backup_dir)), *(extra_callbacks or [])]
     model.fit(train_ds, validation_data=val_ds, epochs=epochs, class_weight=class_weight, callbacks=callbacks,
-              verbose=2)
+              steps_per_epoch=steps_per_epoch, verbose=2)
 
 
 def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class_weight: dict | None,
                   ckpt_path: Path, head_epochs: int, ft_epochs: int, with_pr_auc: bool = True,
-                  resume_dir: Path | None = None) -> tuple[int, dict]:
+                  resume_dir: Path | None = None, steps_per_epoch: int | None = None) -> tuple[int, dict]:
     """Giai đoạn 1: chỉ train head. Giai đoạn 2: fine-tune toàn bộ, giữ epoch tốt nhất theo `clf.monitor`.
 
     Trả về (best_epoch của giai đoạn 2, history). `history`: metric từng epoch của giai đoạn 2 (khoá của Keras: `loss`,
@@ -87,11 +88,13 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
     if resume_dir is not None:
         return _fit_two_stage_resumable(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight,
                                         ckpt_path=ckpt_path, head_epochs=head_epochs, ft_epochs=ft_epochs,
-                                        with_pr_auc=with_pr_auc, resume_dir=resume_dir)
+                                        with_pr_auc=with_pr_auc, resume_dir=resume_dir,
+                                        steps_per_epoch=steps_per_epoch)
     base.trainable = False
     model.compile(optimizer=tf.keras.optimizers.AdamW(clf.head_lr), loss="binary_crossentropy",
                   metrics=training_metrics(with_pr_auc))
-    head = model.fit(train_ds, validation_data=val_ds, epochs=head_epochs, class_weight=class_weight, verbose=2)
+    head = model.fit(train_ds, validation_data=val_ds, epochs=head_epochs, class_weight=class_weight,
+                     steps_per_epoch=steps_per_epoch, verbose=2)
 
     base.trainable = True
     model.compile(optimizer=tf.keras.optimizers.AdamW(clf.ft_lr, weight_decay=clf.weight_decay),
@@ -103,7 +106,7 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
                                            save_best_only=True, save_weights_only=True),
     ]
     hist = model.fit(train_ds, validation_data=val_ds, epochs=ft_epochs, class_weight=class_weight,
-                     callbacks=callbacks, verbose=2)
+                     callbacks=callbacks, steps_per_epoch=steps_per_epoch, verbose=2)
     model.load_weights(str(ckpt_path))
     best_epoch = int(np.argmax(hist.history[clf.monitor])) + 1
     log.info("best fine-tune epoch = %d, %s = %.4f, val AUC = %.4f", best_epoch, clf.monitor,
@@ -113,7 +116,7 @@ def fit_two_stage(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class
 
 def _fit_two_stage_resumable(model, base, train_ds, val_ds, *, clf: ClassifierConfig, class_weight: dict | None,
                              ckpt_path: Path, head_epochs: int, ft_epochs: int, with_pr_auc: bool,
-                             resume_dir: Path) -> tuple[int, dict]:
+                             resume_dir: Path, steps_per_epoch: int | None = None) -> tuple[int, dict]:
     resume_dir.mkdir(parents=True, exist_ok=True)
     head_done = resume_dir / "head_done.weights.h5"
     head_state = resume_dir / "head_history.json"
@@ -129,7 +132,7 @@ def _fit_two_stage_resumable(model, base, train_ds, val_ds, *, clf: ClassifierCo
     else:
         rec = ResumableBest("val_auc", head_epochs + 1, resume_dir / "head_best.weights.h5", head_state)
         _fit_resumable(model, train_ds, val_ds, epochs=head_epochs, class_weight=class_weight,
-                       backup_dir=resume_dir / "backup_head", extra_callbacks=[rec])
+                       backup_dir=resume_dir / "backup_head", extra_callbacks=[rec], steps_per_epoch=steps_per_epoch)
         model.save_weights(str(head_done))       # head luôn chạy đủ head_epochs như bản không resume
 
     base.trainable = True
@@ -140,7 +143,7 @@ def _fit_two_stage_resumable(model, base, train_ds, val_ds, *, clf: ClassifierCo
     ft_done = resume_dir / "ft_done"
     if not ft_done.exists():                     # fine-tune chưa xong (hết epoch hoặc dừng sớm) ở lần chạy trước
         _fit_resumable(model, train_ds, val_ds, epochs=ft_epochs, class_weight=class_weight,
-                       backup_dir=resume_dir / "backup_ft", extra_callbacks=[best])
+                       backup_dir=resume_dir / "backup_ft", extra_callbacks=[best], steps_per_epoch=steps_per_epoch)
         ft_done.touch()
     model.load_weights(str(ckpt_path))
     hist = best.history
@@ -172,8 +175,19 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     model, base, preprocess = build_model(model_name, clf)
     names = cfg.data.class_names
     train_dir, val_dir = variant.dir / "train", variant.dir / "val"
-    train_ds = build_dataset(train_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=True,
-                             augment=variant.augment, seed=seed, augment_profile=cfg.data.augment_profile)
+    steps = math.ceil(count_real_train(train_dir, names) / clf.batch_size) if clf.fixed_steps else None
+    if variant.sampler == "class_source":
+        if variant.augment or variant.class_weight or steps is None:
+            raise ValueError(f"{variant.tag}: sampler lớp × nguồn cần fixed_steps và không dùng augment / class weight")
+        train_ds = class_source_dataset(class_source_groups(train_dir, names), clf.size, clf.batch_size, channels,
+                                        preprocess, seed)
+    elif variant.sampler == "none":
+        train_ds = build_dataset(train_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=True,
+                                 augment=variant.augment, seed=seed, augment_profile=cfg.data.augment_profile)
+        if steps is not None:
+            train_ds = train_ds.repeat()
+    else:
+        raise ValueError(f"sampler không hợp lệ: {variant.sampler}")
     val_ds = build_dataset(val_dir, names, clf.size, clf.batch_size, channels, preprocess, shuffle=False)
     class_weight = compute_class_weight_from_dir(train_dir, cfg.data.classes) if variant.class_weight else None
     ckpt = layout.clf_ckpt / f"{model_name}__{variant.tag}__s{seed}.weights.h5"
@@ -181,7 +195,8 @@ def train_classifier(cfg: Config, layout: Layout, model_name: str, variant: Vari
     # chạy liền một mạch cho kết quả như bản không resume
     best_epoch, history = fit_two_stage(model, base, train_ds, val_ds, clf=clf, class_weight=class_weight,
                                         ckpt_path=ckpt, head_epochs=clf.head_epochs, ft_epochs=clf.ft_epochs,
-                                        resume_dir=layout.clf_ckpt / f"{ckpt.name.removesuffix('.weights.h5')}_resume")
+                                        resume_dir=layout.clf_ckpt / f"{ckpt.name.removesuffix('.weights.h5')}_resume",
+                                        steps_per_epoch=steps)
     if clf.save_weights_to_drive:
         shutil.copy2(ckpt, layout.clf_dir / ckpt.name)
     return model, preprocess, best_epoch, history
@@ -210,11 +225,14 @@ def predict_paths(model, preprocess, paths_by_class: dict[str, list[str]], cfg: 
 
 def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict[str, Variant], seeds: list[int],
                     channels: int, archive_mismatched: bool = False,
-                    train_real: dict[str, list[str]] | None = None) -> None:
+                    train_real: dict[str, list[str]] | None = None, pred_dir: Path | None = None,
+                    predict_test: bool = True) -> None:
     """`archive_mismatched`: .npz đã có nhưng train theo giao thức khác cấu hình hiện tại -> chuyển nó (và trọng số
     trên Drive) sang `*_superseded/<giao thức>/` rồi train lại; mặc định báo lỗi.
     `train_real` ({lớp: ảnh THẬT của tập train}, không gồm ảnh nhân bản / ảnh sinh): có -> dự đoán thêm trên tập này
-    (y_train / p_train trong .npz) để so AUC train với val / test."""
+    (y_train / p_train trong .npz) để so AUC train với val / test.
+    `pred_dir`: thư mục .npz khác `layout.pred_dir` (ví dụ dò siêu tham số DASS-RC); `predict_test = False`: KHÔNG dự
+    đoán test (dò siêu tham số chỉ dùng val) -> y_test / p_test rỗng."""
     model_name = resolve_model_name(model_name)
     code = code_version()
     log.info("Giao thức train %s | code %s (dass %s) | augmentation (%s): %s | class weight: %s | seeds %s",
@@ -223,11 +241,15 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
              [v.method for v in variants.values() if v.class_weight] or "không", list(seeds))
     for tag, variant in variants.items():
         for seed in seeds:
-            out = prediction_path(layout, model_name, tag, seed)
+            out = (Path(pred_dir) / f"{model_name}__{tag}__s{seed}.npz" if pred_dir
+                   else prediction_path(layout, model_name, tag, seed))
+            out.parent.mkdir(parents=True, exist_ok=True)
             if out.exists():
                 mismatch = protocol_mismatch(out, {"augment": variant.augment,
                                                    "class_weight": variant.class_weight,
-                                                   "monitor": cfg.classifier.monitor})
+                                                   "monitor": cfg.classifier.monitor,
+                                                   "sampler": variant.sampler,
+                                                   "fixed_steps": cfg.classifier.fixed_steps})
                 if not mismatch:
                     log.info("[bỏ qua, đã có] %s", out.name)
                     continue
@@ -243,7 +265,10 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
             model, preprocess, best_epoch, history = train_classifier(cfg, layout, model_name, variant, seed,
                                                                       channels)
             y_val, p_val, _ = predict_dir(model, preprocess, variant.dir / "val", cfg, channels)
-            y_test, p_test, test_files = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
+            if predict_test:
+                y_test, p_test, test_files = predict_dir(model, preprocess, layout.test_pp, cfg, channels)
+            else:
+                y_test, p_test, test_files = np.zeros(0, dtype=int), np.zeros(0), []
             extra = {}
             if train_real:
                 extra["y_train"], extra["p_train"] = predict_paths(model, preprocess, train_real, cfg, channels)
@@ -251,9 +276,14 @@ def run_experiments(cfg: Config, layout: Layout, model_name: str, variants: dict
                             test_files=np.array(test_files), model=model_name, method=variant.method,
                             k=cfg.selection.pool_mult, seed=seed, best_epoch=best_epoch, augment=variant.augment,
                             class_weight=variant.class_weight, monitor=cfg.classifier.monitor,
+                            sampler=variant.sampler, fixed_steps=cfg.classifier.fixed_steps,
                             code_version=code or "",
                             dass_version=__version__, **history_arrays(history))
-            log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
+            if predict_test:
+                log.info("test ROC-AUC = %.4f | đã lưu %s", roc_auc_score(y_test, p_test), out.name)
+            else:
+                log.info("val ROC-AUC = %.4f (không dự đoán test) | đã lưu %s", roc_auc_score(y_val, p_val),
+                         out.name)
             del model
             gc.collect()
             tf.keras.backend.clear_session()

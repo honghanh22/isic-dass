@@ -41,7 +41,7 @@ log = logging.getLogger(__name__)
 
 def evaluate_classification(cfg: Config, layout: Layout) -> tuple[pd.DataFrame, dict]:
     ev = cfg.evaluation
-    runs, probs = load_all_runs(layout.pred_dir, ev.threshold)
+    runs, probs = load_all_runs(layout.pred_dir, ev.threshold, ev.threshold_rule)
     if runs.empty:
         log.warning("Chưa có dự đoán nào trong %s -> bỏ qua phần phân loại", layout.pred_dir)
         return runs, probs
@@ -51,8 +51,9 @@ def evaluate_classification(cfg: Config, layout: Layout) -> tuple[pd.DataFrame, 
     save_metrics(layout, "classification_summary", summary)
     # mọi phương pháp vs baseline (M0), cộng các cặp bổ sung (M6 vs M0b, M6 vs M1) — cùng một bảng, cột `vs`;
     # p_holm: hiệu chỉnh Holm trong mỗi model (cả họ so sánh của model đó)
-    cmp = pd.concat([compare_to_baseline(probs, ev.baseline_method, ev.n_bootstrap, cfg.seed),
-                     compare_pairs(probs, ev.comparisons, ev.n_bootstrap, cfg.seed, ev.baseline_method)], ignore_index=True)
+    cmp = pd.concat([compare_to_baseline(probs, ev.baseline_method, ev.n_bootstrap, cfg.seed, ev.primary_metric),
+                     compare_pairs(probs, ev.comparisons, ev.n_bootstrap, cfg.seed, ev.baseline_method,
+                                   ev.primary_metric)], ignore_index=True)
     if len(cmp):
         save_metrics(layout, "significance_vs_baseline", add_holm(mark_family(cmp, ev.primary_comparisons)))
     log.info("Phân loại: %d lần chạy, %d nhóm (model × phương pháp)", len(runs), len(summary))

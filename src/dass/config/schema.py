@@ -177,6 +177,27 @@ class SelectionConfig:
 
 
 @dataclass
+class RCConfig:
+    """DASS-RC (thuyết minh 13/11/2026): pool cho MỌI lớp, NC (Inception-v3), gate, TMU + RDC, lazy greedy."""
+    pool_mult: float = 3.0           # pool lớp c = ⌈pool_mult · K_c⌉, K_c = N_c (r = 1)
+    max_pool_mult: float = 5.0       # trần sinh thêm khi thiếu ứng viên (không nới gate / NC)
+    nc_quantile: float = 0.01        # τ_NC = Q_q khoảng cách láng giềng gần nhất giữa ảnh thật train
+    delta: float = 0.0               # gate: m_c ≥ δ
+    # tham số mặc định; sau `rc-search` dùng giá trị đã khoá trong data/rc_params.json
+    eta: float = 1.0
+    mu_percentile: float = 50.0
+    sigma: float = 1.0
+    alpha: float = 0.5
+    # lưới dò tuần tự trên VAL: η (RDC-only) -> (μ, σ) (TMU-only) -> α (DASS-RC)
+    eta_grid: list[float] = field(default_factory=lambda: [0.5, 1.0, 2.0])
+    mu_grid: list[float] = field(default_factory=lambda: [25.0, 50.0, 75.0])
+    sigma_grid: list[float] = field(default_factory=lambda: [0.5, 1.0, 2.0])
+    alpha_grid: list[float] = field(default_factory=lambda: [0.25, 0.5, 0.75])
+    search_model: str = "ConvNeXtTiny"
+    search_seed: int = 2026
+
+
+@dataclass
 class EncoderConfig:
     e_d_model: str = "DenseNet121"   # nên KHÁC model báo cáo downstream
     e_d_seed: int = 4242
@@ -203,6 +224,9 @@ class ClassifierConfig:
     early_stop_patience: int = 8
     seeds: list[int] = field(default_factory=lambda: [2026, 2027, 2028])
     monitor: str = "val_auc"
+    # true: mọi phương pháp train CÙNG số update — mỗi epoch = ceil(số ảnh THẬT train / batch_size) bước, dữ liệu lặp
+    # vô hạn (DASS-RC); false: một epoch = một lượt qua thư mục train (thiết kế cũ)
+    fixed_steps: bool = False
     mixed_precision: bool = False
     save_weights_to_drive: bool = True
     vit_preset: str = "hf://keras/vit_base_patch16_224_imagenet"
@@ -212,6 +236,10 @@ class ClassifierConfig:
 @dataclass
 class EvaluationConfig:
     threshold: float = 0.5           # ngưỡng cố định — không dò trên val / test
+    # "fixed": dùng `threshold`; "val_max_mcc": mỗi lần chạy dùng ngưỡng tối đa MCC trên VAL của nó (DASS-RC)
+    threshold_rule: str = "fixed"
+    # chỉ số của paired bootstrap Δ: "roc_auc" | "pr_auc" (AP, chỉ số chính của DASS-RC)
+    primary_metric: str = "roc_auc"
     baseline_method: str = "B0_imbalanced"
     # paired bootstrap ΔAUC bổ sung, ngoài "mọi phương pháp vs baseline": [phương pháp, đối chứng]
     comparisons: list[list[str]] = field(default_factory=lambda: [["M6_dass", "M1_random"], ["M6_dass", "B2_ros"]])
@@ -246,6 +274,7 @@ class Config:
     generator: GeneratorConfig = field(default_factory=GeneratorConfig)
     analysis: AnalysisConfig = field(default_factory=AnalysisConfig)
     selection: SelectionConfig = field(default_factory=SelectionConfig)
+    rc: RCConfig = field(default_factory=RCConfig)
     encoder: EncoderConfig = field(default_factory=EncoderConfig)
     classifier: ClassifierConfig = field(default_factory=ClassifierConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)

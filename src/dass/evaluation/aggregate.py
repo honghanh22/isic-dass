@@ -12,13 +12,14 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
-from .classification import KEY_METRICS, binary_metrics
-from .statistics import holm_adjust, paired_bootstrap_auc
+from .classification import KEY_METRICS, binary_metrics, max_mcc_threshold
+from .statistics import SCORE_FUNCS, holm_adjust, paired_bootstrap_auc
 
 GROUP_COLS = ["model", "method", "lam", "k"]
 RunKey = tuple[str, str, str, float, int]   # (model, method, lam, k, seed)
-PROTOCOL_FIELDS = ("augment", "class_weight", "monitor")   # thiết lập train ghi trong .npz (None nếu không có)
-_PROTOCOL_TYPES = {"monitor": str}
+# thiết lập train ghi trong .npz (None nếu .npz cũ không có)
+PROTOCOL_FIELDS = ("augment", "class_weight", "monitor", "sampler", "fixed_steps")
+_PROTOCOL_TYPES = {"monitor": str, "sampler": str}
 
 
 def read_protocol(d) -> dict[str, bool | str | float | None]:
@@ -65,6 +66,8 @@ def check_single_protocol(runs: pd.DataFrame) -> None:
     thiết kế) — trộn thì mean ± std và bootstrap sai."""
     if "monitor" in runs and len(set(runs["monitor"].dropna())) > 1:
         raise ValueError("Thư mục dự đoán trộn lần chạy chọn epoch theo tiêu chí khác nhau -> tách bằng run_tag mới")
+    if "fixed_steps" in runs and len(set(runs["fixed_steps"].dropna())) > 1:
+        raise ValueError("Thư mục dự đoán trộn lần chạy có và không có fixed_steps -> tách bằng run_tag mới")
     for col in ("augment", "class_weight"):
         if col in runs:
             mixed = sorted(m for m, v in runs.groupby("method")[col] if len(set(v.dropna())) > 1)
@@ -72,9 +75,15 @@ def check_single_protocol(runs: pd.DataFrame) -> None:
                 raise ValueError(f"{mixed}: trộn lần chạy có và không có {col} -> tách bằng run_tag mới")
 
 
-def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
+def load_all_runs(pred_dir: str | Path, threshold: float = 0.5,
+                  threshold_rule: str = "fixed") -> tuple[pd.DataFrame, dict[RunKey, tuple]]:
     """(bảng metric từng lần chạy, {RunKey: (y_test, p_test, tên ảnh test | None)}). Tên ảnh test (`lớp/tệp`) có
-    trong .npz từ 1.9.0; .npz cũ -> None (dựng lại từ split khi cần, xem `evaluation.subgroups`)."""
+    trong .npz từ 1.9.0; .npz cũ -> None (dựng lại từ split khi cần, xem `evaluation.subgroups`).
+
+    `threshold_rule`: "fixed" -> ngưỡng `threshold` cho mọi lần chạy; "val_max_mcc" -> mỗi lần chạy dùng ngưỡng tối đa
+    MCC trên val của chính nó (cột `threshold`)."""
+    if threshold_rule not in ("fixed", "val_max_mcc"):
+        raise ValueError(f"threshold_rule không hợp lệ: {threshold_rule}")
     rows, probs = [], {}
     for path in sorted(Path(pred_dir).glob("*.npz")):
         with np.load(path, allow_pickle=True) as d:
@@ -87,7 +96,9 @@ def load_all_runs(pred_dir: str | Path, threshold: float = 0.5) -> tuple[pd.Data
                    "val_roc_auc": float(roc_auc_score(y_val, p_val)),
                    "train_roc_auc": (float(roc_auc_score(d["y_train"], d["p_train"])) if "p_train" in d.files
                                      else float("nan")), **read_protocol(d)}
-        row.update(binary_metrics(y_test, p_test, threshold))
+        thr = max_mcc_threshold(y_val, p_val) if threshold_rule == "val_max_mcc" else threshold
+        row["threshold"] = float(thr)
+        row.update(binary_metrics(y_test, p_test, thr))
         rows.append(row)
         probs[(model, method, lam, k, seed)] = (y_test, p_test, test_files)
     return pd.DataFrame(rows), probs
@@ -112,7 +123,7 @@ def _runs_of(probs: dict[RunKey, tuple], model: str, k: float, method: str,
 
 
 def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple], ref_name: str,
-             ref: dict[int, tuple], n_boot: int, seed: int) -> dict | None:
+             ref: dict[int, tuple], n_boot: int, seed: int, metric: str = "roc_auc") -> dict | None:
     """ΔAUC = AUC(method) − AUC(ref), hai cách:
 
     - `delta_auc`, CI, `p_value`: paired bootstrap trên xác suất TRUNG BÌNH qua các seed chung (ensemble) — đo dao
@@ -128,9 +139,12 @@ def _compare(model: str, k: float, method: str, lam: str, cur: dict[int, tuple],
         raise ValueError(f"Thứ tự nhãn test không khớp: {model}/{method} vs {ref_name}")
     p_ref = np.mean([ref[s][1] for s in common], axis=0)
     p_cur = np.mean([cur[s][1] for s in common], axis=0)
-    obs, lo, hi, pv = paired_bootstrap_auc(y, p_cur, p_ref, n_boot, seed)
-    per_seed = [roc_auc_score(y, cur[s][1]) - roc_auc_score(y, ref[s][1]) for s in common]
+    obs, lo, hi, pv = paired_bootstrap_auc(y, p_cur, p_ref, n_boot, seed, metric)
+    score = SCORE_FUNCS[metric]
+    per_seed = [score(y, cur[s][1]) - score(y, ref[s][1]) for s in common]
+    # các cột giữ tên delta_auc* (tương thích bảng cũ); cột `metric` cho biết Δ của chỉ số nào
     return {"model": model, "k": k, "method": method, "lam": lam, "vs": ref_name, "n_seeds": len(common),
+            "metric": metric,
             "delta_auc": obs, "ci95_low": lo, "ci95_high": hi, "p_value": pv,
             "delta_auc_seed_mean": float(np.mean(per_seed)),
             "delta_auc_seed_std": float(np.std(per_seed, ddof=1)) if len(per_seed) > 1 else float("nan")}
@@ -157,7 +171,8 @@ def add_holm(cmp: pd.DataFrame, family: list[str] | tuple[str, ...] = ("model", 
     return out
 
 
-def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, seed: int) -> pd.DataFrame:
+def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, seed: int,
+                        metric: str = "roc_auc") -> pd.DataFrame:
     """ΔAUC của từng (phương pháp, lambda) so với baseline, dùng xác suất trung bình qua các seed chung."""
     rows = []
     for model, k in sorted({(m, kk) for m, _, _, kk, _ in probs}):
@@ -167,14 +182,14 @@ def compare_to_baseline(probs: dict[RunKey, tuple], baseline: str, n_boot: int, 
         combos = sorted({(me, lm) for m, me, lm, kk, _ in probs if m == model and kk == k and me != baseline})
         for method, lam in combos:
             row = _compare(model, k, method, lam, _runs_of(probs, model, k, method, lam), baseline, base, n_boot,
-                           seed)
+                           seed, metric)
             if row:
                 rows.append(row)
     return pd.DataFrame(rows)
 
 
 def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: int, seed: int,
-                  baseline: str | None = None) -> pd.DataFrame:
+                  baseline: str | None = None, metric: str = "roc_auc") -> pd.DataFrame:
     """ΔAUC cho từng cặp [phương pháp, đối chứng] (ví dụ M6 vs B2, M6 vs M1), trong mỗi (model, k).
 
     Cặp nào thiếu dự đoán của một trong hai phía (chưa train) thì bỏ qua. Cặp có đối chứng = `baseline` cũng bỏ qua:
@@ -187,7 +202,7 @@ def compare_pairs(probs: dict[RunKey, tuple], pairs: list[list[str]], n_boot: in
             ref = _runs_of(probs, model, k, ref_name)
             for lam in sorted({lm for m, me, lm, kk, _ in probs if m == model and kk == k and me == method}):
                 row = _compare(model, k, method, lam, _runs_of(probs, model, k, method, lam), ref_name, ref,
-                               n_boot, seed)
+                               n_boot, seed, metric)
                 if row:
                     rows.append(row)
     return pd.DataFrame(rows)

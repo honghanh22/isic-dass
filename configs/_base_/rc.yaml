@@ -1,0 +1,19 @@
+# DASS-RC (thuyết minh 13/11/2026): chọn ảnh sinh theo margin mục tiêu (TMU) + độ phủ ảnh thật (RDC).
+#   dass -c <cfg> rc-prepare | rc-select | rc-search | rc-train
+rc:
+  pool_mult: 3.0         # pool lớp c = ⌈3 · K_c⌉, K_c = N_c (sinh cho MỌI lớp)
+  max_pool_mult: 5.0     # trần sinh thêm khi thiếu ứng viên; vẫn thiếu -> ngân sách khả thi chung, không nới gate / NC
+  nc_quantile: 0.01      # τ_NC = Q_0.01 khoảng cách láng giềng gần nhất (Inception-v3) giữa ảnh thật train
+  delta: 0.0             # gate: margin E_d m_c ≥ δ
+  # Mặc định; sau `rc-search` dùng giá trị đã khoá trong checkpoints_<run_tag>/data/rc_params.json
+  eta: 1.0               # h = η · median khoảng cách ảnh thật cùng lớp
+  mu_percentile: 50.0    # μ_c = phân vị margin chuẩn hoá của ảnh thật có m > 0
+  sigma: 1.0
+  alpha: 0.5             # F = (α/K)·ΣT + (1 − α)·RDC
+  # Dò tuần tự trên VAL (1 backbone, 1 seed), khoá từng giai đoạn: η -> (μ, σ) -> α
+  eta_grid: [0.5, 1.0, 2.0]
+  mu_grid: [25.0, 50.0, 75.0]
+  sigma_grid: [0.5, 1.0, 2.0]
+  alpha_grid: [0.25, 0.5, 0.75]
+  search_model: ConvNeXtTiny
+  search_seed: 2026

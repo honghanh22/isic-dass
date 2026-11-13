@@ -29,6 +29,14 @@ class Encoder:
     def __init__(self, model, preprocess, image_size: int, channels: int, batch_size: int):
         self.model, self.preprocess = model, preprocess
         self.image_size, self.channels, self.batch_size = image_size, channels, batch_size
+        self.head: tuple[np.ndarray, np.ndarray] | None = None   # (W, b) của lớp Dense cuối (E_d) -> logit
+
+    def logits(self, features_raw: np.ndarray) -> np.ndarray:
+        """Logit z = f·W + b từ đặc trưng CHƯA chuẩn hoá (dropout không hoạt động khi suy luận)."""
+        if self.head is None:
+            raise RuntimeError("Encoder này không có đầu phân loại")
+        W, b = self.head
+        return (np.asarray(features_raw, dtype=np.float64) @ W.astype(np.float64) + b.astype(np.float64)).ravel()
 
     def embed(self, paths: list[str], normalize: bool = True) -> np.ndarray:
         ds = paths_dataset(paths, self.image_size, self.channels, self.preprocess, self.batch_size)
@@ -84,4 +92,7 @@ def disease_encoder(cfg: Config, channels: int, real_only_dir: Path, ckpt: Path,
 
     feat = tf.keras.Model(base.input, base.output, name=f"E_d_{enc.e_d_model}")
     feat.trainable = False
-    return Encoder(feat, preprocess, clf.size, channels, enc.embed_batch_size)
+    out = Encoder(feat, preprocess, clf.size, channels, enc.embed_batch_size)
+    W, b = model.layers[-1].get_weights()            # Dense(1, sigmoid) của head
+    out.head = (np.asarray(W), np.asarray(b))
+    return out

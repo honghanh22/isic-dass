@@ -2,6 +2,7 @@
 
 - `scoring`:    lề M = S⁺ − λ·S⁻ (trung bình cosine TOP-K) trong không gian E_v và E_d
 - `strategies`: các phương pháp so sánh B0–B3, ablation M1–M6, thuật toán tham lam S_DASS = α·M̃_v + β·M̃_d + γ·S̃_div
+- `rc`:         DASS-RC — NC, gate, TMU, độ phủ ảnh thật (RDC), lazy greedy và các biến thể ablation A0–A6
 """
 
 from .scoring import compute_pool_scores, margin_score, topk_similarity

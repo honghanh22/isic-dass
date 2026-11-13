@@ -11,6 +11,8 @@ Tài liệu liên quan: [GUIDE.md](GUIDE.md) (hướng dẫn cho người mới,
 
 ---
 
+> **DASS-RC (2.3.0):** phương pháp chọn ảnh mới theo thuyết minh 13/11/2026 được mô tả ở [METHOD_RC.md](METHOD_RC.md). Tài liệu dưới đây mô tả DASS (M1–M6) mà các kết quả trước dùng.
+
 ## 0. Tóm tắt
 
 Bài toán là **phân loại ảnh y tế nhị phân khi lớp bệnh ít ảnh** (ISIC 2016: 4,2 : 1; RSNA Pneumonia: 7,1 : 1; PCam:

@@ -68,6 +68,35 @@ def build_dataset(data_dir: str | Path, class_names: list[str], image_size: int,
     return ds
 
 
+def class_source_dataset(groups: list[tuple[int, str, list[str]]], image_size: int, batch_size: int, channels: int,
+                         preprocess_fn: Callable, seed: int) -> tf.data.Dataset:
+    """Sampler lớp × nguồn (DASS-RC): mỗi batch có ĐÚNG batch_size / (2C) ảnh của mỗi nhóm (lớp, thật | sinh).
+
+    Mỗi nhóm xáo trộn lại sau mỗi lượt và lặp vô hạn (nhóm nhỏ được lấy lại có hoàn lại theo lượt) -> dùng với
+    `steps_per_epoch`. Thứ tự lấy luân phiên cố định 0, 1, …, 2C−1 nên quota trong batch là chính xác.
+    Đọc / resize giống `image_dataset_from_directory` (bilinear, giá trị 0–255 float32).
+    """
+    n = len(groups)
+    if batch_size % n:
+        raise ValueError(f"batch_size {batch_size} phải chia hết cho số nhóm lớp × nguồn ({n})")
+
+    def _load(path, label):
+        img = tf.io.decode_image(tf.io.read_file(path), channels=channels, expand_animations=False)
+        img = tf.image.resize(img, [image_size, image_size])
+        img.set_shape([image_size, image_size, channels])
+        return img, label
+
+    parts = []
+    for g, (label, _, paths) in enumerate(groups):
+        ds = tf.data.Dataset.from_tensor_slices((list(paths), [[float(label)]] * len(paths)))
+        ds = ds.shuffle(len(paths), seed=seed + g, reshuffle_each_iteration=True).repeat()
+        parts.append(ds.map(_load, num_parallel_calls=tf.data.AUTOTUNE))
+    choice = tf.data.Dataset.range(n).repeat()
+    ds = tf.data.Dataset.choose_from_datasets(parts, choice).batch(batch_size, drop_remainder=True)
+    ds = ds.map(lambda x, y: (preprocess_fn(to_backbone_input(x)), y), num_parallel_calls=tf.data.AUTOTUNE)
+    return ds.prefetch(tf.data.AUTOTUNE)
+
+
 def array_dataset(images: np.ndarray, image_size: int, preprocess_fn: Callable, batch_size: int = 32) -> tf.data.Dataset:
     """Như `paths_dataset` nhưng từ mảng uint8 NHWC trong bộ nhớ (ảnh sinh): cùng resize + tiền xử lý, không qua PNG
     (PNG không mất dữ liệu -> kết quả như đọc lại từ file)."""

@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.3.0 — DASS-RC: chọn ảnh sinh theo margin mục tiêu (TMU) + độ phủ ảnh thật (RDC)
+Theo thuyết minh 13/11/2026 (người dùng xác nhận). Code DASS cũ (M1–M6) giữ nguyên, mọi tuỳ chọn mới mặc định tắt.
+- `selection/rc.py`: NC (τ = Q_0.01 khoảng cách láng giềng gần nhất Inception-v3, nghi vấn chỉ loại sau xác minh),
+  gate m_c ≥ 0, TMU, RDC (facility location, mốc ảnh thật cùng lớp), lazy greedy chính xác; 6 cách chọn A0–A4, A6.
+- `pipeline/stages/rc.py` + lệnh `rc-prepare`, `rc-select`, `rc-search`, `rc-train`; config `configs/_base_/rc.yaml`,
+  `configs/server/isic2016_rc.yaml` (run_tag `isic_rc1`, ConvNeXt-Tiny, seed 2026).
+- Ghép tập train có ảnh sinh cho MỌI lớp (`VariantSpec.synth_by_class`); sampler lớp × nguồn (`class_source`,
+  quota chính xác mỗi batch); `classifier.fixed_steps` (mọi phương pháp cùng số update).
+- Đánh giá: `evaluation.threshold_rule: val_max_mcc`, `evaluation.primary_metric: pr_auc` (bootstrap ΔAP);
+  `.npz` ghi thêm `sampler`, `fixed_steps`. E_d trả thêm logit (`Encoder.logits`).
+- Không còn so sánh với FAGT (CosSIF) và nhóm SC (người dùng quyết định).
+- Tài liệu: `docs/METHOD_RC.md`.
+
 ## 2.2.0 — cùng một luật chọn snapshot GAN cho ba bộ dữ liệu; RSNA train lại GAN; `dass gan --extend`
 Người dùng quyết định (2026-10-20 → 2026-10-22), trước mọi kết quả classifier của thiết kế 2.0.0.
 - **RSNA: train lại GAN** `rsna_v6` (GAN cũ `checkpoints_rsna/` giữ nguyên, không dùng) với luật của ISIC: `kid_ed`,

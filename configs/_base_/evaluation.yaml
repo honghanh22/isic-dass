@@ -1,6 +1,8 @@
 # Đánh giá & báo cáo.
 evaluation:
   threshold: 0.5                 # ngưỡng CỐ ĐỊNH — không dò trên val / test
+  threshold_rule: fixed          # fixed | val_max_mcc (ngưỡng tối đa MCC trên val của từng lần chạy, khoá trước test)
+  primary_metric: roc_auc        # chỉ số của paired bootstrap Δ: roc_auc | pr_auc (AP)
   baseline_method: B0_imbalanced  # mốc so sánh thống kê (paired bootstrap ΔAUC): mọi phương pháp vs B0
   comparisons:                   # so sánh bổ sung [phương pháp, đối chứng] (cặp vs baseline đã có sẵn)
     - [M6_dass, M1_random]

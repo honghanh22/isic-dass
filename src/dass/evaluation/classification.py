@@ -23,6 +23,20 @@ METRIC_LABELS = {"roc_auc": "AUC", "pr_auc": "PR-AUC", "f1": "F1", "sensitivity"
                  "precision": "Prec.", "accuracy": "Acc."}
 
 
+def max_mcc_threshold(y_val: np.ndarray, p_val: np.ndarray) -> float:
+    """Ngưỡng t* tối đa MCC trên VAL (khoá trước test). Ứng viên = các giá trị xác suất phân biệt (dự đoán dương khi
+    p ≥ t). Hoà MCC -> sensitivity cao hơn -> ngưỡng lớn hơn (quy tắc cố định)."""
+    y = np.asarray(y_val).astype(int)
+    p = np.asarray(p_val, dtype=np.float64)
+    best: tuple[float, float, float] | None = None
+    for t in np.unique(p):
+        pred = (p >= t).astype(int)
+        key = (float(matthews_corrcoef(y, pred)), float(recall_score(y, pred, zero_division=0)), float(t))
+        if best is None or key > best:
+            best = key
+    return 0.5 if best is None else best[2]
+
+
 def binary_metrics(y_true: np.ndarray, y_prob: np.ndarray, thr: float = 0.5) -> dict[str, float]:
     """Metric ngưỡng-độc-lập (ROC-AUC, PR-AUC) + metric tại ngưỡng `thr`. Lớp dương = chỉ số 1."""
     y_true = np.asarray(y_true).astype(int)

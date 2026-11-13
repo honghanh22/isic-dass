@@ -69,6 +69,14 @@ def build_parser() -> argparse.ArgumentParser:
                    help="dự đoán đã có nhưng train theo giao thức khác (augmentation / class weight) -> chuyển sang "
                         "predictions_superseded/ (không xoá) rồi train lại")
 
+    sub.add_parser("rc-prepare", help="DASS-RC: pool mọi lớp, NC (Inception-v3), E_d -> rc_cache.npz + ảnh nghi vấn")
+    sub.add_parser("rc-select", help="DASS-RC: gate + TMU + RDC + greedy với tham số đã khoá -> rc_selections/")
+    sub.add_parser("rc-search", help="DASS-RC: dò η -> (μ, σ) -> α trên VAL (rc.search_model, rc.search_seed)")
+    p = sub.add_parser("rc-train", help="DASS-RC: train Imbalanced, ROS và 6 cách chọn (tham số đã khoá)")
+    p.add_argument("--model", required=True, help=f"một trong {', '.join(MODEL_NAMES)}")
+    p.add_argument("--seeds", type=int, nargs="+", help="mặc định: classifier.seeds")
+    p.add_argument("--methods", nargs="+", help="mặc định: B0_imbalanced B2_ros A0_random … A6_dass_rc")
+
     p = sub.add_parser("evaluate", help="metric phân loại + KID/FID (Inception-v3) + bootstrap -> metrics/")
     p.add_argument("--skip-generative", action="store_true", help="bỏ phần KID / FID (không cần GPU)")
 
@@ -195,6 +203,16 @@ def main(argv: list[str] | None = None) -> None:
     elif cmd == "train":
         from .pipeline.stages import train
         train.run(cfg, args.model, args.seeds, args.archive_mismatched, args.methods)
+    elif cmd.startswith("rc-"):
+        from .pipeline.stages import rc
+        if cmd == "rc-prepare":
+            rc.prepare(cfg)
+        elif cmd == "rc-select":
+            print(rc.select(cfg))
+        elif cmd == "rc-search":
+            rc.search(cfg)
+        else:
+            rc.train(cfg, args.model, args.seeds, args.methods)
     elif cmd == "evaluate":
         from .pipeline.stages import evaluate
         evaluate.run(cfg, skip_generative=args.skip_generative)

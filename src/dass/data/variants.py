@@ -46,6 +46,9 @@ class VariantSpec:
     extra_real: list[str] = field(default_factory=list)   # bản sao ảnh thật lớp thiểu số (B2)
     class_weight: bool = False                            # B1
     augment: bool = False                                 # B3
+    # DASS-RC: ảnh sinh cho TỪNG lớp {lớp: [đường dẫn]} và cách lấy batch khi train
+    synth_by_class: dict[str, list[str]] = field(default_factory=dict)
+    sampler: str = "none"                                 # none | class_source (quota bằng nhau cho lớp × nguồn)
 
 
 @dataclass
@@ -55,21 +58,26 @@ class Variant:
     method: str
     class_weight: bool
     augment: bool
+    sampler: str = "none"
 
 
 def variant_tag(method: str, pool_mult: float) -> str:
     return f"{method}_k{pool_mult:g}"
 
 
-def _signature(split: Split, minority: str, synth: list[str], extra_real: list[str]) -> str:
+def _signature(split: Split, minority: str, synth: list[str], extra_real: list[str],
+               synth_by_class: dict[str, list[str]] | None = None) -> str:
     data = {"split": {c: {s: parts[s] for s in ("train", "val")} for c, parts in split.items()},
             "minority": minority, "synth": synth, "extra_real": extra_real}
+    if synth_by_class:                    # chỉ thêm khoá khi có -> chữ ký của thư mục cũ không đổi
+        data["synth_by_class"] = synth_by_class
     return hashlib.sha1(json.dumps(data, sort_keys=True).encode()).hexdigest()
 
 
 def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split, minority: str,
                      synth_paths: list[str] | tuple[str, ...] = (),
-                     extra_real: list[str] | tuple[str, ...] = ()) -> dict[str, dict[str, int]]:
+                     extra_real: list[str] | tuple[str, ...] = (),
+                     synth_by_class: dict[str, list[str]] | None = None) -> dict[str, dict[str, int]]:
     """out_dir/{train,val}/<lớp>/: ảnh thật theo split (không lấy phần test) + ảnh sinh vào
     train/<minority>/synth_XXXXX.png + bản sao ảnh thật vào train/<minority>/dup_XXXXX_<tên gốc>.
 
@@ -77,7 +85,11 @@ def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split
     """
     out_dir = Path(out_dir)
     synth_paths, extra_real = list(synth_paths), list(extra_real)
-    signature = _signature(split, minority, [Path(p).name for p in synth_paths], [Path(p).name for p in extra_real])
+    synth_by_class = {c: list(v) for c, v in (synth_by_class or {}).items()}
+    if synth_by_class and synth_paths:
+        raise ValueError("Dùng synth (chỉ lớp thiểu số) HOẶC synth_by_class, không dùng cả hai")
+    signature = _signature(split, minority, [Path(p).name for p in synth_paths], [Path(p).name for p in extra_real],
+                           {c: [f"{Path(p).parent.name}/{Path(p).name}" for p in v] for c, v in synth_by_class.items()})
     marker = out_dir / _MARKER
     if marker.exists() and json.loads(marker.read_text()).get("signature") == signature:
         return json.loads(marker.read_text())["counts"]
@@ -91,6 +103,11 @@ def assemble_variant(out_dir: str | Path, train_pp_dir: str | Path, split: Split
                 shutil.copy2(Path(train_pp_dir) / label / f, dst / f)
     for i, src in enumerate(synth_paths):
         shutil.copy2(src, out_dir / "train" / minority / f"{SYNTH_PREFIX}{i:05d}.png")
+    for label, paths in synth_by_class.items():
+        if label not in split:
+            raise ValueError(f"Lớp không có trong split: {label}")
+        for i, src in enumerate(paths):
+            shutil.copy2(src, out_dir / "train" / label / f"{SYNTH_PREFIX}{i:05d}.png")
     for i, src in enumerate(extra_real):
         shutil.copy2(src, out_dir / "train" / minority / f"{DUP_PREFIX}{i:05d}_{Path(src).name}")
 
@@ -106,12 +123,37 @@ def prepare_variants(variants_root: str | Path, train_pp_dir: str | Path, split:
     for method, spec in specs.items():
         tag = variant_tag(method, pool_mult)
         out_dir = Path(variants_root) / tag
-        counts = assemble_variant(out_dir, train_pp_dir, split, minority, spec.synth, spec.extra_real)
-        log.info("%s: %s%s%s", tag, counts, " | class weight" if spec.class_weight else "",
-                 " | augmentation" if spec.augment else "")
+        counts = assemble_variant(out_dir, train_pp_dir, split, minority, spec.synth, spec.extra_real,
+                                  spec.synth_by_class)
+        log.info("%s: %s%s%s%s", tag, counts, " | class weight" if spec.class_weight else "",
+                 " | augmentation" if spec.augment else "",
+                 f" | sampler {spec.sampler}" if spec.sampler != "none" else "")
         variants[tag] = Variant(tag=tag, dir=out_dir, method=method, class_weight=spec.class_weight,
-                                augment=spec.augment)
+                                augment=spec.augment, sampler=spec.sampler)
     return variants
+
+
+def class_source_groups(train_dir: str | Path, class_names: list[str]) -> list[tuple[int, str, list[str]]]:
+    """Nhóm lớp × nguồn cho sampler `class_source`: [(nhãn, "real" | "synth", [đường dẫn])], thứ tự cố định
+    (lớp theo `class_names`, trong lớp: thật rồi sinh). Bản sao ROS (dup_) bị cấm trong biến thể dùng sampler."""
+    groups = []
+    for label, c in enumerate(class_names):
+        files = sorted((Path(train_dir) / c).iterdir())
+        if any(f.name.startswith(DUP_PREFIX) for f in files):
+            raise ValueError(f"{train_dir}/{c}: có ảnh nhân bản (ROS) trong biến thể dùng sampler lớp × nguồn")
+        real = [str(f) for f in files if not f.name.startswith(SYNTH_PREFIX)]
+        synth = [str(f) for f in files if f.name.startswith(SYNTH_PREFIX)]
+        for source, paths in (("real", real), ("synth", synth)):
+            if not paths:
+                raise ValueError(f"{train_dir}/{c}: nhóm {source} rỗng — không phải cấu hình cân bằng nguồn")
+            groups.append((label, source, paths))
+    return groups
+
+
+def count_real_train(train_dir: str | Path, class_names: list[str]) -> int:
+    """Số ảnh THẬT gốc của tập train (không tính ảnh sinh / bản sao) — đơn vị của một epoch khi `fixed_steps`."""
+    return sum(1 for c in class_names for f in (Path(train_dir) / c).iterdir()
+               if not f.name.startswith((SYNTH_PREFIX, DUP_PREFIX)))
 
 
 def assert_clean_eval_sets(variants: dict[str, Variant], test_dir: str | Path, class_names: list[str]) -> None:

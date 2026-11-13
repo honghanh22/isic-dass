@@ -57,6 +57,13 @@ class Layout:
         self.dataset_card = self.data_dir / "dataset_card.json"
         self.selections_json = self.data_dir / "selections.json"
         self.embeddings_npz = self.data_dir / "embeddings.npz"
+        # DASS-RC
+        self.rc_cache_npz = self.data_dir / "rc_cache.npz"                 # E_d + NC của pool mọi lớp
+        self.rc_nc_confirmed = self.data_dir / "rc_nc_confirmed.json"      # ảnh nghi vấn ĐÃ xác minh là bản sao
+        self.rc_params_json = self.data_dir / "rc_params.json"             # tham số đã khoá sau rc-search
+        self.rc_selections_dir = self.data_dir / "rc_selections"
+        self.rc_nc_dir = self.results_dir / "rc_nc_review"                 # ảnh nghi vấn để xác minh
+        self.rc_search_pred_dir = self.results_dir / "rc_search_predictions"   # chỉ val, không dự đoán test
         self.dicom_metadata_csv = self.data_dir / "dicom_metadata.csv"   # nguồn DICOM: tư thế chụp, giới tính, tuổi
 
         # ---- cục bộ (/content) ----
