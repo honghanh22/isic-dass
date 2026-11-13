@@ -50,3 +50,7 @@ evaluation:
       A3_tmu_poolcov: TMU + pool coverage
       A4_maxmargin_rdc: Max-margin + RDC
       A6_dass_rc: "DASS-RC: TMU + RDC"
+
+encoder:
+  # Dùng lại E_d đã chọn snapshot GAN isic_v6 (KID-E_d) -> cùng một E_d cho chọn GAN và chọn ảnh
+  e_d_from_run: v14_srv
