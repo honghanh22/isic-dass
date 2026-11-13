@@ -30,10 +30,13 @@ K_c = N_c (số ảnh thật train), pool ⌈3·K_c⌉ ảnh sinh cho MỌI lớ
 3. **TMU**: m̄ = (m − a_c) / max(b_c, ε), a_c, b_c theo ảnh thật train lớp c; T = exp(−(m̄ − μ)² / 2σ²), μ = phân vị
    của m̄ trên ảnh thật có m > 0.
 4. **RDC**: embedding E_d chuẩn hoá L2; κ = exp(−d² / 2h²), h = η · median khoảng cách (≤ 10.000 cặp ảnh thật cùng
-   lớp, seed cố định); **C(U) = (1/N_c) Σ_x log(1 + Σ_{q∈U} κ(x, q))** (độ phủ log, người dùng chọn 13/11/2026).
-   Đã thử và bỏ, trên ISIC: facility location (Σ max κ, công thức (7) của thuyết minh) bão hoà sau ~60 % ngân sách
-   K = N_c — phần còn lại có lợi ích RDC = 0 và tập chọn không đổi theo η; độ phủ xác suất Σ [1 − Π(1 − κ)] có lợi
-   ích ≈ 0 sau 13–29 ảnh. Độ phủ log không bão hoà (lợi ích lượt cuối ≈ 0,3–1 % lượt đầu) và tập chọn ổn định theo η.
+   lớp, seed cố định);
+   **C(U) = (1/N_c) Σ_x [max_{q∈U} κ(x, q) + λ · log(1 + Σ_{q∈U} κ(x, q))]**, λ = 0,01 cố định (người dùng chọn
+   13/11/2026). Facility location (phủ đều) quyết định phần đầu; khi nó bão hoà (K = N_c: sau ~60 % ngân sách ISIC
+   lợi ích = 0, tập chọn không đổi theo η) thì phần log định hướng phần còn lại. Tổng hai hàm submodular đơn điệu nên
+   vẫn có bảo đảm (1 − 1/e). So sánh trên ISIC (RDC-only, η = 1, coverage k = 5 của ảnh thật lớp benign): facility
+   0,731 | độ phủ log 0,639 | kết hợp λ = 0,01: 0,731 | ngẫu nhiên 0,587. Độ phủ xác suất Σ [1 − Π(1 − κ)] bị bỏ vì
+   lợi ích ≈ 0 sau 13–29 ảnh. Hệ quả cần nêu: η gần như không đổi phần facility (ảnh gần nhất không phụ thuộc h).
 5. **Greedy**: F(U) = (α/K)·Σ u(q) + (1 − α)·C(U), lazy greedy chính xác (bằng greedy đầy đủ, có test), hoà -> chỉ số
    nhỏ hơn; log phần tăng utility / coverage mỗi lượt.
 6. **Thiếu ứng viên** (|ℰ_c| < K_c): sinh thêm tới `max_pool_mult` = 5K_c; vẫn thiếu thì không nới gate / NC, mọi

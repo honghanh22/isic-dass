@@ -5,6 +5,7 @@ rc:
   max_pool_mult: 5.0     # trần sinh thêm khi thiếu ứng viên; vẫn thiếu -> ngân sách khả thi chung, không nới gate / NC
   nc_quantile: 0.01      # τ_NC = Q_0.01 khoảng cách láng giềng gần nhất (Inception-v3) giữa ảnh thật train
   delta: 0.0             # gate: margin E_d m_c ≥ δ
+  lam: 0.01              # RDC = facility location + λ·log(1 + Σκ): facility phủ đều trước, log định hướng phần sau bão hoà
   # Mặc định; sau `rc-search` dùng giá trị đã khoá trong checkpoints_<run_tag>/data/rc_params.json
   eta: 1.0               # h = η · median khoảng cách ảnh thật cùng lớp
   mu_percentile: 50.0    # μ_c = phân vị margin chuẩn hoá của ảnh thật có m > 0

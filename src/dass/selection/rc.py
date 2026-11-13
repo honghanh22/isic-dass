@@ -11,10 +11,12 @@ Quy trình cho MỖI lớp c (thuyết minh DASS-RC, 13/11/2026):
 3. TMU:   m̄ = (m − a_c) / max(b_c, ε_m),  T = exp(−(m̄ − μ_c)² / 2σ_c²),
           a_c, b_c = trung bình / độ lệch chuẩn margin ảnh thật train lớp c; μ_c = phân vị của m̄ trên ảnh thật có m > 0.
 4. RDC:   κ(x, q) = exp(−‖e(x) − e(q)‖² / 2h²),  h = η · max(ε_h, median khoảng cách cặp ảnh thật cùng lớp),
-          C(U) = Σ_x w(x) · log(1 + Σ_{q∈U} κ(x, q)),  w = 1/N_c   (độ phủ LOG, hàm lõm của tổng kernel).
-          Đơn điệu, submodular, lợi ích giảm dần nhưng không bão hoà. Không dùng (người dùng chọn, 13/11/2026):
-          facility location Σ_x w·max_q κ — với K = N_c bão hoà sau ~60 % ngân sách (ISIC), tập chọn không phụ thuộc
-          h; độ phủ xác suất Σ_x w·[1 − Π(1 − κ)] — lợi ích giảm theo cấp số nhân, ≈ 0 sau 13–29 ảnh.
+          C(U) = Σ_x w(x) · [ max_{q∈U} κ(x, q) + λ · log(1 + Σ_{q∈U} κ(x, q)) ],  w = 1/N_c,  λ = 0,01.
+          Phần 1 = facility location (phủ đều: mỗi ảnh thật cần một ảnh sinh đại diện) quyết định phần đầu ngân sách;
+          với K = N_c nó bão hoà (ISIC: sau ~60 % ngân sách lợi ích = 0) -> phần 2 (độ phủ log, λ nhỏ) định hướng phần
+          còn lại thay vì chọn theo ID. Cả hai đơn điệu, submodular -> tổng cũng vậy, giữ bảo đảm (1 − 1/e).
+          Người dùng chọn (13/11/2026) sau khi so trên ISIC: chỉ log -> coverage k=5 0,639 (gần ngẫu nhiên 0,587), chỉ
+          facility 0,731, kết hợp λ = 0,01 giữ 0,731.
 5. Greedy: F(U) = (α/K)·Σ_{q∈U} u(q) + (1−α)·C(U); lazy greedy CHÍNH XÁC (F submodular, đơn điệu), phá hoà bằng
           chỉ số nhỏ hơn; ghi riêng phần tăng utility và coverage ở mỗi lượt.
 
@@ -244,15 +246,18 @@ def kernel_column(anchors: np.ndarray, q: np.ndarray, h: float) -> np.ndarray:
     return np.exp(-d2 / (2.0 * h * h))
 
 
-def coverage(anchors: np.ndarray, selected: np.ndarray, h: float, weights: np.ndarray | None = None) -> float:
-    """C(U) = Σ_x w(x) · log(1 + Σ_{q∈U} κ(x, q)); C(∅) = 0. Đơn điệu, submodular, không bão hoà."""
+def coverage(anchors: np.ndarray, selected: np.ndarray, h: float, weights: np.ndarray | None = None,
+             lam: float = 0.01) -> float:
+    """C(U) = Σ_x w(x) · [max_{q∈U} κ(x, q) + λ · log(1 + Σ_{q∈U} κ(x, q))]; C(∅) = 0."""
     if len(selected) == 0:
         return 0.0
     w = np.full(len(anchors), 1.0 / len(anchors)) if weights is None else np.asarray(weights, dtype=np.float64)
-    total = np.zeros(len(anchors))
+    total, best = np.zeros(len(anchors)), np.zeros(len(anchors))
     for q in np.asarray(selected, dtype=np.float64):
-        total += kernel_column(anchors, q, h)
-    return float(w @ np.log1p(total))
+        k = kernel_column(anchors, q, h)
+        total += k
+        best = np.maximum(best, k)
+    return float(w @ (best + lam * np.log1p(total)))
 
 
 # ----------------------------------------------------------------------------------------------------------- greedy
@@ -265,8 +270,8 @@ class GreedyLog:
 
 def greedy_select(cand_emb: np.ndarray, utility: np.ndarray, anchors: np.ndarray, n_select: int, alpha: float,
                   h: float, weights: np.ndarray | None = None, block: int = 1024,
-                  max_kernel_bytes: float = 16e9) -> GreedyLog:
-    """Lazy greedy CHÍNH XÁC cho F(U) = (α/K)·Σ u(q) + (1−α)·C(U).
+                  max_kernel_bytes: float = 16e9, lam: float = 0.01) -> GreedyLog:
+    """Lazy greedy CHÍNH XÁC cho F(U) = (α/K)·Σ u(q) + (1−α)·C(U) (C: facility location + λ·log, xem đầu file).
 
     F đơn điệu, submodular -> lợi ích biên của mỗi ứng viên chỉ giảm khi U lớn dần, nên chặn trên cũ trong heap
     là hợp lệ; ứng viên ở đỉnh heap được tính lại, nếu vẫn ≥ đỉnh tiếp theo (so tuple (−lợi ích, chỉ số)) thì chọn.
@@ -296,13 +301,16 @@ def greedy_select(cand_emb: np.ndarray, utility: np.ndarray, anchors: np.ndarray
         for s in range(0, n, block):
             Kmat[:, s:s + block] = np.exp(-_sqdist_block(A, E[s:s + block]) / (2.0 * h * h))
     cum = np.zeros(len(A), dtype=np.float64)        # Σ_{u∈U} κ(x, u) của mỗi ảnh thật
+    best = np.zeros(len(A), dtype=np.float64)       # max_{u∈U} κ(x, u)
 
     def gains(cols: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         gu = ucoef * u[cols]
         if Kmat is None:
             return gu, np.zeros(len(cols))
-        base = np.log1p(cum)
-        gc = beta * (w @ (np.log1p(cum[:, None] + Kmat[:, cols]) - base[:, None]))
+        Kc = Kmat[:, cols].astype(np.float64)
+        g_fl = w @ np.maximum(Kc - best[:, None], 0.0)
+        g_log = w @ (np.log1p(cum[:, None] + Kc) - np.log1p(cum)[:, None]) if lam > 0 else 0.0
+        gc = beta * (g_fl + lam * g_log)
         return gu, gc
 
     heap: list[tuple[float, int]] = []
@@ -323,6 +331,7 @@ def greedy_select(cand_emb: np.ndarray, utility: np.ndarray, anchors: np.ndarray
             out.gain_coverage.append(float(gc[0]))
             if Kmat is not None:
                 cum += Kmat[:, i]
+                np.maximum(best, Kmat[:, i], out=best)
             continue
         gu, gc = gains(np.array([i]))
         fresh_round[i] = t
@@ -345,6 +354,7 @@ class RCParams:
     sigma: float = 1.0
     alpha: float = 0.5               # trọng số utility; β = 1 − α
     delta: float = 0.0               # ngưỡng gate
+    lam: float = 0.01                # trọng số phần độ phủ log trong RDC
 
 
 @dataclass
@@ -389,16 +399,16 @@ def select_class(*, pool_emb: np.ndarray, pool_logit: np.ndarray, real_emb: np.n
         elif m == RC_TMU:
             loc = topk_ids(T, budget)
         elif m == RC_RDC:
-            logs[m] = greedy_select(E, np.zeros(len(E)), anchors, budget, 0.0, h)
+            logs[m] = greedy_select(E, np.zeros(len(E)), anchors, budget, 0.0, h, lam=params.lam)
             loc = logs[m].order
         elif m == RC_TMU_POOLCOV:
-            logs[m] = greedy_select(E, T, E, budget, params.alpha, h)
+            logs[m] = greedy_select(E, T, E, budget, params.alpha, h, lam=params.lam)
             loc = logs[m].order
         elif m == RC_MAXMARGIN_RDC:
-            logs[m] = greedy_select(E, margin_rank(m_pool[eligible]), anchors, budget, params.alpha, h)
+            logs[m] = greedy_select(E, margin_rank(m_pool[eligible]), anchors, budget, params.alpha, h, lam=params.lam)
             loc = logs[m].order
         elif m == RC_DASS:
-            logs[m] = greedy_select(E, T, anchors, budget, params.alpha, h)
+            logs[m] = greedy_select(E, T, anchors, budget, params.alpha, h, lam=params.lam)
             loc = logs[m].order
         else:
             raise ValueError(f"Phương pháp chọn không hợp lệ: {m}")

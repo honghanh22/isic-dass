@@ -183,6 +183,7 @@ class RCConfig:
     max_pool_mult: float = 5.0       # trần sinh thêm khi thiếu ứng viên (không nới gate / NC)
     nc_quantile: float = 0.01        # τ_NC = Q_q khoảng cách láng giềng gần nhất giữa ảnh thật train
     delta: float = 0.0               # gate: m_c ≥ δ
+    lam: float = 0.01                # RDC = facility location + λ · độ phủ log (cố định, không dò)
     # tham số mặc định; sau `rc-search` dùng giá trị đã khoá trong data/rc_params.json
     eta: float = 1.0
     mu_percentile: float = 50.0

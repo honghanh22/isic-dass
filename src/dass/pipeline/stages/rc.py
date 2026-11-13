@@ -153,9 +153,10 @@ def _write_nc_review(cfg: Config, ctx: Context, pools: dict[str, list[str]], tra
 def locked_params(cfg: Config, layout) -> RCParams:
     saved = read_json(layout.rc_params_json)
     if saved:
-        return RCParams(**{k: saved[k] for k in ("eta", "mu_percentile", "sigma", "alpha", "delta")})
+        return RCParams(**{k: saved[k] for k in ("eta", "mu_percentile", "sigma", "alpha", "delta", "lam")})
     rc = cfg.rc
-    return RCParams(eta=rc.eta, mu_percentile=rc.mu_percentile, sigma=rc.sigma, alpha=rc.alpha, delta=rc.delta)
+    return RCParams(eta=rc.eta, mu_percentile=rc.mu_percentile, sigma=rc.sigma, alpha=rc.alpha, delta=rc.delta,
+                    lam=rc.lam)
 
 
 def params_tag(p: RCParams) -> str:
@@ -273,7 +274,8 @@ def search(cfg: Config) -> RCParams:
         log.warning("Đã khoá tham số: %s -> giữ nguyên", read_json(layout.rc_params_json))
         return locked_params(cfg, layout)
     model, seed = resolve_model_name(rc.search_model), rc.search_seed
-    p = RCParams(eta=rc.eta, mu_percentile=rc.mu_percentile, sigma=rc.sigma, alpha=rc.alpha, delta=rc.delta)
+    p = RCParams(eta=rc.eta, mu_percentile=rc.mu_percentile, sigma=rc.sigma, alpha=rc.alpha, delta=rc.delta,
+                 lam=rc.lam)
     log_rows = []
 
     def run_phase(phase: str, method: str, candidates: list[RCParams]) -> RCParams:
@@ -299,6 +301,6 @@ def search(cfg: Config) -> RCParams:
                                      for sg in rc.sigma_grid for a in rc.alpha_grid])
     save_metrics(layout, "rc_search", pd.DataFrame(log_rows))
     write_json_atomic(layout.rc_params_json, {**p.__dict__, "search_model": model, "search_seed": seed,
-                                              "coverage": "probabilistic"})
+                                              "coverage": "facility+log"})
     log.info("Đã khoá tham số DASS-RC: %s -> %s", params_tag(p), layout.rc_params_json)
     return p
