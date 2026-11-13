@@ -1,0 +1,12 @@
+# DASS-RC trên RSNA (thuyết minh 13/11/2026). Giai đoạn đầu: ConvNeXt-Tiny, seed 2026.
+#   dass -c configs/server/rsna_pneumonia_rc.yaml rc-prepare | rc-search | rc-train --model ConvNeXtTiny
+_base_:
+  - rsna_pneumonia.yaml
+  - rc_common.yaml
+
+paths:
+  run_tag: rsna_rc1
+
+encoder:
+  # Dùng lại E_d đã chọn snapshot GAN rsna_v6 (KID-E_d) -> cùng một E_d cho chọn GAN và chọn ảnh
+  e_d_from_run: rsna_v5_srv

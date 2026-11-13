@@ -1,0 +1,12 @@
+# DASS-RC trên PCam 6 : 1 (thuyết minh 13/11/2026). Giai đoạn đầu: ConvNeXt-Tiny, seed 2026.
+#   dass -c configs/server/pcam_rc.yaml rc-prepare | rc-search | rc-train --model ConvNeXtTiny
+_base_:
+  - pcam.yaml
+  - rc_common.yaml
+
+paths:
+  run_tag: pcam_rc1
+
+encoder:
+  # Dùng lại E_d đã chọn snapshot GAN pcam6 (KID-E_d) -> cùng một E_d cho chọn GAN và chọn ảnh
+  e_d_from_run: pcam6_v1_srv
