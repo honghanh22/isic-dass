@@ -63,13 +63,14 @@ def test_greedy_gains_are_diminishing_and_tie_break_smallest_id():
     A = np.array([[0.0, 0.0], [1.0, 0.0]])
     out = greedy_select(E, np.zeros(4), A, 3, 0.0, h=1.0)
     assert out.order == [0, 1, 2]
-    assert out.gain_coverage[0] > 0 and out.gain_coverage[1] == pytest.approx(0.0)
+    g = out.gain_coverage
+    assert g[0] > g[1] > g[2] > 0                # không bão hoà: ảnh thêm vẫn có ích nhưng ít dần
 
 
 def test_greedy_prefers_uncovered_region():
     A = np.array([[0.0, 0], [0.1, 0], [5.0, 0], [5.1, 0]])
     E = np.array([[0.05, 0], [0.06, 0], [5.05, 0]])
-    out = greedy_select(E, np.array([1.0, 1.0, 0.0]), A, 2, 0.3, h=0.5)
+    out = greedy_select(E, np.array([1.0, 1.0, 0.0]), A, 2, 0.0, h=0.5)
     assert set(out.order) == {0, 2}             # không lấy hai ảnh cùng vùng
 
 

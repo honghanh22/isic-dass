@@ -30,7 +30,10 @@ K_c = N_c (số ảnh thật train), pool ⌈3·K_c⌉ ảnh sinh cho MỌI lớ
 3. **TMU**: m̄ = (m − a_c) / max(b_c, ε), a_c, b_c theo ảnh thật train lớp c; T = exp(−(m̄ − μ)² / 2σ²), μ = phân vị
    của m̄ trên ảnh thật có m > 0.
 4. **RDC**: embedding E_d chuẩn hoá L2; κ = exp(−d² / 2h²), h = η · median khoảng cách (≤ 10.000 cặp ảnh thật cùng
-   lớp, seed cố định); C(U) = (1/N_c) Σ_x max_{q∈U} κ(x, q).
+   lớp, seed cố định); **C(U) = (1/N_c) Σ_x log(1 + Σ_{q∈U} κ(x, q))** (độ phủ log, người dùng chọn 13/11/2026).
+   Đã thử và bỏ, trên ISIC: facility location (Σ max κ, công thức (7) của thuyết minh) bão hoà sau ~60 % ngân sách
+   K = N_c — phần còn lại có lợi ích RDC = 0 và tập chọn không đổi theo η; độ phủ xác suất Σ [1 − Π(1 − κ)] có lợi
+   ích ≈ 0 sau 13–29 ảnh. Độ phủ log không bão hoà (lợi ích lượt cuối ≈ 0,3–1 % lượt đầu) và tập chọn ổn định theo η.
 5. **Greedy**: F(U) = (α/K)·Σ u(q) + (1 − α)·C(U), lazy greedy chính xác (bằng greedy đầy đủ, có test), hoà -> chỉ số
    nhỏ hơn; log phần tăng utility / coverage mỗi lượt.
 6. **Thiếu ứng viên** (|ℰ_c| < K_c): sinh thêm tới `max_pool_mult` = 5K_c; vẫn thiếu thì không nới gate / NC, mọi
@@ -39,8 +42,8 @@ K_c = N_c (số ảnh thật train), pool ⌈3·K_c⌉ ảnh sinh cho MỌI lớ
 ## 3. Dò siêu tham số (`rc-search`, chỉ VAL)
 
 Tuần tự, khoá từng giai đoạn, ConvNeXt-Tiny + seed 2026, tiêu chí AP trên val (hoà -> giá trị đứng trước trong lưới):
-η ∈ {0,5; 1; 2} bằng RDC-only -> (μ ∈ {P25, P50, P75}) × (σ ∈ {0,5; 1; 2}) bằng TMU-only -> α ∈ {0,25; 0,5; 0,75}
-bằng DASS-RC. Không dự đoán test; kết quả ở `results_<run>/rc_search_predictions/`, tham số khoá ở
+η ∈ {0,5; 1; 2} bằng RDC-only -> μ ∈ {P25, P50, P75} bằng TMU-only -> (σ ∈ {0,5; 1; 2}) × (α ∈ {0,25; 0,5; 0,75})
+bằng DASS-RC (σ không đổi thứ tự của TMU-only nên chỉ dò được khi ghép với RDC). Không dự đoán test; kết quả ở `results_<run>/rc_search_predictions/`, tham số khoá ở
 `checkpoints_<run>/data/rc_params.json`. Đây là tìm kiếm tiết kiệm, không bảo đảm tổ hợp tối ưu; cấu hình được chọn
 trên đúng backbone + seed của kết quả đầu tiên nên kết quả đó có thể hơi lạc quan.
 

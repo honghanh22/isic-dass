@@ -11,7 +11,10 @@ Quy trình cho MỖI lớp c (thuyết minh DASS-RC, 13/11/2026):
 3. TMU:   m̄ = (m − a_c) / max(b_c, ε_m),  T = exp(−(m̄ − μ_c)² / 2σ_c²),
           a_c, b_c = trung bình / độ lệch chuẩn margin ảnh thật train lớp c; μ_c = phân vị của m̄ trên ảnh thật có m > 0.
 4. RDC:   κ(x, q) = exp(−‖e(x) − e(q)‖² / 2h²),  h = η · max(ε_h, median khoảng cách cặp ảnh thật cùng lớp),
-          C(U) = Σ_x w(x) · max_{q∈U} κ(x, q),  w = 1/N_c.
+          C(U) = Σ_x w(x) · log(1 + Σ_{q∈U} κ(x, q)),  w = 1/N_c   (độ phủ LOG, hàm lõm của tổng kernel).
+          Đơn điệu, submodular, lợi ích giảm dần nhưng không bão hoà. Không dùng (người dùng chọn, 13/11/2026):
+          facility location Σ_x w·max_q κ — với K = N_c bão hoà sau ~60 % ngân sách (ISIC), tập chọn không phụ thuộc
+          h; độ phủ xác suất Σ_x w·[1 − Π(1 − κ)] — lợi ích giảm theo cấp số nhân, ≈ 0 sau 13–29 ảnh.
 5. Greedy: F(U) = (α/K)·Σ_{q∈U} u(q) + (1−α)·C(U); lazy greedy CHÍNH XÁC (F submodular, đơn điệu), phá hoà bằng
           chỉ số nhỏ hơn; ghi riêng phần tăng utility và coverage ở mỗi lượt.
 
@@ -242,14 +245,14 @@ def kernel_column(anchors: np.ndarray, q: np.ndarray, h: float) -> np.ndarray:
 
 
 def coverage(anchors: np.ndarray, selected: np.ndarray, h: float, weights: np.ndarray | None = None) -> float:
-    """C(U) = Σ_x w(x) · max_{q∈U} κ(x, q); C(∅) = 0."""
+    """C(U) = Σ_x w(x) · log(1 + Σ_{q∈U} κ(x, q)); C(∅) = 0. Đơn điệu, submodular, không bão hoà."""
     if len(selected) == 0:
         return 0.0
     w = np.full(len(anchors), 1.0 / len(anchors)) if weights is None else np.asarray(weights, dtype=np.float64)
-    best = np.zeros(len(anchors))
+    total = np.zeros(len(anchors))
     for q in np.asarray(selected, dtype=np.float64):
-        best = np.maximum(best, kernel_column(anchors, q, h))
-    return float(w @ best)
+        total += kernel_column(anchors, q, h)
+    return float(w @ np.log1p(total))
 
 
 # ----------------------------------------------------------------------------------------------------------- greedy
@@ -292,14 +295,14 @@ def greedy_select(cand_emb: np.ndarray, utility: np.ndarray, anchors: np.ndarray
         Kmat = np.empty((len(A), n), dtype=dtype)
         for s in range(0, n, block):
             Kmat[:, s:s + block] = np.exp(-_sqdist_block(A, E[s:s + block]) / (2.0 * h * h))
-    b = np.zeros(len(A), dtype=Kmat.dtype if Kmat is not None else np.float64)
-    wk = w.astype(b.dtype)
+    cum = np.zeros(len(A), dtype=np.float64)        # Σ_{u∈U} κ(x, u) của mỗi ảnh thật
 
     def gains(cols: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         gu = ucoef * u[cols]
         if Kmat is None:
             return gu, np.zeros(len(cols))
-        gc = beta * (wk @ np.maximum(Kmat[:, cols] - b[:, None], 0.0)).astype(np.float64)
+        base = np.log1p(cum)
+        gc = beta * (w @ (np.log1p(cum[:, None] + Kmat[:, cols]) - base[:, None]))
         return gu, gc
 
     heap: list[tuple[float, int]] = []
@@ -319,7 +322,7 @@ def greedy_select(cand_emb: np.ndarray, utility: np.ndarray, anchors: np.ndarray
             out.gain_utility.append(float(gu[0]))
             out.gain_coverage.append(float(gc[0]))
             if Kmat is not None:
-                np.maximum(b, Kmat[:, i], out=b)
+                cum += Kmat[:, i]
             continue
         gu, gc = gains(np.array([i]))
         fresh_round[i] = t

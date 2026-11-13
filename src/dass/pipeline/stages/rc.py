@@ -3,7 +3,7 @@
     rc-prepare  (GPU) sinh pool ⌈3·K_c⌉ cho MỌI lớp, Inception-v3 -> NC, E_d -> đặc trưng + logit -> rc_cache.npz;
                 xuất ảnh nghi vấn gần trùng để người dùng xác minh (rc_nc_review/)
     rc-select   (CPU) gate + TMU + RDC + lazy greedy cho 6 cách chọn -> rc_selections/<tên>.json
-    rc-search   (GPU) dò tuần tự trên VAL: η (RDC-only) -> (μ, σ) (TMU-only) -> α (DASS-RC); khoá rc_params.json
+    rc-search   (GPU) dò tuần tự trên VAL: η (RDC-only) -> μ (TMU-only) -> (σ, α) (DASS-RC); khoá rc_params.json
     rc-train    (GPU) train Imbalanced, ROS và 6 cách chọn (sampler lớp × nguồn) với tham số đã khoá
 
 K_c = N_c (số ảnh thật train lớp c). Mọi cách chọn dùng chung ℰ_c và cùng ngân sách khả thi.
@@ -293,10 +293,12 @@ def search(cfg: Config) -> RCParams:
         return best
 
     p = run_phase("eta", RC_RDC, [RCParams(**{**p.__dict__, "eta": e}) for e in rc.eta_grid])
-    p = run_phase("tmu", RC_TMU, [RCParams(**{**p.__dict__, "mu_percentile": m, "sigma": s})
-                                  for m in rc.mu_grid for s in rc.sigma_grid])
-    p = run_phase("alpha", RC_DASS, [RCParams(**{**p.__dict__, "alpha": a}) for a in rc.alpha_grid])
+    # σ không đổi THỨ TỰ của TMU-only (top-K theo |m̄ − μ|) -> dò μ bằng TMU-only, dò (σ, α) bằng DASS-RC
+    p = run_phase("tmu", RC_TMU, [RCParams(**{**p.__dict__, "mu_percentile": m}) for m in rc.mu_grid])
+    p = run_phase("alpha", RC_DASS, [RCParams(**{**p.__dict__, "sigma": sg, "alpha": a})
+                                     for sg in rc.sigma_grid for a in rc.alpha_grid])
     save_metrics(layout, "rc_search", pd.DataFrame(log_rows))
-    write_json_atomic(layout.rc_params_json, {**p.__dict__, "search_model": model, "search_seed": seed})
+    write_json_atomic(layout.rc_params_json, {**p.__dict__, "search_model": model, "search_seed": seed,
+                                              "coverage": "probabilistic"})
     log.info("Đã khoá tham số DASS-RC: %s -> %s", params_tag(p), layout.rc_params_json)
     return p

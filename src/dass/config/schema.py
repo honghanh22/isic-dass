@@ -188,7 +188,7 @@ class RCConfig:
     mu_percentile: float = 50.0
     sigma: float = 1.0
     alpha: float = 0.5
-    # lưới dò tuần tự trên VAL: η (RDC-only) -> (μ, σ) (TMU-only) -> α (DASS-RC)
+    # lưới dò tuần tự trên VAL: η (RDC-only) -> μ (TMU-only) -> (σ, α) (DASS-RC)
     eta_grid: list[float] = field(default_factory=lambda: [0.5, 1.0, 2.0])
     mu_grid: list[float] = field(default_factory=lambda: [25.0, 50.0, 75.0])
     sigma_grid: list[float] = field(default_factory=lambda: [0.5, 1.0, 2.0])

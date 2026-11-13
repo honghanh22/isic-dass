@@ -10,7 +10,7 @@ rc:
   mu_percentile: 50.0    # μ_c = phân vị margin chuẩn hoá của ảnh thật có m > 0
   sigma: 1.0
   alpha: 0.5             # F = (α/K)·ΣT + (1 − α)·RDC
-  # Dò tuần tự trên VAL (1 backbone, 1 seed), khoá từng giai đoạn: η -> (μ, σ) -> α
+  # Dò tuần tự trên VAL (1 backbone, 1 seed), khoá từng giai đoạn: η (RDC-only) -> μ (TMU-only) -> (σ, α) (DASS-RC)
   eta_grid: [0.5, 1.0, 2.0]
   mu_grid: [25.0, 50.0, 75.0]
   sigma_grid: [0.5, 1.0, 2.0]
