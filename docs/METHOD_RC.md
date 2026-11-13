@@ -26,6 +26,9 @@ K_c = N_c (số ảnh thật train), pool ⌈3·K_c⌉ ảnh sinh cho MỌI lớ
    train (cả hai lớp) < τ -> nghi vấn, xuất cặp ảnh vào `results_<run>/rc_nc_review/`, chỉ loại khi người dùng ghi
    vào `rc_nc_confirmed.json`. Trùng trong pool (< τ hoặc trùng pixel): giữ ID nhỏ hơn. τ = 1 % là lựa chọn vận
    hành, không phải tỷ lệ loại nhầm.
+   Trùng trong pool dùng CÙNG τ và bị loại tự động (không qua xác minh): bản lặp của chính kho sinh chỉ thêm ảnh
+   dư thừa; ISIC: các cặp bị loại gần như giống hệt nhau khi xem bằng mắt (368 / 1.854 benign, 18 / 444 malignant).
+   Xem lại nếu bước này làm thiếu ứng viên. Chưa làm: perceptual hash, đối sánh có lật / resize / nén (§6.2).
 2. **Gate**: margin E_d m_c ≥ 0 (sigmoid: m_1 = z, m_0 = −z; z = logit từ đặc trưng E_d chưa chuẩn hoá).
 3. **TMU**: m̄ = (m − a_c) / max(b_c, ε), a_c, b_c theo ảnh thật train lớp c; T = exp(−(m̄ − μ)² / 2σ²), μ = phân vị
    của m̄ trên ảnh thật có m > 0.
