@@ -282,11 +282,14 @@ def search(cfg: Config) -> RCParams:
         best, best_ap = None, -np.inf
         for cand in candidates:
             name = f"search__{phase}__{params_tag(cand)}"
-            sel = select(cfg, cand, (method,), name, ctx=ctx)
             suffix = f"__{phase}_{params_tag(cand)}"
-            _train(cfg, ctx, model, [seed], _specs(ctx, sel, [method], suffix), pred_dir=layout.rc_search_pred_dir,
-                   predict_test=False)
-            ap = _val_ap(layout.rc_search_pred_dir, model, variant_tag(f"{method}{suffix}", rc.pool_mult), seed)
+            vtag = variant_tag(f"{method}{suffix}", rc.pool_mult)
+            if not (layout.rc_search_pred_dir / f"{model}__{vtag}__s{seed}.npz").exists():
+                # chạy lại sau khi dừng: cấu hình đã có .npz thì không chọn lại (chọn ảnh PCam tốn ~10 phút)
+                sel = select(cfg, cand, (method,), name, ctx=ctx)
+                _train(cfg, ctx, model, [seed], _specs(ctx, sel, [method], suffix),
+                       pred_dir=layout.rc_search_pred_dir, predict_test=False)
+            ap = _val_ap(layout.rc_search_pred_dir, model, vtag, seed)
             log.info("[%s] %s -> val AP = %.4f", phase, params_tag(cand), ap)
             log_rows.append({"phase": phase, "method": method, **cand.__dict__, "val_ap": ap})
             if ap > best_ap:
